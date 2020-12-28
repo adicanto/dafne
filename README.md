@@ -24,7 +24,7 @@ cmake -D HYDRA_INCLUDE_DIR=path_to_hydra_dir -D TCLAP_INCLUDE_DIR=path_to_tclap_
 make
 ```
 
-Some example programs may a ``.cu`` and a ``.cpp`` source file in the ``src`` directory.
+Some example programs may have a ``.cu`` and a ``.cpp`` source file in the ``src`` directory.
 These file have the same include statement of a ``.inl`` file containing the actual source
 code implementing the program. Cmake determines which backends are available and generates
 a Makefile to compile the code accordingly. The compiled executables will be in the
