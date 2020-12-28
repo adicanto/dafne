@@ -150,7 +150,7 @@ int main( int argc, char** argv  )
 		c1.cd(3);
 		plotter.Plot2DProjectionData(2,1);
 		
-		std::string outfilename = args.outdir + "Kpipi0-2d-projection.pdf";
+		std::string outfilename = args.outdir + "pipipi0-2d-projection.pdf";
 		c1.Print(outfilename.c_str());
 		
 		// 1D projections
@@ -169,7 +169,7 @@ int main( int argc, char** argv  )
 		plotter.Plot1DProjections(2, 1); // plot legend in this pad
 		c2.cd(3)->SetLogy();
 		
-		outfilename = args.outdir + "Kpipi0-1d-projection.pdf";
+		outfilename = args.outdir + "pipipi0-1d-projection.pdf";
 		c2.Print(outfilename.c_str());
 
 		if (args.interactive) {
