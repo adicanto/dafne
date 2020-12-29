@@ -314,11 +314,11 @@ public:
 		return h;
 	}
 
-	THnSparseD* DataHistogram() const { return _h_data; }
+	const THnSparseD* DataHistogram() const { return _h_data; }
 
-	THnSparseD* ModelHistogram() const { return _h_model; }
+	const THnSparseD* ModelHistogram() const { return _h_model; }
 
-	std::vector<THnSparseD*> & ComponentsHistograms() const { return _h_components; }
+	const std::vector<THnSparseD*> & ComponentsHistograms() const { return _h_components; }
 
 	void SaveHistograms(const std::string filename)
 	{

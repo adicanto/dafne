@@ -251,7 +251,8 @@ int main(int argc, char** argv)
 		data.insert(data.end(), data_db.begin(), data_db.end());
 
 		// plotting procedure
-		TApplication myapp("myapp",0,0);
+		TApplication* myapp = NULL
+		if (args.interactive) myapp = new TApplication("myapp",0,0);
 
 		// plot dalitz distribution 
 		auto plotterWithTime = DalitzPlotterWithTime<MSqPlus, MSqMinus, MSqZero, DecayTime>(phsp,"#it{K}^{0}_{S}","#it{#pi}^{+}","#it{#pi}^{#minus}",(args.prlevel>3));
@@ -380,42 +381,20 @@ int main(int argc, char** argv)
 		outfilename = args.outdir + outprefix + "-decay-time";
 		Print::Canvas(c4,outfilename);
 
-		// plot contour
-		ROOT::Minuit2::MnContours contours(fcn, minimum);
-		double up = ROOT::Math::chisquared_quantile(0.6827,2)/2.;//1sigma
-		fcn.SetErrorDef(up);
-		std::vector<std::pair<double,double> > cont1 = contours(minimum.UserState().Index("x"), minimum.UserState().Index("y"), 30);
-
+		// plot contours
 		TCanvas c5("c5","c5",600,500);
-		c3.SetRightMargin(.14);
+		c5.SetRightMargin(.14);
 
-		auto ContourToTGraph = [](std::vector<std::pair<double,double> > contourPoints, const char * name="contour")->TGraph* {
-			std::vector<double> xs(contourPoints.size()+1);
-			std::vector<double> ys(contourPoints.size()+1);
+		leg = new TLegend(0.75,0.75,0.9,0.9);
+		leg->SetBorderSize(0);
+		leg->SetFillStyle(0);
+		
 
-			for (size_t i = 0; i < contourPoints.size(); ++i) {
-				xs[i] = contourPoints[i].first;
-				ys[i] = contourPoints[i].second;
-			}
-			xs[contourPoints.size()] = xs[0];
-			ys[contourPoints.size()] = ys[0];
+		TGraph* contGraphSigma1 = Print::Contour(fcn, minimum, "cont_sigma1", "x", "y", 1.1478745, 20, 1);
+		contGraphSigma1->GetXaxis()->SetTitle("x [%]");
+		contGraphSigma1->GetYaxis()->SetTitle("y [%]");
 
-			TGraph* tg = new TGraph(contourPoints.size()+1, xs.data(), ys.data());
-			tg->SetName(name);
-			return tg;
-		};
-
-		auto cont1graph = ContourToTGraph(cont1, "cont1");
-		// auto cont2graph = ContourToTGraph(cont2, "cont2");
-		// auto cont3graph = ContourToTGraph(cont3, "cont3");
-		// auto cont4graph = ContourToTGraph(cont4, "cont4");
-		// auto cont5graph = ContourToTGraph(cont5, "cont5");
-
-		cont1graph->Draw("al");
-		// cont2graph->Draw("al");
-		// cont3graph->Draw("al");
-		// cont4graph->Draw("al");
-		// cont5graph->Draw("al");
+		leg->AddEntry(contGraphSigma1, " 1 #sigma ", "fl");
 
 		outfilename = args.outdir + outprefix + "-contour";
 		Print::Canvas(c5,outfilename);
@@ -423,7 +402,7 @@ int main(int argc, char** argv)
 		
 		if (args.interactive) {
 			std::cout << "Press Crtl+C to terminate" << std::endl;
-			myapp.Run();
+			myapp->Run();
 		}
 		
 

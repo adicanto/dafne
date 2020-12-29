@@ -7,11 +7,14 @@
 #include <utility>
 
 #include <TCanvas.h>
+#include <TGraph.h>
 
 #include <Minuit2/FunctionMinimum.h>
 #include <Minuit2/MnUserParameterState.h>
 #include <Minuit2/MnPrint.h>
 #include <Minuit2/MnMigrad.h>
+#include <Minuit2/MnContours.h>
+#include <Minuit2/MnPlot.h>
 
 #include <hydra/Parameter.h>
 
@@ -101,6 +104,83 @@ void CheckFCN(T & fcn)
     }
 
 
+}
+
+
+TGraph* ContourToTGraph(std::vector<std::pair<double,double> > contourPoints, const char * name="contour", const bool percentage=0)
+{
+    std::vector<double> xs(contourPoints.size()+1);
+    std::vector<double> ys(contourPoints.size()+1);
+
+    for (size_t i = 0; i < contourPoints.size(); ++i) {
+        xs[i] = contourPoints[i].first;
+        ys[i] = contourPoints[i].second;
+        if(percentage) { xs[i] *= 100; ys[i] *= 100;}
+    }
+    xs[contourPoints.size()] = xs[0];
+    ys[contourPoints.size()] = ys[0];
+
+    TGraph* tg = new TGraph(contourPoints.size()+1, xs.data(), ys.data());
+    tg->SetName(name);
+    return tg; 
+}
+
+/**
+ * Fucntion to plot contour corresponding to certain deltaInL. 
+ * 
+ * In hydra framework, FCN classes use -InL instead of -2InL:
+ *
+ *  https://github.com/MultithreadCorner/Hydra/blob/master/hydra/detail/LogLikelihoodFCN1.inl
+ *  https://github.com/MultithreadCorner/Hydra/blob/master/hydra/detail/functors/LogLikelihood1.h 
+ *
+ * Some common examples are:
+ *
+ *  // for 1 sigma, TMath::ChisquareQuantile(1 - RooStats::SignificanceToPValue(1)*2, 2)/2 == 1.1478745
+ *  PlotContour(fcn, minimum, 1.1478745); 
+ *
+ *  // for 2 sigma, TMath::ChisquareQuantile(1 - RooStats::SignificanceToPValue(2)*2, 2)/2 == 3.0900372
+ *  PlotContour(fcn, minimum, 3.0900372); 
+ *
+ *  // for 3 sigma, TMath::ChisquareQuantile(1 - RooStats::SignificanceToPValue(3)*2, 2)/2 == 5.9145790
+ *  PlotContour(fcn, minimum, 5.9145790); 
+ *
+ *  // for 4 sigma, TMath::ChisquareQuantile(1 - RooStats::SignificanceToPValue(4)*2, 2)/2 == 9.6669543
+ *  PlotContour(fcn, minimum, 9.6669543); 
+ *
+ *  // for 5 sigma, TMath::ChisquareQuantile(1 - RooStats::SignificanceToPValue(5)*2, 2)/2 == 14.371851
+ *  PlotContour(fcn, minimum, 14.371851); 
+ *
+ *  // for 70% CL, TMath::ChisquareQuantile(0.70, 2)/2 == 1.2039728 
+ *  PlotContour(fcn, minimum, 0.70); 
+ *
+ *  // for 90% CL, TMath::ChisquareQuantile(0.90, 2)/2 == 2.3025851 
+ *  PlotContour(fcn, minimum, 0.90);
+ *
+ *  // for 95% CL, TMath::ChisquareQuantile(0.95, 2)/2 == 2.9957323 
+ *  PlotContour(fcn, minimum, 0.95); 
+ *
+ * The drawOption is mostly root TGraphPainter draw option, but with additional "silence" option to return TGraph* only, 
+ * without plotting it, for example:
+ *  
+ *  PlotContour(fcn, minimum, 1.1478745, "silence");   
+ *
+ */
+template <typename FCN, typename MINIMUM>
+TGraph* Contour(FCN & fcn, MINIMUM & minimum, char* graphName, const char* xname, const char* yname, const double deltaInL, const int npoints, const bool percentage, const char* drawOption="al") 
+{
+    double previousUp = fcn.GetErrorDef(); // the up value before calling PlotContour()
+
+    ROOT::Minuit2::MnContours contours(fcn, minimum);
+    fcn.SetErrorDef(deltaInL);
+    std::vector<std::pair<double,double> > cont = contours(minimum.UserState().Index(xname), minimum.UserState().Index(yname), npoints);
+
+    TGraph* tg = ContourToTGraph(cont, graphName, percentage);
+
+    if (strstr(drawOption, "silence") != NULL) tg->Draw(drawOption);
+
+    fcn.SetErrorDef(previousUp);
+
+    return tg;
 }
 
 void Canvas(const TCanvas &c, std::string outfilename)
