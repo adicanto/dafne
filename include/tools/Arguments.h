@@ -19,6 +19,7 @@ public:
 	unsigned int nevents;
 	unsigned int seed;
 	bool         interactive;
+	std::string  contour_option;
 
 	Arguments(std::string exename, std::string exever, std::string definput="") : name(exename), version(exever), input(definput) {;}
 
@@ -37,6 +38,18 @@ public:
 		TCLAP::ValueArg<unsigned int> sArg("", "seed", "Seed used in the generation.", false, 12345, "unsigned int" );
 		TCLAP::SwitchArg xArg("", "interactive", "Plot results in an interactive session.", false);
 
+		std::vector<std::string> allowedContourOptions;
+		allowedContourOptions.push_back("");
+		allowedContourOptions.push_back("test");
+		allowedContourOptions.push_back("sigma1");
+		allowedContourOptions.push_back("sigma3");
+		allowedContourOptions.push_back("sigma5");
+		allowedContourOptions.push_back("sigmafull");
+		TCLAP::ValuesConstraint<std::string> contourConstraints( allowedContourOptions );
+		TCLAP::ValueArg<std::string> coArg("", "contouroption", "option for contour plotting", false, "", &contourConstraints);
+
+
+
 		// Add arguments to the command line
 		cmd.add(sArg);
 		cmd.add(nArg);
@@ -47,6 +60,7 @@ public:
 		cmd.add(oArg);
 		cmd.add(cArg);
 		cmd.add(iArg);
+		cmd.add(coArg);
 
 		// Parse the args.
 		cmd.parse(argc, argv);
@@ -62,6 +76,7 @@ public:
 		gentoy  	  = gArg.getValue();
 		nevents 	  = nArg.getValue();
 		seed    	  = sArg.getValue();
+		contour_option = coArg.getValue();
 		
 		auto last = outdir[outdir.size()-1];
 		if ( last!='/' && last!='_' ) outdir += "_";
@@ -75,6 +90,7 @@ public:
 		out << "\tModel configuration file: " << config_file << std::endl;
 		out << "\tOutput file directory/pattern: " << outdir << std::endl;
 		out << "\tPlot results? " << (plot ? "Yes" : "No") << std::endl;
+		out << "\tContour Option: " << contour_option << std::endl;
 		out << "\tPlot Nbins " << plotnbins << std::endl;
 		if (plot) {
 			out << "\tUse interactive session? " << (interactive ? "Yes" : "No") << std::endl;

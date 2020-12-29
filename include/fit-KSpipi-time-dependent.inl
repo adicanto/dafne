@@ -382,22 +382,127 @@ int main(int argc, char** argv)
 		Print::Canvas(c4,outfilename);
 
 		// plot contours
-		TCanvas c5("c5","c5",600,500);
-		c5.SetRightMargin(.14);
+		if (args.contour_option != "") {
+			TCanvas c5("c5","c5",600,500);
+			c5.SetRightMargin(.14);
 
-		leg = new TLegend(0.75,0.75,0.9,0.9);
-		leg->SetBorderSize(0);
-		leg->SetFillStyle(0);
-		
+			// a function to cope with root plotting issue, the "CFA" in root does not work some time
+			auto plotCFA = [](TGraph * tgin, const bool drawAxis=1, const char* xtitle="x [%]", const char* ytitle="y [%]") {
+				TGraph* fgraph = new TGraph(*tgin);
+				TGraph* cgraph = new TGraph(*tgin);
 
-		TGraph* contGraphSigma1 = Print::Contour(fcn, minimum, "cont_sigma1", "x", "y", 1.1478745, 20, 1);
-		contGraphSigma1->GetXaxis()->SetTitle("x [%]");
-		contGraphSigma1->GetYaxis()->SetTitle("y [%]");
+				if (drawAxis) {
+					fgraph->Draw("FA");
+					fgraph->GetXaxis()->SetTitle(xtitle);
+					fgraph->GetYaxis()->SetTitle(ytitle);
+				}
+				else fgraph->Draw("F");
+				cgraph->Draw("C");
 
-		leg->AddEntry(contGraphSigma1, " 1 #sigma ", "fl");
+			};
+			
+			if (args.contour_option == "test") {
+				TGraph* contGraphSigma1 = Print::Contour(fcn, minimum, "cont_sigma1", "x", "y", 1.1478745, 15, 1, "silence"); // 1 sigma
 
-		outfilename = args.outdir + outprefix + "-contour";
-		Print::Canvas(c5,outfilename);
+				contGraphSigma1->SetLineColor(45);
+				contGraphSigma1->SetLineWidth(3);
+				contGraphSigma1->SetFillStyle(3244);
+				contGraphSigma1->SetFillColor(46);
+
+				plotCFA(contGraphSigma1);
+
+				leg = new TLegend(0.75,0.9-0.06,0.9,0.9);
+				leg->AddEntry(contGraphSigma1, " 1 #sigma ", "f");
+			} else if (args.contour_option == "sigma1") {
+				TGraph* contGraphSigma1 = Print::Contour(fcn, minimum, "cont_sigma1", "x", "y", 1.1478745, 30, 1, "silence"); // 1 sigma
+
+				contGraphSigma1->SetLineColor(45);
+				contGraphSigma1->SetLineWidth(3);
+				contGraphSigma1->SetFillStyle(3244);
+				contGraphSigma1->SetFillColor(46);
+
+				plotCFA(contGraphSigma1);
+
+				leg = new TLegend(0.75,0.9-0.06,0.9,0.9);
+				leg->AddEntry(contGraphSigma1, " 1 #sigma ", "f");
+			} else if (args.contour_option == "sigma3") {
+				TGraph* contGraphSigma3 = Print::Contour(fcn, minimum, "cont_sigma3", "x", "y", 5.9145790, 30, 1, "silence"); // 3 sigma
+				TGraph* contGraphSigma1 = Print::Contour(fcn, minimum, "cont_sigma1", "x", "y", 1.1478745, 30, 1, "silence"); // 1 sigma
+
+				contGraphSigma3->SetLineColor(44);
+				contGraphSigma1->SetLineWidth(3);
+				contGraphSigma3->SetFillStyle(3001);
+				contGraphSigma3->SetFillColor(42);
+				contGraphSigma1->SetLineColor(45);
+				contGraphSigma1->SetLineWidth(3);
+				contGraphSigma1->SetFillStyle(3244);
+				contGraphSigma1->SetFillColor(46);
+
+				plotCFA(contGraphSigma3);
+				plotCFA(contGraphSigma1, 0);
+
+				leg = new TLegend(0.75,0.9-0.06*2,0.9,0.9);
+				leg->AddEntry(contGraphSigma1, " 1 #sigma ", "f");
+				leg->AddEntry(contGraphSigma3, " 3 #sigma ", "f");
+			} else if (args.contour_option == "sigma5") {
+				TGraph* contGraphSigma5 = Print::Contour(fcn, minimum, "cont_sigma5", "x", "y", 14.371851, 30, 1, "silence"); // 5 sigma
+				TGraph* contGraphSigma3 = Print::Contour(fcn, minimum, "cont_sigma3", "x", "y", 5.9145790, 30, 1, "silence"); // 3 sigma
+				TGraph* contGraphSigma1 = Print::Contour(fcn, minimum, "cont_sigma1", "x", "y", 1.1478745, 30, 1, "silence"); // 1 sigma
+
+
+				// the color setting for contours is to be finished
+				contGraphSigma3->SetLineColor(43);
+				contGraphSigma3->SetFillStyle(1001);
+				contGraphSigma3->SetFillColor(41);
+				contGraphSigma3->SetLineColor(44);
+				contGraphSigma3->SetFillStyle(3001);
+				contGraphSigma3->SetFillColor(42);
+				contGraphSigma1->SetLineColor(45);
+				contGraphSigma1->SetFillStyle(3244);
+				contGraphSigma1->SetFillColor(46);
+
+				plotCFA(contGraphSigma5);
+				plotCFA(contGraphSigma3, 0);
+				plotCFA(contGraphSigma1, 0);
+
+				leg = new TLegend(0.75,0.9-0.06*3,0.9,0.9);
+				leg->AddEntry(contGraphSigma1, " 1 #sigma ", "f");
+				leg->AddEntry(contGraphSigma3, " 3 #sigma ", "f");
+				leg->AddEntry(contGraphSigma5, " 5 #sigma ", "f");
+			} else if (args.contour_option == "sigmafull") {
+				TGraph* contGraphSigma5 = Print::Contour(fcn, minimum, "cont_sigma5", "x", "y", 14.371851, 30, 1, "silence"); // 5 sigma
+				TGraph* contGraphSigma4 = Print::Contour(fcn, minimum, "cont_sigma4", "x", "y", 9.6669543, 30, 1, "silence"); // 4 sigma
+				TGraph* contGraphSigma3 = Print::Contour(fcn, minimum, "cont_sigma3", "x", "y", 5.9145790, 30, 1, "silence"); // 3 sigma
+				TGraph* contGraphSigma2 = Print::Contour(fcn, minimum, "cont_sigma2", "x", "y", 3.0900372, 30, 1, "silence"); // 2 sigma
+				TGraph* contGraphSigma1 = Print::Contour(fcn, minimum, "cont_sigma1", "x", "y", 1.1478745, 30, 1, "silence"); // 1 sigma
+
+				// the color setting for contours is to be finished
+
+				plotCFA(contGraphSigma5);
+				plotCFA(contGraphSigma4, 0);
+				plotCFA(contGraphSigma3, 0);
+				plotCFA(contGraphSigma2, 0);
+				plotCFA(contGraphSigma1, 0);
+
+				leg = new TLegend(0.75,0.9-0.06*5,0.9,0.9);
+				leg->AddEntry(contGraphSigma1, " 1 #sigma ", "f");
+				leg->AddEntry(contGraphSigma2, " 2 #sigma ", "f");
+				leg->AddEntry(contGraphSigma3, " 3 #sigma ", "f");
+				leg->AddEntry(contGraphSigma4, " 4 #sigma ", "f");
+				leg->AddEntry(contGraphSigma5, " 5 #sigma ", "f");
+			}
+
+
+
+			leg->SetBorderSize(0);
+			leg->SetFillStyle(0);
+			leg->Draw();
+
+			
+
+			outfilename = args.outdir + outprefix + "-contour";
+			Print::Canvas(c5,outfilename);
+		}
 
 		
 		if (args.interactive) {

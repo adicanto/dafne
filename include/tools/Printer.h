@@ -150,6 +150,9 @@ TGraph* ContourToTGraph(std::vector<std::pair<double,double> > contourPoints, co
  *  // for 5 sigma, TMath::ChisquareQuantile(1 - RooStats::SignificanceToPValue(5)*2, 2)/2 == 14.371851
  *  PlotContour(fcn, minimum, 14.371851); 
  *
+ *  // for 68% CL, TMath::ChisquareQuantile(0.68, 2)/2 == 1.1394343
+ *  PlotContour(fcn, minimum, 0.70); 
+ *
  *  // for 70% CL, TMath::ChisquareQuantile(0.70, 2)/2 == 1.2039728 
  *  PlotContour(fcn, minimum, 0.70); 
  *
