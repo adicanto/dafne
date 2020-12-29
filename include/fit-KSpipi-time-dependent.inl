@@ -251,7 +251,7 @@ int main(int argc, char** argv)
 		data.insert(data.end(), data_db.begin(), data_db.end());
 
 		// plotting procedure
-		TApplication* myapp = NULL
+		TApplication* myapp = NULL;
 		if (args.interactive) myapp = new TApplication("myapp",0,0);
 
 		// plot dalitz distribution 

@@ -176,7 +176,7 @@ TGraph* Contour(FCN & fcn, MINIMUM & minimum, char* graphName, const char* xname
 
     TGraph* tg = ContourToTGraph(cont, graphName, percentage);
 
-    if (strstr(drawOption, "silence") != NULL) tg->Draw(drawOption);
+    if (strstr(drawOption, "silence") == NULL) tg->Draw(drawOption);
 
     fcn.SetErrorDef(previousUp);
 
