@@ -430,7 +430,7 @@ int main(int argc, char** argv)
 				TGraph* contGraphSigma1 = Print::Contour(fcn, minimum, "cont_sigma1", "x", "y", 1.1478745, 30, 1, "silence"); // 1 sigma
 
 				contGraphSigma3->SetLineColor(44);
-				contGraphSigma1->SetLineWidth(3);
+				contGraphSigma3->SetLineWidth(3);
 				contGraphSigma3->SetFillStyle(3001);
 				contGraphSigma3->SetFillColor(42);
 				contGraphSigma1->SetLineColor(45);
