@@ -34,7 +34,7 @@ public:
 
 	BaseArguments(std::string exename, std::string exever, std::string definput="") : name(exename), 
 		version(exever), input(definput), cmd(name,' ',version), 
-		iArg("i", "input", "Input file.", true, input, "file" ),
+		iArg("i", "input", "Input file.", false, input, "file" ),
 		cArg("c", "config_file", "Model configuration file.", true, config_file, "file" ),
 		oArg("o", "outdir", "Output file directory/pattern.", false, "./", "path/pattern" ),
 		pArg("p", "plot", "Plot results?", false),
