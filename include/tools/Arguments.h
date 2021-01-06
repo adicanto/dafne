@@ -34,7 +34,7 @@ public:
 
 	BaseArguments(std::string exename, std::string exever, std::string definput="") : name(exename), 
 		version(exever), input(definput), cmd(name,' ',version), 
-		iArg("i", "input", "Input file.", false, input, "file" ),
+		iArg("i", "input", "Input file.", true, input, "file" ),
 		cArg("c", "config_file", "Model configuration file.", true, config_file, "file" ),
 		oArg("o", "outdir", "Output file directory/pattern.", false, "./", "path/pattern" ),
 		pArg("p", "plot", "Plot results?", false),
@@ -106,9 +106,12 @@ public:
 		LoadExtendArguments();
 	}
 
-	std::ostream &Print(std::ostream &out=std::cout) {
+	std::ostream &Print(std::ostream &out=std::cout) 
+	{
 		PrintBasicArguments(out);
 		PrintExtendArguments(out);
+
+		return out;
 	}
 };
 
@@ -125,7 +128,8 @@ class D0ToKsPiPiArguments: public BaseArguments
 {
 public:
 	std::string contour_option;
-	TCLAP::ValueArg<std::string> * coArg;
+	TCLAP::ValueArg<std::string> *coArg;
+	TCLAP::ValuesConstraint<std::string> *contourConstraints;
 
 public:
 	D0ToKsPiPiArguments(std::string exename, std::string exever, std::string definput="") : BaseArguments(exename, exever, definput) 
@@ -137,15 +141,16 @@ public:
 		allowedContourOptions.push_back("sigma3");
 		allowedContourOptions.push_back("sigma5");
 		allowedContourOptions.push_back("sigmafull");
-		TCLAP::ValuesConstraint<std::string> contourConstraints( allowedContourOptions );
+		contourConstraints = new TCLAP::ValuesConstraint<std::string>( allowedContourOptions );
 
-		coArg = new TCLAP::ValueArg<std::string>("", "contouroption", "option for contour plotting", false, "", &contourConstraints);
+		coArg = new TCLAP::ValueArg<std::string>("", "contouroption", "option for contour plotting", false, "", contourConstraints);
 
 		cmd.add(*coArg);
 	}
 
 	~D0ToKsPiPiArguments() {
 		delete coArg;
+		delete contourConstraints;
 	}
 
 	void LoadExtendArguments()
