@@ -25,7 +25,7 @@ int main( int argc, char** argv  )
 	//---------------------------------------------------------------------------------------
 	// Read command line arguments
 	//---------------------------------------------------------------------------------------
-	Arguments args("Generation of D0 -> K- pi+ pi0 decays according to CLEO model","0.1","");
+	StandardArguments args("Generation of D0 -> K- pi+ pi0 decays according to CLEO model","0.1","");
 	try {
 		args.Read( argc, argv );
 	}

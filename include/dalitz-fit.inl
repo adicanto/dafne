@@ -28,7 +28,7 @@ int main( int argc, char** argv  )
 	//---------------------------------------------------------------------------------------
 	// Read command line arguments
 	//---------------------------------------------------------------------------------------
-	Arguments args("Dalitz-fit example","0.1","");
+	StandardArguments args("Dalitz-fit example","0.1","");
 	try {
 		args.Read( argc, argv );
 	}

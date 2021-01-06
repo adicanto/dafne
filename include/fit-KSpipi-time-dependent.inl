@@ -46,7 +46,7 @@ int main(int argc, char** argv)
 	//---------------------------------------------------------------------------------------
 	// Read command line arguments
 	//---------------------------------------------------------------------------------------
-	Arguments args("Fit to D0 -> K0_S pi+ pi- dataset with BABAR 2010 amplitude model","0.1","");
+	D0ToKsPiPiArguments args("Fit to D0 -> K0_S pi+ pi- dataset with BABAR 2010 amplitude model","0.1","");
 	try {
 		args.Read( argc, argv );
 	}
