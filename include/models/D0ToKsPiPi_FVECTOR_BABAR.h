@@ -26,6 +26,13 @@ auto PhaseSpaceWithTime()
 	return ThreeBodyPhaseSpaceWithTime( 1.8645, {0.49767, 0.139570, 0.139570}, {0.,15.*Tau::D0} );
 }
 
+__hydra_dual__ inline
+auto PhaseSpaceWithTimeAndTimeError()
+{
+	return ThreeBodyPhaseSpaceWithTimeAndTimeError( 1.8645, {0.49767, 0.139570, 0.139570}, {-8.0*Tau::D0,15.*Tau::D0}, {0, 2*Tau::D0});
+}
+
+
 template<typename MSq12, typename MSq13, bool Jordi=true, bool Helicity=false>
 __hydra_dual__ inline
 auto Amplitude(ThreeBodyPhaseSpace const &phsp)

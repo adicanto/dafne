@@ -570,4 +570,231 @@ public:
 	}
 };
 
+
+class ThreeBodyPhaseSpaceWithTimeAndTimeError : public ThreeBodyPhaseSpace
+{
+private:
+	std::array<double,2> _timeRange;
+	std::array<double,2> _timeErrorRange;
+	
+public:
+	ThreeBodyPhaseSpaceWithTimeAndTimeError() = delete;
+	
+	__hydra_dual__ inline
+	ThreeBodyPhaseSpaceWithTimeAndTimeError(ThreeBodyPhaseSpace const &phsp, std::array<double,2> const &time_range, std::array<double,2> const &time_error_range) : ThreeBodyPhaseSpace(phsp), _timeRange(time_range), _timeErrorRange(time_error_range) {}
+	
+	__hydra_dual__ inline
+	ThreeBodyPhaseSpaceWithTimeAndTimeError(double const &mass_mother, const std::array<double,3> &mass_daugthers, std::array<double,2> const &time_range, std::array<double,2> const &time_error_range) : ThreeBodyPhaseSpace(mass_mother,mass_daugthers), _timeRange(time_range), _timeErrorRange(time_error_range) {}
+	
+	__hydra_dual__ inline
+	ThreeBodyPhaseSpaceWithTimeAndTimeError(double const &mass_mother, double const &mass_daugther1, double const &mass_daugther2, double const &mass_daugther3, double const &t_min, double const &t_max, double const &sigmat_min, double const &sigmat_max) : ThreeBodyPhaseSpace(mass_mother,{mass_daugther1,mass_daugther2,mass_daugther3}), _timeRange({t_min,t_max}), _timeErrorRange({sigmat_min, sigmat_max}) {}
+	
+	__hydra_dual__ inline
+	ThreeBodyPhaseSpaceWithTimeAndTimeError(ThreeBodyPhaseSpaceWithTimeAndTimeError const& other) : ThreeBodyPhaseSpaceWithTimeAndTimeError(other.MMother(),other.MDaughters(),other.TimeRange(),other.TimeErrorRange()) {}
+	
+	__hydra_dual__ inline
+	ThreeBodyPhaseSpaceWithTimeAndTimeError& operator=(ThreeBodyPhaseSpaceWithTimeAndTimeError const& other)
+	{
+		if(this == &other) return *this;
+		ThreeBodyPhaseSpace::operator=(other);
+		_timeRange = other.TimeRange();
+		_timeErrorRange = other.TimeErrorRange();
+		return *this;
+	}
+	
+	__hydra_dual__ inline
+	std::array<double,2> TimeRange() const { return _timeRange; }
+
+	__hydra_dual__ inline
+	std::array<double,2> TimeErrorRange() const { return _timeErrorRange; }
+
+	__hydra_dual__ inline
+	double TimeMin() const { return _timeRange[0]; }
+	
+	__hydra_dual__ inline
+	double TimeMax() const { return _timeRange[1]; }
+
+	__hydra_dual__ inline
+	double TimeErrorMin() const { return _timeErrorRange[0]; }
+	
+	__hydra_dual__ inline
+	double TimeErrorMax() const { return _timeErrorRange[1]; }
+	
+	template<typename RND=hydra::default_random_engine>
+	__hydra_dual__ inline
+	auto IntegratorWithTimeAndTimeError(size_t nevents=1000000)
+	{
+		nevents = (nevents>=1000000) ? nevents : 1000000; // force nevents = 1000000 if nevents is too small
+		
+		std::array<double,3> min{MSqMin<1,2>(), MSqMin<1,3>(), TimeMin(), TimeErrorMin()};
+		std::array<double,3> max{MSqMax<1,2>(), MSqMax<1,3>(), TimeMax(), TimeErrorMax()};
+		return hydra::Plain<3, hydra::device::sys_t, RND>(min,max,nevents);
+	}
+	
+	__hydra_dual__ inline
+	THnSparseD *RootHistogramWithTimeAndTimeError(const char *name1="1", const char *name2="2", const char *name3="3", int nbins=300)
+	{
+		const int bins[] = {nbins, nbins, nbins, nbins, nbins};
+		const double min[] = {MSqMin<1,2>(),MSqMin<1,3>(),MSqMin<2,3>(),TimeMin(),TimeErrorMin()};
+		const double max[] = {MSqMax<1,2>(),MSqMax<1,3>(),MSqMax<2,3>(),TimeMax(),TimeErrorMax()};
+		auto histo = new THnSparseD("histo","", 5, bins, min, max);
+		histo->GetAxis(0)->SetTitle(Form("#it{m}^{2}(%s%s) [GeV^{2}/#it{c}^{4}]",name1,name2));
+		histo->GetAxis(1)->SetTitle(Form("#it{m}^{2}(%s%s) [GeV^{2}/#it{c}^{4}]",name1,name3));
+		histo->GetAxis(2)->SetTitle(Form("#it{m}^{2}(%s%s) [GeV^{2}/#it{c}^{4}]",name2,name3));
+		histo->GetAxis(3)->SetTitle("#it{t} [ps]");
+		histo->GetAxis(4)->SetTitle("#it{#sigma_{t}} [ps]");
+		return histo;
+	}
+
+	template<typename Backend=hydra::device::sys_t>
+	__hydra_dual__ inline
+	auto SparseHistogramWithTimeAndTimeError(size_t nbins=300)
+	{
+		return hydra::SparseHistogram<double, 5, Backend>{
+			{nbins, nbins, nbins, nbins, nbins},{MSqMin<1,2>(),MSqMin<1,3>(),MSqMin<2,3>(),TimeMin(),TimeErrorMin()},{MSqMax<1,2>(),MSqMax<1,3>(),MSqMax<2,3>(),TimeMax(),TimeErrorMax()}
+		};
+	}
+
+	template<typename MSq12, typename MSq13, typename MSq23, typename Time, typename TimeError, typename Model>
+	__hydra_dual__ inline
+	auto GenerateDataWithTimeAndTimeError(Model &model, size_t nevents, size_t rndseed=0)
+	{
+		// Output container
+		hydra::multivector<hydra::tuple<MSq12,MSq13,MSq23,Time,TimeError>, hydra::device::sys_t> data;
+
+		// Functor to compute Dalitz variables from 4-momenta
+		auto dalitz_calculator = hydra::wrap_lambda( [] __hydra_dual__ (hydra::Vector4R a, hydra::Vector4R b, hydra::Vector4R c, Time t, TimeError sigmat)
+		{
+			MSq12 m0 = (a+b).mass2();
+			MSq13 m1 = (a+c).mass2();
+			MSq23 m2 = (b+c).mass2();
+			return hydra::make_tuple(m0,m1,m2,t,sigmat);
+		});
+
+		// Create PhaseSpace object
+		auto phsp_generator = Generator();
+		hydra::Vector4R parent(MMother(), 0., 0., 0.);
+		
+		// Find maximum
+		double max_model(-1.);
+		{
+			auto phsp_events = Decays<hydra::Vector4R,hydra::Vector4R,hydra::Vector4R>(10*nevents);
+			phsp_generator.Generate(parent, phsp_events);
+			auto phsp_weight = phsp_events.GetEventWeightFunctor();
+		
+			auto dalitz_model = hydra::wrap_lambda( [&phsp_weight, &model] __hydra_dual__ (hydra::Vector4R a, hydra::Vector4R b, hydra::Vector4R c)
+			{
+				MSq12 m0 = (a+b).mass2();
+				MSq13 m1 = (a+c).mass2();
+				Time t(0.);
+				TimeError sigmat(0.);
+				return phsp_weight(a,b,c) * model(hydra::tie(m0,m1,t,sigmat));
+			});
+		
+			auto variables = phsp_events | dalitz_model;
+			max_model = *( hydra_thrust::max_element(hydra::device::sys, variables.begin(), variables.end() ) );
+		}
+
+		// Sample total number of events to be generated
+		hydra::SeedRNG seed{rndseed};
+
+		static std::mt19937_64 random_mt(seed());
+		std::poisson_distribution<size_t> poisson(nevents);
+		size_t n = poisson(random_mt);
+				
+		// Generated in bunches
+		auto uniform_t = hydra::UniformShape<Time>(TimeMin(),TimeMax());
+		auto uniform_sigmat = hydra::UniformShape<Time>(TimeErrorMin(),TimeErrorMax());
+		hydra::multivector< hydra::tuple<Time, TimeError>, hydra::device::sys_t > time_data(10*n);
+
+		auto phsp_events = Decays<hydra::Vector4R,hydra::Vector4R,hydra::Vector4R>(time_data.size());
+		do {
+			phsp_generator.SetSeed(seed());
+			phsp_generator.Generate(parent, phsp_events);
+
+			// Phase-space weighting functor
+			auto phsp_weight = phsp_events.GetEventWeightFunctor();
+
+			// Model weighting functor
+			auto dalitz_time_model = hydra::wrap_lambda( [&phsp_weight, &model] __hydra_dual__ (hydra::Vector4R a, hydra::Vector4R b, hydra::Vector4R c, Time t, TimeError sigmat)
+			{
+				MSq12 m0 = (a+b).mass2();
+				MSq13 m1 = (a+c).mass2();
+				return phsp_weight(a,b,c) * model(hydra::tie(m0,m1,t,sigmat));
+			});
+
+			// Add uniformuly generated decay time and decay time error to phase-space data
+			hydra::fill_random(time_data.begin(hydra::placeholders::_0), time_data.end(hydra::placeholders::_0), hydra::UniformShape<Time>(TimeMin(),TimeMax()), seed());
+			hydra::fill_random(time_data.begin(hydra::placeholders::_1), time_data.end(hydra::placeholders::_1), hydra::UniformShape<TimeError>(TimeErrorMin(),TimeErrorMax()), seed());
+
+			auto events = phsp_events.Meld( time_data );
+
+			// Unweight
+			auto dalitz_variables = hydra::unweight(hydra::device::sys, events, dalitz_time_model, 1.1*max_model, seed()) | dalitz_calculator;
+
+			// First copy unweighted events into a container
+			hydra::multivector<hydra::tuple<MSq12,MSq13,MSq23,Time,TimeError>, hydra::device::sys_t> bunch( dalitz_variables.size() );
+			hydra::copy(dalitz_variables, bunch);
+
+			// Then add to output container
+			data.insert( data.end(), bunch.begin(), bunch.end() );
+		} while( data.size() < n );
+
+		// Erase excess of events
+		data.erase(data.begin()+n, data.end());
+		return data;
+	}
+
+	template<typename MSq12, typename MSq13, typename MSq23, typename Time, typename TimeError, typename Model>
+	__hydra_dual__ inline
+	auto GenerateSparseHistogramWithTimeAndTimeError(Model &model, size_t nevents, size_t nbins=300, size_t rndseed=0)
+	{
+		// Functor to compute Dalitz variables from 4-momenta
+		auto dalitz_calculator = hydra::wrap_lambda( [] __hydra_dual__ (hydra::Vector4R a, hydra::Vector4R b, hydra::Vector4R c, Time t, TimeError sigmat)
+		{
+			MSq12 m0 = (a+b).mass2();
+			MSq13 m1 = (a+c).mass2();
+			MSq23 m2 = (b+c).mass2();
+			return hydra::make_tuple(m0,m1,m2,t,sigmat);
+		});
+
+		// Generate flat phase-space
+		hydra::SeedRNG seed{rndseed};
+		hydra::Vector4R parent(MMother(), 0., 0., 0.);
+		auto phsp_generator = Generator();
+		phsp_generator.SetSeed(seed());
+		auto phsp_events = Decays<hydra::Vector4R,hydra::Vector4R,hydra::Vector4R>(nevents);
+		phsp_generator.Generate(parent, phsp_events);
+
+		// Add uniformuly generated decay time to phase-space data
+		hydra::multivector< hydra::tuple<Time, TimeError> , hydra::device::sys_t> time_data(nevents);
+		hydra::fill_random(time_data.begin(hydra::placeholders::_0), time_data.end(hydra::placeholders::_0), hydra::UniformShape<Time>(TimeMin(),TimeMax()), seed());
+		hydra::fill_random(time_data.begin(hydra::placeholders::_1), time_data.end(hydra::placeholders::_1), hydra::UniformShape<TimeError>(TimeErrorMin(),TimeErrorMax()), seed());
+
+		auto events = phsp_events.Meld( time_data );
+
+		// Phase-space weighting functor
+		auto phsp_weight = phsp_events.GetEventWeightFunctor();
+
+		// Model weighting functor
+		auto dalitz_time_model = hydra::wrap_lambda( [phsp_weight, model] __hydra_dual__ (hydra::Vector4R a, hydra::Vector4R b, hydra::Vector4R c, Time t, TimeError sigmat)
+		{
+			MSq12 m0 = (a+b).mass2();
+			MSq13 m1 = (a+c).mass2();
+			return phsp_weight(a,b,c) * model(hydra::tie(m0,m1,t,sigmat));
+		});
+
+		// Compute Dalitz variables and weights
+		auto variables = events | dalitz_calculator;
+		auto weights   = events | dalitz_time_model;
+
+		// Fill histogram
+		auto histo = SparseHistogramWithTimeAndTimeError(nbins);
+		histo.Fill(variables, weights);
+
+		return histo;
+	}
+};
+
+
 }//dafne namespace

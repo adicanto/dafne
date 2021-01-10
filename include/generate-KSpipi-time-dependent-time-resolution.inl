@@ -61,7 +61,7 @@ int main( int argc, char** argv  )
 	//---------------------------------------------------------------------------------------
 	// Build model for D0->KS pi+ pi- decays
 	//---------------------------------------------------------------------------------------
-	auto phsp = D0ToKsPiPi_FVECTOR_BABAR::PhaseSpaceWithTime();
+	auto phsp = D0ToKsPiPi_FVECTOR_BABAR::PhaseSpaceWithTimeAndTimeError();
 
 	// build baseline amplitudes model
 	auto Adir = D0ToKsPiPi_FVECTOR_BABAR::Amplitude<MSqPlus,MSqMinus>(phsp);
@@ -112,35 +112,29 @@ int main( int argc, char** argv  )
 
 	}); 
 
-	// D0 rate
-	auto model_dz = time_dependent_rate<Flavor::Positive,DecayTime>(tau,x,y,qop,phi,Adir,Abar)*efficiency;
-	
-	// D0bar rate
-	auto model_db = time_dependent_rate<Flavor::Negative,DecayTime>(tau,x,y,qop,phi,Adir,Abar)*efficiency;
-
 	// time resolution test
 	auto b   = hydra::Parameter::Create("b").Value(0.0).Error(0.0001).Limits(-1.,1.);
 	auto s   = hydra::Parameter::Create("s").Value(1.0).Error(0.0001).Limits(0.9,1.1);
 
 	auto johnson_delta  = hydra::Parameter::Create().Name("johnson_delta" ).Value(2.0);
 	auto johnson_lambda = hydra::Parameter::Create().Name("johnson_lambda").Value(1.5);
-	auto johnson_gamma  = hydra::Parameter::Create().Name("johnson_gamma" ).Value(3.0);
+	auto johnson_gamma  = hydra::Parameter::Create().Name("johnson_gamma" ).Value(0.24);
 	auto johnson_xi     = hydra::Parameter::Create().Name("johnson_xi").Value(1.1);
 	auto johnson_su = hydra::JohnsonSU<DecayTime>(johnson_gamma, johnson_delta, johnson_xi, johnson_lambda);
 
-	auto model_dz_res = time_dependent_rate_with_time_resolution<Flavor::Positive,MSqPlus,MSqMinus,DecayTime,DecayTimeError>(tau,x,y,qop,phi,b,s,Adir,Abar,johnson_su)*efficiency;
-	auto model_db_res = time_dependent_rate_with_time_resolution<Flavor::Negative,MSqPlus,MSqMinus,DecayTime,DecayTimeError>(tau,x,y,qop,phi,b,s,Adir,Abar,johnson_su)*efficiency;
+	auto model_dz = time_dependent_rate_with_time_resolution<Flavor::Positive,MSqPlus,MSqMinus,DecayTime,DecayTimeError>(tau,x,y,qop,phi,b,s,Adir,Abar,johnson_su);//*efficiency; // the efficiency plance have some problem, due to the problematic ThreeBodyPhaseSpaceWithTimeAndTimeError
+	auto model_db = time_dependent_rate_with_time_resolution<Flavor::Negative,MSqPlus,MSqMinus,DecayTime,DecayTimeError>(tau,x,y,qop,phi,b,s,Adir,Abar,johnson_su);//*efficiency;
 
 	// typename decltype(model_dz_res)::argument_type  test{};
  //    std::cout << test.dummy << '\n';
 
 	std::cout << "time resolution model test: " << std::endl;
-	std::cout << "(1.9, 1.9, 0.1, 0.05) = " << model_dz_res(MSqPlus(1.9), MSqMinus(1.9), DecayTime(0.1), DecayTimeError(0.05)) << std::endl;
-	std::cout << "(1.9, 1.8, 0.1, 0.05) = " << model_dz_res(MSqPlus(1.9), MSqMinus(1.8), DecayTime(0.1), DecayTimeError(0.05)) << std::endl;
-	std::cout << "(1.9, 1.9, 0.9, 0.3) = " << model_dz_res(MSqPlus(1.9), MSqMinus(1.9), DecayTime(0.9), DecayTimeError(0.3)) << std::endl;
-	std::cout << "(1.9, 1.8, 0.9, 0.3) = " << model_dz_res(MSqPlus(1.9), MSqMinus(1.8), DecayTime(0.9), DecayTimeError(0.3)) << std::endl;
-	std::cout << "(0.7, 1.4, 0.9, 0.3) = " << model_dz_res(MSqPlus(0.7), MSqMinus(1.4), DecayTime(0.9), DecayTimeError(0.3)) << std::endl;
-	std::cout << "(0.7, 1.5, 0.9, 0.3) = " << model_dz_res(MSqPlus(0.7), MSqMinus(1.5), DecayTime(0.9), DecayTimeError(0.3)) << std::endl;
+	std::cout << "(1.9, 1.9, 0.1, 0.05) = " << model_dz(MSqPlus(1.9), MSqMinus(1.9), DecayTime(0.1), DecayTimeError(0.05)) << std::endl;
+	std::cout << "(1.9, 1.8, 0.1, 0.05) = " << model_dz(MSqPlus(1.9), MSqMinus(1.8), DecayTime(0.1), DecayTimeError(0.05)) << std::endl;
+	std::cout << "(1.9, 1.9, 0.9, 0.3) = " << model_dz(MSqPlus(1.9), MSqMinus(1.9), DecayTime(0.9), DecayTimeError(0.3)) << std::endl;
+	std::cout << "(1.9, 1.8, 0.9, 0.3) = " << model_dz(MSqPlus(1.9), MSqMinus(1.8), DecayTime(0.9), DecayTimeError(0.3)) << std::endl;
+	std::cout << "(0.7, 1.4, 0.9, 0.3) = " << model_dz(MSqPlus(0.7), MSqMinus(1.4), DecayTime(0.9), DecayTimeError(0.3)) << std::endl;
+	std::cout << "(0.7, 1.5, 0.9, 0.3) = " << model_dz(MSqPlus(0.7), MSqMinus(1.5), DecayTime(0.9), DecayTimeError(0.3)) << std::endl;
 
 
 	//---------------------------------------------------------------------------------------
@@ -150,9 +144,9 @@ int main( int argc, char** argv  )
 
 	auto start = std::chrono::high_resolution_clock::now();	
 
-	auto data_dz = phsp.GenerateDataWithTime<MSqPlus,MSqMinus,MSqZero,DecayTime>(model_dz,args.nevents,args.seed);
+	auto data_dz = phsp.GenerateDataWithTimeAndTimeError<MSqPlus,MSqMinus,MSqZero,DecayTime,DecayTimeError>(model_dz,args.nevents,args.seed);
 	std::cout << "Generated " << data_dz.size() << " D0 candidates." << std::endl;
-	auto data_db = phsp.GenerateDataWithTime<MSqPlus,MSqMinus,MSqZero,DecayTime>(model_db,args.nevents,args.seed+1);
+	auto data_db = phsp.GenerateDataWithTimeAndTimeError<MSqPlus,MSqMinus,MSqZero,DecayTime,DecayTimeError>(model_db,args.nevents,args.seed+1);
 	std::cout << "Generated " << data_db.size() << " D0bar candidates." << std::endl;
 
 	auto end = std::chrono::high_resolution_clock::now();
@@ -167,26 +161,29 @@ int main( int argc, char** argv  )
 		std::cout << "Saving output to " << outfilename << std::endl;
 		TFile *outfile = new TFile(outfilename.c_str(),"recreate");
 
-		double m2p, m2m, m2z, t;
+		double m2p, m2m, m2z, t, sigmat;
 		int flavor(+1);
 		TTree *ntp = new TTree("ntp","ntp");
 		ntp->Branch("mSqP",&m2p);
 		ntp->Branch("mSqM",&m2m);
 		ntp->Branch("mSqZ",&m2z);
 		ntp->Branch("t",&t);
+		ntp->Branch("sigmat",&t);
 		ntp->Branch("flavor",&flavor);
 		
 		for( auto event : data_dz )
 		{
-			MSqPlus   a = hydra::get<0>(event);
-			MSqMinus  b = hydra::get<1>(event);
-			MSqZero   c = hydra::get<2>(event);
-			DecayTime d = hydra::get<3>(event);
+			MSqPlus  	   a = hydra::get<0>(event);
+			MSqMinus 	   b = hydra::get<1>(event);
+			MSqZero  	   c = hydra::get<2>(event);
+			DecayTime 	   d = hydra::get<3>(event);
+			DecayTimeError f = hydra::get<4>(event);
 			
-			m2p = a.Value();
-			m2m = b.Value();
-			m2z = c.Value();
-			t     = d.Value();
+			m2p 		= a.Value();
+			m2m 		= b.Value();
+			m2z 		= c.Value();
+			t     		= d.Value();
+			sigmat      = f.Value();
 			
 			ntp->Fill();
 		}
@@ -194,15 +191,17 @@ int main( int argc, char** argv  )
 		flavor = -1;
 		for( auto event : data_db )
 		{
-			MSqPlus   a = hydra::get<0>(event);
-			MSqMinus  b = hydra::get<1>(event);
-			MSqZero   c = hydra::get<2>(event);
-			DecayTime d = hydra::get<3>(event);
+			MSqPlus  	   a = hydra::get<0>(event);
+			MSqMinus 	   b = hydra::get<1>(event);
+			MSqZero 	   c = hydra::get<2>(event);
+			DecayTime 	   d = hydra::get<3>(event);
+			DecayTimeError f = hydra::get<4>(event);
 			
-			m2p = a.Value();
-			m2m = b.Value();
-			m2z = c.Value();
-			t     = d.Value();
+			m2p 		= a.Value();
+			m2m		    = b.Value();
+			m2z		    = c.Value();
+			t   	    = d.Value();
+			sigmat      = f.Value();
 			
 			ntp->Fill();
 		}
@@ -210,7 +209,7 @@ int main( int argc, char** argv  )
 		outfile->Write();
 		outfile->Close();
 	}
-	
+/*
 	//---------------------------------------------------------------------------------------
 	// Plot the model and toy MC
 	//---------------------------------------------------------------------------------------
@@ -353,7 +352,7 @@ int main( int argc, char** argv  )
 		}
 		
 	}
-	
+	*/
 	return 0;
 }
 
