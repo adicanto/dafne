@@ -675,33 +675,42 @@ public:
 		auto phsp_generator = Generator();
 		hydra::Vector4R parent(MMother(), 0., 0., 0.);
 		
+		// initialize the random seed
+		hydra::SeedRNG seed{rndseed};
+
 		// Find maximum
+		// for the moment the maximum value of sigmat distribution (which is JohnsonSU function in many case) is also searched by numerical 
+		// method, the sampling time performance could be improved, if analytical method is used.
 		double max_model(-1.);
+		auto max_search_seed = seed();
 		{
 			auto phsp_events = Decays<hydra::Vector4R,hydra::Vector4R,hydra::Vector4R>(10*nevents);
+			hydra::device::vector<Time> sigmat_data(10*nevents);
+
 			phsp_generator.Generate(parent, phsp_events);
 			auto phsp_weight = phsp_events.GetEventWeightFunctor();
-		
-			auto dalitz_model = hydra::wrap_lambda( [&phsp_weight, &model] __hydra_dual__ (hydra::Vector4R a, hydra::Vector4R b, hydra::Vector4R c)
+
+			hydra::fill_random( sigmat_data, hydra::UniformShape<Time>(TimeErrorMin(),TimeErrorMax()), max_search_seed);
+
+			auto events = phsp_events.Meld( sigmat_data );
+
+			auto dalitz_model = hydra::wrap_lambda( [&phsp_weight, &model] __hydra_dual__ (hydra::Vector4R a, hydra::Vector4R b, hydra::Vector4R c, TimeError sigmat)
 			{
 				MSq12 m0 = (a+b).mass2();
 				MSq13 m1 = (a+c).mass2();
 				Time t(0.);
-				TimeError sigmat(0.);
 				return phsp_weight(a,b,c) * model(hydra::tie(m0,m1,t,sigmat));
 			});
 		
-			auto variables = phsp_events | dalitz_model;
+			auto variables = events | dalitz_model;
 			max_model = *( hydra_thrust::max_element(hydra::device::sys, variables.begin(), variables.end() ) );
 		}
 
 		// Sample total number of events to be generated
-		hydra::SeedRNG seed{rndseed};
-
 		static std::mt19937_64 random_mt(seed());
 		std::poisson_distribution<size_t> poisson(nevents);
 		size_t n = poisson(random_mt);
-				
+
 		// Generated in bunches
 		auto uniform_t = hydra::UniformShape<Time>(TimeMin(),TimeMax());
 		auto uniform_sigmat = hydra::UniformShape<Time>(TimeErrorMin(),TimeErrorMax());
@@ -730,7 +739,7 @@ public:
 			auto events = phsp_events.Meld( time_data );
 
 			// Unweight
-			auto dalitz_variables = hydra::unweight(hydra::device::sys, events, dalitz_time_model, 1.1*max_model, seed()) | dalitz_calculator;
+			auto dalitz_variables = hydra::unweight(hydra::device::sys, events, dalitz_time_model, 1.5*max_model, seed()) | dalitz_calculator;
 
 			// First copy unweighted events into a container
 			hydra::multivector<hydra::tuple<MSq12,MSq13,MSq23,Time,TimeError>, hydra::device::sys_t> bunch( dalitz_variables.size() );
