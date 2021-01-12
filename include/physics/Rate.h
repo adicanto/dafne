@@ -6,7 +6,7 @@
 
 #include <physics/Mixing.h>
 
-#include "LHCb_cerf.h"
+#include "RooMathM.h"
 
 namespace dafne {
 
@@ -51,18 +51,23 @@ auto time_dependent_rate(hydra::Parameter const& tau, hydra::Parameter const& x,
 	return rate(amp);
 }
 
-hydra_thrust::complex<double> _phi(hydra::complex<double> z) 
+template<typename T>
+T _phi(T z)
 {
-	// return exp(z*z/2.) * 1./2. * hydra_thrust::complex<double>(1. + Cerf::erf(z/sqrt(2.)));	
-    return (z.real() >= 0) ? exp(std::norm(z)/2.) * 1./2. * std::complex<double>(1. + Cerf::erf(z/sqrt(2.))) :
-                             exp(std::norm(z)/2.) * 1./2. * std::complex<double>(1. - Cerf::erf(-z/sqrt(2.))) ;
+	//return exp(z*z/2.) * 1./2. * std::complex<double>(RooMath::erfc(z/sqrt(2.))); 
 
+	return exp(std::norm(z)/2.) * 1./2. * RooMathM::erfc(-z/sqrt(2.));
+
+	//return (z.real() >= 0) ? exp(std::norm(z)/2.) * 1./2. * std::complex<double>(1. + RooMath::erf(z/sqrt(2.))) :
+	//                         exp(std::norm(z)/2.) * 1./2. * std::complex<double>(1. - RooMath::erf(-z/sqrt(2.))) ;  
 }
 
-hydra_thrust::complex<double> _psi(double x, hydra::complex<double> kappa) 
+template<typename T>
+T _psi(double x, T kappa)
 {
-	return exp(-x*x/2.) * _phi(x-kappa);
+	return exp(-x*x/2.) * _phi<T>(x-kappa);
 }
+
 
 template<Flavor Tag, typename MSqPlus, typename MSqMinus, typename Time, typename TimeError, typename ADIR, typename ABAR, typename PDFSIGMAT>
 auto time_dependent_rate_with_time_resolution(hydra::Parameter const& tau, hydra::Parameter const& x, hydra::Parameter const& y, hydra::Parameter const& qop, hydra::Parameter const& phi, hydra::Parameter const& b, hydra::Parameter const& s, ADIR const& Adir, ABAR const& Abar, PDFSIGMAT const& pdf_sigma_t)
@@ -71,6 +76,10 @@ auto time_dependent_rate_with_time_resolution(hydra::Parameter const& tau, hydra
 
 	auto T2 = hydra::wrap_lambda(
 			  [=] __hydra_dual__ (MSqPlus m2p, MSqMinus m2m, Time t, TimeError sigma_t){
+			  		m2p = 1.5;
+			  		m2m = 0.8;
+
+
 			  		double _tau = double(tau); // turn hydra::Parameter to double
 			  		double _x = double(x);
 			  		double _y = double(y);
@@ -78,21 +87,22 @@ auto time_dependent_rate_with_time_resolution(hydra::Parameter const& tau, hydra
 			  		double _s = double(s);
 
 			  		// A sum = A + A-bar
-			  		hydra::complex<double> As = (Adir(m2p, m2m) + rcp()*Abar(m2p, m2m))/2; 
+			  		std::complex<double> As = (Adir(m2p, m2m) + rcp()*Abar(m2p, m2m))/2; 
 
 
 			  		// A difference = A* - A-bar*
-			  		hydra::complex<double> Ad = (hydra::conj(Adir(m2p, m2m)) - hydra::conj(rcp()*Abar(m2p, m2m)))/2; 
+			  		std::complex<double> Ad = (hydra::conj(Adir(m2p, m2m)) - hydra::conj(rcp()*Abar(m2p, m2m)))/2; 
 
 			  		double Gamma = 1./_tau;
 			  		double chi = (t-_b) / (_s*sigma_t);
 			  		double kappa_p = (1.-_x)*Gamma*_s*sigma_t;
 			  		double kappa_m = (1.+_x)*Gamma*_s*sigma_t;
-			  		hydra::complex<double> kappa_i(Gamma*_s*sigma_t, -_y*Gamma*_s*sigma_t);
+			  		std::complex<double> kappa_i(Gamma*_s*sigma_t, -_y*Gamma*_s*sigma_t);
 
-			  		double result = norm(As)*_psi(chi, kappa_p).real() + norm(Ad)*_psi(chi, kappa_m).real() + 2.*(As*Ad*_psi(chi, kappa_i)).real();
+			  		double result = norm(As)*_psi(chi, kappa_p); //+ norm(Ad)*_psi(chi, kappa_m) + 2.*(As*Ad*_psi(chi, std::complex<double>(kappa_i))).real();
 			  		result = result * pdf_sigma_t(sigma_t);
 
+			  		// return pdf_sigma_t(sigma_t);
 			  		return result;
 			  }
 	);

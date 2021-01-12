@@ -690,7 +690,8 @@ public:
 			phsp_generator.Generate(parent, phsp_events);
 			auto phsp_weight = phsp_events.GetEventWeightFunctor();
 
-			hydra::fill_random( sigmat_data, hydra::UniformShape<Time>(TimeErrorMin(),TimeErrorMax()), max_search_seed);
+			//hydra::fill_random( sigmat_data, hydra::UniformShape<Time>(TimeErrorMin(),TimeErrorMax()), max_search_seed);
+			hydra::fill_random( sigmat_data, hydra::UniformShape<Time>(0.05, 0.1), max_search_seed); // the sigmat max search range would be replaced by input parameters in next commit
 
 			auto events = phsp_events.Meld( sigmat_data );
 
@@ -739,7 +740,7 @@ public:
 			auto events = phsp_events.Meld( time_data );
 
 			// Unweight
-			auto dalitz_variables = hydra::unweight(hydra::device::sys, events, dalitz_time_model, 1.5*max_model, seed()) | dalitz_calculator;
+			auto dalitz_variables = hydra::unweight(hydra::device::sys, events, dalitz_time_model, 5*max_model, seed()) | dalitz_calculator;
 
 			// First copy unweighted events into a container
 			hydra::multivector<hydra::tuple<MSq12,MSq13,MSq23,Time,TimeError>, hydra::device::sys_t> bunch( dalitz_variables.size() );
