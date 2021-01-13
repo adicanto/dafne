@@ -657,7 +657,7 @@ public:
 
 	template<typename MSq12, typename MSq13, typename MSq23, typename Time, typename TimeError, typename Model>
 	__hydra_dual__ inline
-	auto GenerateDataWithTimeAndTimeError(Model &model, size_t nevents, size_t rndseed=0)
+	auto GenerateDataWithTimeAndTimeError(Model &model, size_t nevents, size_t rndseed=0, double TimeErrorMaxSearchLowBound=-999., double TimeErrorMaxSearchHighBound=-999.)
 	{
 		// Output container
 		hydra::multivector<hydra::tuple<MSq12,MSq13,MSq23,Time,TimeError>, hydra::device::sys_t> data;
@@ -679,19 +679,23 @@ public:
 		hydra::SeedRNG seed{rndseed};
 
 		// Find maximum
-		// for the moment the maximum value of sigmat distribution (which is JohnsonSU function in many case) is also searched by numerical 
-		// method, the sampling time performance could be improved, if analytical method is used.
+		// For the moment the maximum value of sigmat distribution (which is JohnsonSU function in many case) 
+		// is also searched by numerical method, and the range of the maximum value search could be set by input 
+		// arguments.
+		// The sampling time performance could be improved, if analytical method is used.
 		double max_model(-1.);
 		auto max_search_seed = seed();
 		{
 			auto phsp_events = Decays<hydra::Vector4R,hydra::Vector4R,hydra::Vector4R>(10*nevents);
-			hydra::device::vector<Time> sigmat_data(10*nevents);
+			hydra::device::vector<TimeError> sigmat_data(10*nevents);
 
 			phsp_generator.Generate(parent, phsp_events);
 			auto phsp_weight = phsp_events.GetEventWeightFunctor();
 
-			//hydra::fill_random( sigmat_data, hydra::UniformShape<Time>(TimeErrorMin(),TimeErrorMax()), max_search_seed);
-			hydra::fill_random( sigmat_data, hydra::UniformShape<Time>(0.05, 0.1), max_search_seed); // the sigmat max search range would be replaced by input parameters in next commit
+			if (TimeErrorMaxSearchLowBound != -999. && TimeErrorMaxSearchHighBound != -999.) 
+				hydra::fill_random( sigmat_data, hydra::UniformShape<TimeError>(TimeErrorMaxSearchLowBound, TimeErrorMaxSearchHighBound), max_search_seed); 
+			else 
+				hydra::fill_random( sigmat_data, hydra::UniformShape<TimeError>(TimeErrorMin(),TimeErrorMax()), max_search_seed);
 
 			auto events = phsp_events.Meld( sigmat_data );
 
@@ -713,8 +717,6 @@ public:
 		size_t n = poisson(random_mt);
 
 		// Generated in bunches
-		auto uniform_t = hydra::UniformShape<Time>(TimeMin(),TimeMax());
-		auto uniform_sigmat = hydra::UniformShape<Time>(TimeErrorMin(),TimeErrorMax());
 		hydra::multivector< hydra::tuple<Time, TimeError>, hydra::device::sys_t > time_data(10*n);
 
 		auto phsp_events = Decays<hydra::Vector4R,hydra::Vector4R,hydra::Vector4R>(time_data.size());
@@ -734,13 +736,13 @@ public:
 			});
 
 			// Add uniformuly generated decay time and decay time error to phase-space data
-			hydra::fill_random(time_data.begin(hydra::placeholders::_0), time_data.end(hydra::placeholders::_0), hydra::UniformShape<Time>(TimeMin(),TimeMax()), seed());
-			hydra::fill_random(time_data.begin(hydra::placeholders::_1), time_data.end(hydra::placeholders::_1), hydra::UniformShape<TimeError>(TimeErrorMin(),TimeErrorMax()), seed());
+			hydra::fill_random(time_data.begin(hydra::placeholders::_0), time_data.end(hydra::placeholders::_0), hydra::UniformShape<Time>(TimeMin(), TimeMax()), seed());
+			hydra::fill_random(time_data.begin(hydra::placeholders::_1), time_data.end(hydra::placeholders::_1), hydra::UniformShape<TimeError>(TimeErrorMin(), TimeErrorMax()), seed());
 
 			auto events = phsp_events.Meld( time_data );
 
 			// Unweight
-			auto dalitz_variables = hydra::unweight(hydra::device::sys, events, dalitz_time_model, 5*max_model, seed()) | dalitz_calculator;
+			auto dalitz_variables = hydra::unweight(hydra::device::sys, events, dalitz_time_model, 3*max_model, seed()) | dalitz_calculator;
 
 			// First copy unweighted events into a container
 			hydra::multivector<hydra::tuple<MSq12,MSq13,MSq23,Time,TimeError>, hydra::device::sys_t> bunch( dalitz_variables.size() );

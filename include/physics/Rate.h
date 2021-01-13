@@ -76,8 +76,8 @@ auto time_dependent_rate_with_time_resolution(hydra::Parameter const& tau, hydra
 
 	auto T2 = hydra::wrap_lambda(
 			  [=] __hydra_dual__ (MSqPlus m2p, MSqMinus m2m, Time t, TimeError sigma_t){
-			  		m2p = 1.5;
-			  		m2m = 0.8;
+			  		// m2p = 1.5;
+			  		// m2m = 0.8;
 
 
 			  		double _tau = double(tau); // turn hydra::Parameter to double
@@ -86,11 +86,11 @@ auto time_dependent_rate_with_time_resolution(hydra::Parameter const& tau, hydra
 			  		double _b = double(b);
 			  		double _s = double(s);
 
-			  		// A sum = A + A-bar
+			  		// A sum = (A + A-bar)/2
 			  		std::complex<double> As = (Adir(m2p, m2m) + rcp()*Abar(m2p, m2m))/2; 
 
 
-			  		// A difference = A* - A-bar*
+			  		// A difference = (A* - A-bar*)/2
 			  		std::complex<double> Ad = (hydra::conj(Adir(m2p, m2m)) - hydra::conj(rcp()*Abar(m2p, m2m)))/2; 
 
 			  		double Gamma = 1./_tau;
@@ -99,10 +99,11 @@ auto time_dependent_rate_with_time_resolution(hydra::Parameter const& tau, hydra
 			  		double kappa_m = (1.+_x)*Gamma*_s*sigma_t;
 			  		std::complex<double> kappa_i(Gamma*_s*sigma_t, -_y*Gamma*_s*sigma_t);
 
-			  		double result = norm(As)*_psi(chi, kappa_p); //+ norm(Ad)*_psi(chi, kappa_m) + 2.*(As*Ad*_psi(chi, std::complex<double>(kappa_i))).real();
+			  		double result = norm(As)*_psi(chi, kappa_p) + norm(Ad)*_psi(chi, kappa_m) + 2.*(As*Ad*_psi(chi, std::complex<double>(kappa_i))).real();
 			  		result = result * pdf_sigma_t(sigma_t);
 
-			  		// return pdf_sigma_t(sigma_t);
+			  		// return norm(As)*_psi(chi, kappa_p) + norm(Ad)*_psi(chi, kappa_m) + 2.*(As*Ad*_psi(chi, std::complex<double>(kappa_i))).real();
+			  		// return pdf_sigma_t(sigma_t); // for debugging
 			  		return result;
 			  }
 	);

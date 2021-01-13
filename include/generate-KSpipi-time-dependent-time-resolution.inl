@@ -136,9 +136,9 @@ int main( int argc, char** argv  )
 
 	auto start = std::chrono::high_resolution_clock::now();	
 
-	auto data_dz = phsp.GenerateDataWithTimeAndTimeError<MSqPlus,MSqMinus,MSqZero,DecayTime,DecayTimeError>(model_dz,args.nevents,args.seed);
+	auto data_dz = phsp.GenerateDataWithTimeAndTimeError<MSqPlus,MSqMinus,MSqZero,DecayTime,DecayTimeError>(model_dz,args.nevents,args.seed,0.05,0.1);
 	std::cout << "Generated " << data_dz.size() << " D0 candidates." << std::endl;
-	auto data_db = phsp.GenerateDataWithTimeAndTimeError<MSqPlus,MSqMinus,MSqZero,DecayTime,DecayTimeError>(model_db,args.nevents,args.seed+1);
+	auto data_db = phsp.GenerateDataWithTimeAndTimeError<MSqPlus,MSqMinus,MSqZero,DecayTime,DecayTimeError>(model_db,args.nevents,args.seed+1,0.05,0.1);
 	std::cout << "Generated " << data_db.size() << " D0bar candidates." << std::endl;
 
 	auto end = std::chrono::high_resolution_clock::now();
