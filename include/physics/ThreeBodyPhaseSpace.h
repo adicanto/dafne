@@ -742,7 +742,7 @@ public:
 			auto events = phsp_events.Meld( time_data );
 
 			// Unweight
-			auto dalitz_variables = hydra::unweight(hydra::device::sys, events, dalitz_time_model, 3*max_model, seed()) | dalitz_calculator;
+			auto dalitz_variables = hydra::unweight(hydra::device::sys, events, dalitz_time_model, 1.3*max_model, seed()) | dalitz_calculator;
 
 			// First copy unweighted events into a container
 			hydra::multivector<hydra::tuple<MSq12,MSq13,MSq23,Time,TimeError>, hydra::device::sys_t> bunch( dalitz_variables.size() );

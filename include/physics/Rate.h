@@ -65,7 +65,8 @@ T _phi(T z)
 template<typename T>
 T _psi(double x, T kappa)
 {
-	return exp(-x*x/2.) * _phi<T>(x-kappa);
+	// return exp(-x*x/2.) * _phi<T>(x-kappa);
+	return exp((-2*x*kappa+kappa*kappa)/2.) * 1./2. * (1. + RooMathM::erf((x - kappa)/sqrt(2.)));
 }
 
 
