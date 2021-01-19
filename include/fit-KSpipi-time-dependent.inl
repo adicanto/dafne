@@ -46,7 +46,7 @@ int main(int argc, char** argv)
 	//---------------------------------------------------------------------------------------
 	// Read command line arguments
 	//---------------------------------------------------------------------------------------
-	Arguments args("Fit to D0 -> K0_S pi+ pi- dataset with BABAR 2010 amplitude model","0.1","");
+	D0ToKsPiPiArguments args("Fit to D0 -> K0_S pi+ pi- dataset with BABAR 2010 amplitude model","0.1","");
 	try {
 		args.Read( argc, argv );
 	}
@@ -251,7 +251,8 @@ int main(int argc, char** argv)
 		data.insert(data.end(), data_db.begin(), data_db.end());
 
 		// plotting procedure
-		TApplication myapp("myapp",0,0);
+		TApplication* myapp = NULL;
+		if (args.interactive) myapp = new TApplication("myapp",0,0);
 
 		// plot dalitz distribution 
 		auto plotterWithTime = DalitzPlotterWithTime<MSqPlus, MSqMinus, MSqZero, DecayTime>(phsp,"#it{K}^{0}_{S}","#it{#pi}^{+}","#it{#pi}^{#minus}",(args.prlevel>3));
@@ -380,50 +381,133 @@ int main(int argc, char** argv)
 		outfilename = args.outdir + outprefix + "-decay-time";
 		Print::Canvas(c4,outfilename);
 
-		// plot contour
-		ROOT::Minuit2::MnContours contours(fcn, minimum);
-		double up = ROOT::Math::chisquared_quantile(0.6827,2)/2.;//1sigma
-		fcn.SetErrorDef(up);
-		std::vector<std::pair<double,double> > cont1 = contours(minimum.UserState().Index("x"), minimum.UserState().Index("y"), 30);
+		// plot contours
+		if (args.contour_option != "") {
+			TCanvas c5("c5","c5",600,500);
+			c5.SetRightMargin(.14);
 
-		TCanvas c5("c5","c5",600,500);
-		c3.SetRightMargin(.14);
+			// a function to cope with root plotting issue, the "CFA" in root does not work some time
+			auto plotCFA = [](TGraph * tgin, const bool drawAxis=1, const char* xtitle="x [%]", const char* ytitle="y [%]") {
+				TGraph* fgraph = new TGraph(*tgin);
+				TGraph* cgraph = new TGraph(*tgin);
 
-		auto ContourToTGraph = [](std::vector<std::pair<double,double> > contourPoints, const char * name="contour")->TGraph* {
-			std::vector<double> xs(contourPoints.size()+1);
-			std::vector<double> ys(contourPoints.size()+1);
+				if (drawAxis) {
+					fgraph->Draw("FA");
+					fgraph->GetXaxis()->SetTitle(xtitle);
+					fgraph->GetYaxis()->SetTitle(ytitle);
+				}
+				else fgraph->Draw("F");
+				cgraph->Draw("C");
 
-			for (size_t i = 0; i < contourPoints.size(); ++i) {
-				xs[i] = contourPoints[i].first;
-				ys[i] = contourPoints[i].second;
+			};
+			
+			if (args.contour_option == "test") {
+				TGraph* contGraphSigma1 = Print::Contour(fcn, minimum, "cont_sigma1", "x", "y", 1.1478745, 15, 1, "silence"); // 1 sigma
+
+				contGraphSigma1->SetLineColor(45);
+				contGraphSigma1->SetLineWidth(3);
+				contGraphSigma1->SetFillStyle(3244);
+				contGraphSigma1->SetFillColor(46);
+
+				plotCFA(contGraphSigma1);
+
+				leg = new TLegend(0.75,0.9-0.06,0.9,0.9);
+				leg->AddEntry(contGraphSigma1, " 1 #sigma ", "f");
+			} else if (args.contour_option == "sigma1") {
+				TGraph* contGraphSigma1 = Print::Contour(fcn, minimum, "cont_sigma1", "x", "y", 1.1478745, 30, 1, "silence"); // 1 sigma
+
+				contGraphSigma1->SetLineColor(45);
+				contGraphSigma1->SetLineWidth(3);
+				contGraphSigma1->SetFillStyle(3244);
+				contGraphSigma1->SetFillColor(46);
+
+				plotCFA(contGraphSigma1);
+
+				leg = new TLegend(0.75,0.9-0.06,0.9,0.9);
+				leg->AddEntry(contGraphSigma1, " 1 #sigma ", "f");
+			} else if (args.contour_option == "sigma3") {
+				TGraph* contGraphSigma3 = Print::Contour(fcn, minimum, "cont_sigma3", "x", "y", 5.9145790, 30, 1, "silence"); // 3 sigma
+				TGraph* contGraphSigma1 = Print::Contour(fcn, minimum, "cont_sigma1", "x", "y", 1.1478745, 30, 1, "silence"); // 1 sigma
+
+				contGraphSigma3->SetLineColor(44);
+				contGraphSigma3->SetLineWidth(3);
+				contGraphSigma3->SetFillStyle(3001);
+				contGraphSigma3->SetFillColor(42);
+				contGraphSigma1->SetLineColor(45);
+				contGraphSigma1->SetLineWidth(3);
+				contGraphSigma1->SetFillStyle(3244);
+				contGraphSigma1->SetFillColor(46);
+
+				plotCFA(contGraphSigma3);
+				plotCFA(contGraphSigma1, 0);
+
+				leg = new TLegend(0.75,0.9-0.06*2,0.9,0.9);
+				leg->AddEntry(contGraphSigma1, " 1 #sigma ", "f");
+				leg->AddEntry(contGraphSigma3, " 3 #sigma ", "f");
+			} else if (args.contour_option == "sigma5") {
+				TGraph* contGraphSigma5 = Print::Contour(fcn, minimum, "cont_sigma5", "x", "y", 14.371851, 30, 1, "silence"); // 5 sigma
+				TGraph* contGraphSigma3 = Print::Contour(fcn, minimum, "cont_sigma3", "x", "y", 5.9145790, 30, 1, "silence"); // 3 sigma
+				TGraph* contGraphSigma1 = Print::Contour(fcn, minimum, "cont_sigma1", "x", "y", 1.1478745, 30, 1, "silence"); // 1 sigma
+
+
+				// the color setting for contours is to be finished
+				contGraphSigma3->SetLineColor(43);
+				contGraphSigma3->SetFillStyle(1001);
+				contGraphSigma3->SetFillColor(41);
+				contGraphSigma3->SetLineColor(44);
+				contGraphSigma3->SetFillStyle(3001);
+				contGraphSigma3->SetFillColor(42);
+				contGraphSigma1->SetLineColor(45);
+				contGraphSigma1->SetFillStyle(3244);
+				contGraphSigma1->SetFillColor(46);
+
+				plotCFA(contGraphSigma5);
+				plotCFA(contGraphSigma3, 0);
+				plotCFA(contGraphSigma1, 0);
+
+				leg = new TLegend(0.75,0.9-0.06*3,0.9,0.9);
+				leg->AddEntry(contGraphSigma1, " 1 #sigma ", "f");
+				leg->AddEntry(contGraphSigma3, " 3 #sigma ", "f");
+				leg->AddEntry(contGraphSigma5, " 5 #sigma ", "f");
+			} else if (args.contour_option == "sigmafull") {
+				TGraph* contGraphSigma5 = Print::Contour(fcn, minimum, "cont_sigma5", "x", "y", 14.371851, 30, 1, "silence"); // 5 sigma
+				TGraph* contGraphSigma4 = Print::Contour(fcn, minimum, "cont_sigma4", "x", "y", 9.6669543, 30, 1, "silence"); // 4 sigma
+				TGraph* contGraphSigma3 = Print::Contour(fcn, minimum, "cont_sigma3", "x", "y", 5.9145790, 30, 1, "silence"); // 3 sigma
+				TGraph* contGraphSigma2 = Print::Contour(fcn, minimum, "cont_sigma2", "x", "y", 3.0900372, 30, 1, "silence"); // 2 sigma
+				TGraph* contGraphSigma1 = Print::Contour(fcn, minimum, "cont_sigma1", "x", "y", 1.1478745, 30, 1, "silence"); // 1 sigma
+
+				// the color setting for contours is to be finished
+
+				plotCFA(contGraphSigma5);
+				plotCFA(contGraphSigma4, 0);
+				plotCFA(contGraphSigma3, 0);
+				plotCFA(contGraphSigma2, 0);
+				plotCFA(contGraphSigma1, 0);
+
+				leg = new TLegend(0.75,0.9-0.06*5,0.9,0.9);
+				leg->AddEntry(contGraphSigma1, " 1 #sigma ", "f");
+				leg->AddEntry(contGraphSigma2, " 2 #sigma ", "f");
+				leg->AddEntry(contGraphSigma3, " 3 #sigma ", "f");
+				leg->AddEntry(contGraphSigma4, " 4 #sigma ", "f");
+				leg->AddEntry(contGraphSigma5, " 5 #sigma ", "f");
 			}
-			xs[contourPoints.size()] = xs[0];
-			ys[contourPoints.size()] = ys[0];
 
-			TGraph* tg = new TGraph(contourPoints.size()+1, xs.data(), ys.data());
-			tg->SetName(name);
-			return tg;
-		};
 
-		auto cont1graph = ContourToTGraph(cont1, "cont1");
-		// auto cont2graph = ContourToTGraph(cont2, "cont2");
-		// auto cont3graph = ContourToTGraph(cont3, "cont3");
-		// auto cont4graph = ContourToTGraph(cont4, "cont4");
-		// auto cont5graph = ContourToTGraph(cont5, "cont5");
 
-		cont1graph->Draw("al");
-		// cont2graph->Draw("al");
-		// cont3graph->Draw("al");
-		// cont4graph->Draw("al");
-		// cont5graph->Draw("al");
+			leg->SetBorderSize(0);
+			leg->SetFillStyle(0);
+			leg->Draw();
 
-		outfilename = args.outdir + outprefix + "-contour";
-		Print::Canvas(c5,outfilename);
+			
+
+			outfilename = args.outdir + outprefix + "-contour";
+			Print::Canvas(c5,outfilename);
+		}
 
 		
 		if (args.interactive) {
 			std::cout << "Press Crtl+C to terminate" << std::endl;
-			myapp.Run();
+			myapp->Run();
 		}
 		
 

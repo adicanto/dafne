@@ -57,28 +57,30 @@ if(EIGEN3_FOUND)
 	include_directories(${EIGEN3_INCLUDE_DIR})
 endif(EIGEN3_FOUND)
 
-#-----------------------
-#get CUDA
-find_package(CUDA 8.0)
-if(CUDA_FOUND)
-	link_directories( ${CUDA_TOOLKIT_ROOT_DIR}/lib64/)
-
-	#set cuda flags
-	set(CUDA_NVCC_FLAGS ${CUDA_NVCC_FLAGS}  -ftemplate-backtrace-limit=0; --cudart; static;  -O4 ; --expt-relaxed-constexpr; -fmad=true; --expt-extended-lambda;--relocatable-device-code=false; -Xptxas -dlcm=ca;-Xptxas --opt-level=4 )
-
-	set(CUDA_PROPAGATE_HOST_FLAGS ON)
-	set(CUDA_SEPARABLE_COMPILATION OFF)
-	set(CUDA_VERBOSE_BUILD OFF)
-
-	if(CMAKE_CXX_COMPILER_VERSION VERSION_GREATER 5.4)
-		list(APPEND CUDA_NVCC_FLAGS " -Xcompiler -D__CORRECT_ISO_CPP11_MATH_H_PROTO ")
-	endif()
-
-	# Detect CUDA architecture and get best NVCC flags
-	include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/FindCudaArch.cmake)
-	select_nvcc_arch_flags(NVCC_FLAGS_EXTRA)
-	list(APPEND CUDA_NVCC_FLAGS ${NVCC_FLAGS_EXTRA})
-endif(CUDA_FOUND)
+# CUDA is not supported for the moment
+#
+# #-----------------------
+# #get CUDA
+# find_package(CUDA 8.0)
+# if(CUDA_FOUND)
+# 	link_directories( ${CUDA_TOOLKIT_ROOT_DIR}/lib64/)
+# 
+# 	#set cuda flags
+# 	set(CUDA_NVCC_FLAGS ${CUDA_NVCC_FLAGS}  -ftemplate-backtrace-limit=0; --cudart; static;  -O4 ; --expt-relaxed-constexpr; -fmad=true; --expt-extended-lambda;--relocatable-device-code=false; -Xptxas -dlcm=ca;-Xptxas --opt-level=4 )
+# 
+# 	set(CUDA_PROPAGATE_HOST_FLAGS ON)
+# 	set(CUDA_SEPARABLE_COMPILATION OFF)
+# 	set(CUDA_VERBOSE_BUILD OFF)
+# 
+# 	if(CMAKE_CXX_COMPILER_VERSION VERSION_GREATER 5.4)
+# 		list(APPEND CUDA_NVCC_FLAGS " -Xcompiler -D__CORRECT_ISO_CPP11_MATH_H_PROTO ")
+# 	endif()
+# 
+# 	# Detect CUDA architecture and get best NVCC flags
+# 	include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/FindCudaArch.cmake)
+# 	select_nvcc_arch_flags(NVCC_FLAGS_EXTRA)
+# 	list(APPEND CUDA_NVCC_FLAGS ${NVCC_FLAGS_EXTRA})
+# endif(CUDA_FOUND)
 
 #-----------------------
 #get TBB
@@ -108,12 +110,14 @@ else()
 	set(BUILD_OMP_TARGETS  OFF)
 endif()
 
-#not every computer has a GPU and/or cuda installed or 
-if( CUDA_FOUND )
-	set(BUILD_CUDA_TARGETS  ON)
-else()
-	set(BUILD_CUDA_TARGETS  OFF)
-endif()
+# CUDA is not supported for the moment
+#
+# #not every computer has a GPU and/or cuda installed or 
+# if( CUDA_FOUND )
+# 	set(BUILD_CUDA_TARGETS  ON)
+# else()
+# 	set(BUILD_CUDA_TARGETS  OFF)
+# endif()
 
 # to enable tbb builds
 if(TBB_FOUND)
