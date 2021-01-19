@@ -19,6 +19,7 @@
 #include <models/D0ToKsPiPi_FVECTOR_BABAR.h>
 #include <tools/Plotter.h>
 #include <tools/Printer.h>
+#include <tools/MinuitTools.h>
 #include <tools/ConfigFile.h>
 #include <tools/Arguments.h>
 #include <tools/ArbitraryBinningHistogram2D.h>
@@ -158,7 +159,7 @@ int main(int argc, char** argv)
 	std::cout << "Initial normalization for D0 PDF: "<< pdf.GetNorm() << " +/- " << pdf.GetNormError() << std::endl;
 	
 	auto fcn = hydra::make_loglikehood_fcn( pdf, data.begin(), data.end() );
-	Print::CheckFCN(fcn);
+	MinuitTools::CheckFCN(fcn);
 	
 	//---------------------------------------------------------------------------------------
 	// Configure and run MINUIT
@@ -184,7 +185,7 @@ int main(int argc, char** argv)
 
 
 	std::cout << minimum << std::endl;
-	Print::MinimizerStatus(minimum);
+	MinuitTools::MinimizerStatus(minimum);
 
 	if ( !minimum.IsValid() || !minimum.HasAccurateCovar() ) {
 		std::cout << "Fit did not converge or covariance matrix is not accurate." << std::endl;
@@ -195,7 +196,7 @@ int main(int argc, char** argv)
 	// auto covariance = minimum.UserCovariance();
 	// std::cout << "***** Fit results:\n" << parameters << covariance << std::endl;
 	std::cout << "***** Fit results:\n" << minimum.UserState() << std::endl;
-	Print::CovarianceMatrixStatus(minimum);
+	MinuitTools::CovarianceMatrixStatus(minimum);
 
 	//---------------------------------------------------------------------------------------
 	// Plot fit result
