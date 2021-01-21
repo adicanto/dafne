@@ -96,9 +96,9 @@ auto time_dependent_rate_with_time_resolution(hydra::Parameter const& tau, hydra
 
 			  		double Gamma = 1./_tau;
 			  		double chi = (t-_b) / (_s*sigma_t);
-			  		double kappa_p = (1.-_x)*Gamma*_s*sigma_t;
-			  		double kappa_m = (1.+_x)*Gamma*_s*sigma_t;
-			  		std::complex<double> kappa_i(Gamma*_s*sigma_t, -_y*Gamma*_s*sigma_t);
+			  		double kappa_p = (1.+_y)*Gamma*_s*sigma_t;
+			  		double kappa_m = (1.-_y)*Gamma*_s*sigma_t;
+			  		std::complex<double> kappa_i(Gamma*_s*sigma_t, -_x*Gamma*_s*sigma_t);
 
 			  		double result = norm(As)*_psi(chi, kappa_p) + norm(Ad)*_psi(chi, kappa_m) + 2.*(As*Ad*_psi(chi, std::complex<double>(kappa_i))).real();
 			  		result = result * pdf_sigma_t(sigma_t);
