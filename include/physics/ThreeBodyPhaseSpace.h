@@ -684,8 +684,8 @@ public:
 		// arguments.
 		// The sampling time performance could be improved, if analytical method is used.
 		double max_model(-1.);
-		auto max_search_seed = seed();
 		{
+			auto max_search_seed = seed();
 			auto phsp_events = Decays<hydra::Vector4R,hydra::Vector4R,hydra::Vector4R>(10*nevents);
 			hydra::device::vector<TimeError> sigmat_data(10*nevents);
 

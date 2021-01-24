@@ -92,7 +92,7 @@ int main( int argc, char** argv  )
 	TCanvas cefficiency("cefficiency", "cefficiency", 800, 600);
 	gStyle->SetOptStat(0);
 	gPad->SetRightMargin(0.15);
-	efficiency_hist.Draw((outprefix + "_efficiency_hist").c_str(), 100);
+	efficiency_hist.GetTH2D((outprefix + "_efficiency_hist").c_str(), (outprefix + "_efficiency_hist").c_str())->Draw("COLZ");
 	Print::Canvas(cefficiency,  args.outdir + outprefix + "efficiency_hist");
 	gStyle->SetOptStat(1);
 
