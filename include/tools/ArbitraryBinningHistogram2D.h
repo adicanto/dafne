@@ -65,8 +65,8 @@ public:
 			fZErrors.push_back(init_line); 
 		}
 
-		for (int i = 0; i < GetNXTicks(); ++i)
-		for (int j = 0; j < GetNYTicks(); ++j) {
+		for (int i = 0; i < GetNXBins(); ++i)
+		for (int j = 0; j < GetNYBins(); ++j) {
 			fZs[i][j] = th2.GetBinContent(i+1, j+1);
 			fZErrors[i][j] = th2.GetBinError(i+1, j+1);
 		}
@@ -231,8 +231,8 @@ public:
 	double Sum() const
 	{
 		double sum = 0;
-		for (int i = 0; i < GetNXTicks(); ++i)
-		for (int j = 0; j < GetNYTicks(); ++j) {
+		for (int i = 0; i < GetNXBins(); ++i)
+		for (int j = 0; j < GetNYBins(); ++j) {
 			sum += fZs[i][j];
 		}
 	}
@@ -249,15 +249,15 @@ public:
 	
 		outstream << std::endl;
 		outstream << "Zs: " << std::endl;	
-		for (int iy = 0; iy < GetNYTicks(); ++iy) {
-			for (int ix = 0; ix < GetNXTicks(); ++ix) outstream << fZs[ix][iy] << ",";
+		for (int iy = 0; iy < GetNYBins(); ++iy) {
+			for (int ix = 0; ix < GetNXBins(); ++ix) outstream << fZs[ix][iy] << ",";
 			outstream << std::endl;
 		}
 
 		outstream << std::endl;
 		outstream << "ZErrors: " << std::endl;	
-		for (int iy = 0; iy < GetNYTicks(); ++iy) {
-			for (int ix = 0; ix < GetNXTicks(); ++ix) outstream << fZErrors[ix][iy] << ",";
+		for (int iy = 0; iy < GetNYBins(); ++iy) {
+			for (int ix = 0; ix < GetNXBins(); ++ix) outstream << fZErrors[ix][iy] << ",";
 			outstream << std::endl;
 		}
 
@@ -271,9 +271,21 @@ public:
 
 	}
 
-	TH2D* GetTH2D(const char* name="th2", const char* description="th2")
+	TH2D* GetTH2D(const char* name="th2", const char* description="th2", const char* xtitle="", const char* ytitle="")
 	{
-		TH2D* th2 = new TH2D(name, description, GetNXTicks()-1, fXTicks.data(), GetNYTicks()-1, fYTicks.data());
+		TH2D* th2 = new TH2D(name, description, GetNXBins(), fXTicks.data(), GetNYBins(), fYTicks.data());
+
+		th2->GetXaxis()->CenterTitle();
+		th2->SetXTitle(xtitle);
+		th2->GetYaxis()->CenterTitle();
+		th2->SetYTitle(ytitle);
+
+		for (int i = 0; i < GetNXBins(); ++i)
+		for (int j = 0; j < GetNYBins(); ++j) {
+			th2->SetBinContent(i+1, j+1, fZs[i][j]);
+			th2->SetBinError(i+1, j+1, fZErrors[i][j]);
+		}
+
 		return th2;
 	}
 

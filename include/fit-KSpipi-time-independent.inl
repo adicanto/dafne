@@ -65,8 +65,36 @@ int main(int argc, char** argv)
 
 	// efficiency plane
 	
-	// efficiency plane described by 2D function
-	auto a0  = hydra::Parameter::Create("eff_a0").Value(0.0).Error(0.1);
+	// efficiency plane described by irregular binning 2D histogram
+	ArbitraryBinningHistogram2D efficiency_hist = config.ConfigureEfficiencyHistogram();
+
+	// build and check the efficiency plane
+	TCanvas cefficiency("cefficiency", "cefficiency", 800, 600);
+	gStyle->SetOptStat(0);
+	gPad->SetRightMargin(0.15);
+	efficiency_hist.GetTH2D((outprefix + "_efficiency_hist").c_str(), 
+		                    (outprefix + "_efficiency_hist").c_str(),
+		                    "m^{2}_{#it{#pi#pi}} [GeV^{2}/#it{c}^{4}]", "cos(#theta_{#it{#pi#pi}})")->Draw("COLZ");
+	Print::Canvas(cefficiency,  args.outdir + outprefix + "efficiency_hist");
+	gStyle->SetOptStat(1);
+
+	auto efficiency = hydra::wrap_lambda(
+		[phsp, efficiency_hist] __hydra_dual__ (MSqPlus m2p, MSqMinus m2m) {
+
+		// judge whether in phase space or not
+		if (!phsp.Contains<2,3>(m2p, m2m)) return 0.0;
+
+		double m2z = phsp.MSqJK(m2p, m2m);
+		double helicity_z = phsp.HelicityJK<2,3>(m2p, m2m);
+
+		double x = m2z;
+		double y = helicity_z;
+		return efficiency_hist.GetValue(x, y);
+
+	}); 
+
+	// efficiency plane could also be described by an analytic function
+	/*auto a0  = hydra::Parameter::Create("eff_a0").Value(0.0).Error(0.1);
 	auto a1  = hydra::Parameter::Create("eff_a1").Value(0.0).Error(0.1);
 	auto a2  = hydra::Parameter::Create("eff_a2").Value(0.0).Error(0.1);
 	auto a3  = hydra::Parameter::Create("eff_a3").Value(0.0).Error(0.1);
@@ -76,7 +104,7 @@ int main(int argc, char** argv)
 		[phsp] __hydra_dual__ (unsigned int npar, const hydra::Parameter* params, MSqPlus m2p, MSqMinus m2m) {
 
 		// judge whether in phase space or not
-		if (!phsp.Contains<1,2>(m2p, m2m)) return 0.0;
+		if (!phsp.Contains<2,3>(m2p, m2m)) return 0.0;
 
 		double center = params[4];
 		double x = m2m - center;
@@ -92,11 +120,11 @@ int main(int argc, char** argv)
               		 a2 * ( pow( x, 2 ) + pow( y, 2 ) ) +
             		 a3 * (      x      -      y      );
 
-	}, a0, a1, a2, a3, center);
+	}, a0, a1, a2, a3, center); 
 
 	// configure efficiency according to configuration file
 	config.Debug();
-	config.ConfigureEfficiency(efficiency);
+	config.ConfigureEfficiency(efficiency);*/
 
 	// compute the decay rate
 	auto model = rate(amp)*efficiency;
