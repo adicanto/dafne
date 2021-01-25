@@ -66,7 +66,7 @@ protected:
 		((TAttMarker*)att_keeper)->Copy(*h);
 	}
 	
-	TH2D* fill_pull_histogram(const TH2D *hdat, const TH2D *hfit, const char *name)
+	TH2D* fill_pull_histogram(const TH2D *hdat, const TH2D *hfit, const char *name, const bool considerefit=0)
 	{
 		TH2D *hpull = (TH2D*) hdat->Clone(name);
 		hpull->Reset();
@@ -74,9 +74,14 @@ protected:
 		for (int i = 1; i <= hpull->GetXaxis()->GetNbins(); ++i) {
 			for (int j = 1; j <= hpull->GetYaxis()->GetNbins(); ++j) {
 				double ndat = hdat->GetBinContent(i,j);
+
 				double edat = hdat->GetBinError(i,j);
+				if (edat == 0) edat = sqrt(ndat);
+
 				double nfit = hfit->GetBinContent(i,j);
-				double efit = hfit->GetBinError(i,j);
+
+				double efit = 0;
+				if (considerefit) efit = hfit->GetBinError(i,j);
 
 				double sigma = sqrt(edat*edat+efit*efit);
 				if ( sigma>0. ) hpull->SetBinContent(i, j, (ndat-nfit)/sigma);
@@ -89,16 +94,21 @@ protected:
 		return hpull;
 	}
 
-	TH1D* fill_pull_histogram(const TH1D *hdat, const TH1D *hfit, const char *name)
+	TH1D* fill_pull_histogram(const TH1D *hdat, const TH1D *hfit, const char *name, const bool considerefit=0)
 	{
 		TH1D *hpull = (TH1D*) hdat->Clone(name);
 		hpull->Reset();
 		
 		for (int i = 1; i <= hpull->GetNbinsX(); ++i) {
 			double ndat = hdat->GetBinContent(i);
+
 			double edat = hdat->GetBinError(i);
+			if (edat == 0) edat = sqrt(ndat);
+
 			double nfit = hfit->GetBinContent(i);
-			double efit = hfit->GetBinError(i);
+
+			double efit = 0;
+			if (considerefit) efit = hfit->GetBinError(i);
 
 			double sigma = sqrt(edat*edat+efit*efit);
 			if ( sigma>0. ) hpull->SetBinContent(i, (ndat-nfit)/sigma);
