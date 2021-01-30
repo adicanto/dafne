@@ -39,7 +39,7 @@ using namespace hydra::arguments;
 
 
 // output prefix
-std::string outprefix = "generate-KSpipi-time-dependent";
+std::string outprefix = "generate-KSpipi-time-dependent-time-resolution";
 
 
 // Main
@@ -118,18 +118,20 @@ int main( int argc, char** argv  )
 	auto b   = hydra::Parameter::Create("b").Value(0.0).Error(0.0001).Limits(-1.,1.);
 	auto s   = hydra::Parameter::Create("s").Value(1.0).Error(0.0001).Limits(0.9,1.1);
 
-	auto johnson_delta  = hydra::Parameter::Create().Name("johnson_delta" ).Value(1.65335e+00);
-	auto johnson_lambda = hydra::Parameter::Create().Name("johnson_lambda").Value(1.87922e-02);
-	auto johnson_gamma  = hydra::Parameter::Create().Name("johnson_gamma" ).Value(-2.57429e+00);
-	auto johnson_xi     = hydra::Parameter::Create().Name("johnson_xi").Value(4.27580e-02);
+	auto johnson_delta  = hydra::Parameter::Create().Name("johnson_delta" ).Value(1.65335e+00).Error(0.01);
+	auto johnson_lambda = hydra::Parameter::Create().Name("johnson_lambda").Value(1.87922e-02).Error(0.001);
+	auto johnson_gamma  = hydra::Parameter::Create().Name("johnson_gamma" ).Value(-2.57429e+00).Error(0.01);
+	auto johnson_xi     = hydra::Parameter::Create().Name("johnson_xi").Value(4.27580e-02).Error(0.001);
 	auto johnson_su = hydra::JohnsonSU<DecayTime>(johnson_gamma, johnson_delta, johnson_xi, johnson_lambda);
+
+	config.ConfigureTimeResolutionParameters({&b, &s, &johnson_delta, &johnson_lambda, &johnson_gamma, &johnson_xi});
 
 	auto model_dz = time_dependent_rate_with_time_resolution<Flavor::Positive,MSqPlus,MSqMinus,DecayTime,DecayTimeError>(tau,x,y,qop,phi,b,s,Adir,Abar,johnson_su)*efficiency; 
 	auto model_db = time_dependent_rate_with_time_resolution<Flavor::Negative,MSqPlus,MSqMinus,DecayTime,DecayTimeError>(tau,x,y,qop,phi,b,s,Adir,Abar,johnson_su)*efficiency;
 
 	// for checking the parameters order when debugging
-	// typename decltype(model_dz_res)::argument_type  test{};
-	//    std::cout << test.dummy << '\n';
+	// typename decltype(model_dz)::argument_type  test{};
+	// std::cout << test.dummy << '\n';
 
 	//---------------------------------------------------------------------------------------
 	// Generate data

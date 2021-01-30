@@ -40,6 +40,7 @@ private:
 	std::vector<std::string> _resolution2DLines;
 	std::vector<std::string> _pdfParameterLines; 
 	std::vector<std::string> _efficiencyHistogramLines; 
+	std::vector<std::string> _timeResolutionParameterLines;
 
 
 	std::vector<std::string> _readBlocks; // to record blocks that are already read, avoiding reading twice
@@ -224,6 +225,12 @@ public:
 		if (_mixingParameterLines.size() == 0) parse_block("mixing_parameters_setting", _mixingParameterLines);
 	}
 
+	void ParseTimeResolutionSetting()
+	{
+		if (_timeResolutionParameterLines.size() == 0) parse_block("time_resolution_parameters_setting", _timeResolutionParameterLines);
+	}
+
+
 	void ParseEfficiencySetting()
 	{
 		if (_efficiencyParameterLines.size() == 0) parse_block("efficiency_parameters_setting", _efficiencyParameterLines);
@@ -289,6 +296,16 @@ public:
 		set_parameter(qop, _mixingParameterLines);
 		set_parameter(phi, _mixingParameterLines);
 	}
+
+	void ConfigureTimeResolutionParameters(std::vector<hydra::Parameter*> parameters)
+	{
+		ParseTimeResolutionSetting();
+
+		if (_debug) std::cout << "--- Configuring mixing parameters" << std::endl;
+		
+		for (int i = 0 ; i < parameters.size() ; ++i) set_parameter(*(parameters[i]), _timeResolutionParameterLines);
+	}
+
 
 	template<typename T>
 	void ConfigureTimeDependentModel(T & model, std::vector<std::string> parnames={"tau","x","y","qop","phi"})
