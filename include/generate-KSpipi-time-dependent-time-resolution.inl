@@ -122,9 +122,11 @@ int main( int argc, char** argv  )
 	auto johnson_lambda = hydra::Parameter::Create().Name("johnson_lambda").Value(1.87922e-02).Error(0.001);
 	auto johnson_gamma  = hydra::Parameter::Create().Name("johnson_gamma" ).Value(-2.57429e+00).Error(0.01);
 	auto johnson_xi     = hydra::Parameter::Create().Name("johnson_xi").Value(4.27580e-02).Error(0.001);
-	auto johnson_su = hydra::JohnsonSU<DecayTime>(johnson_gamma, johnson_delta, johnson_xi, johnson_lambda);
 
 	config.ConfigureTimeResolutionParameters({&b, &s, &johnson_delta, &johnson_lambda, &johnson_gamma, &johnson_xi});
+
+	auto johnson_su = hydra::JohnsonSU<DecayTimeError>(johnson_gamma, johnson_delta, johnson_xi, johnson_lambda);
+
 
 	auto model_dz = time_dependent_rate_with_time_resolution<Flavor::Positive,MSqPlus,MSqMinus,DecayTime,DecayTimeError>(tau,x,y,qop,phi,b,s,Adir,Abar,johnson_su)*efficiency; 
 	auto model_db = time_dependent_rate_with_time_resolution<Flavor::Negative,MSqPlus,MSqMinus,DecayTime,DecayTimeError>(tau,x,y,qop,phi,b,s,Adir,Abar,johnson_su)*efficiency;
@@ -388,7 +390,7 @@ int main( int argc, char** argv  )
 		plotter.PlotPullLines(h1_pull->GetXaxis()->GetXmin(), h1_pull->GetXaxis()->GetXmax());
 
 		outfilename = args.outdir + outprefix + "-sigmat";
-		Print::Canvas(c4,outfilename);
+		Print::Canvas(c5,outfilename);
 		
 		if (args.interactive) {
 			std::cout << "Press Crtl+C to terminate" << std::endl;
