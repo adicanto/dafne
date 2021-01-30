@@ -84,7 +84,7 @@ int main( int argc, char** argv  )
 	// efficiency plane described by irregular binning 2D histogram
 	ArbitraryBinningHistogram2D efficiency_hist = config.ConfigureEfficiencyHistogram();
 
-	// move to the plotting part after the plotting part is ready
+	// build and check the efficiency plane
 	TCanvas cefficiency("cefficiency", "cefficiency", 800, 600);
 	gStyle->SetOptStat(0);
 	gPad->SetRightMargin(0.15);

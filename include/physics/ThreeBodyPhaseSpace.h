@@ -626,9 +626,9 @@ public:
 	{
 		nevents = (nevents>=1000000) ? nevents : 1000000; // force nevents = 1000000 if nevents is too small
 		
-		std::array<double,3> min{MSqMin<1,2>(), MSqMin<1,3>(), TimeMin(), TimeErrorMin()};
-		std::array<double,3> max{MSqMax<1,2>(), MSqMax<1,3>(), TimeMax(), TimeErrorMax()};
-		return hydra::Plain<3, hydra::device::sys_t, RND>(min,max,nevents);
+		std::array<double,4> min{MSqMin<1,2>(), MSqMin<1,3>(), TimeMin(), TimeErrorMin()};
+		std::array<double,4> max{MSqMax<1,2>(), MSqMax<1,3>(), TimeMax(), TimeErrorMax()};
+		return hydra::Plain<4, hydra::device::sys_t, RND>(min,max,nevents);
 	}
 	
 	__hydra_dual__ inline

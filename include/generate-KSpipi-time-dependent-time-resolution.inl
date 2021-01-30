@@ -88,7 +88,7 @@ int main( int argc, char** argv  )
 	// efficiency plane described by irregular binning 2D histogram
 	ArbitraryBinningHistogram2D efficiency_hist = config.ConfigureEfficiencyHistogram();
 
-	// move to the plotting part after the plotting part is ready
+ 	// build and check the efficiency plane
 	TCanvas cefficiency("cefficiency", "cefficiency", 800, 600);
 	gStyle->SetOptStat(0);
 	gPad->SetRightMargin(0.15);
@@ -203,7 +203,7 @@ int main( int argc, char** argv  )
 		outfile->Write();
 		outfile->Close();
 	}
-/*
+
 	//---------------------------------------------------------------------------------------
 	// Plot the model and toy MC
 	//---------------------------------------------------------------------------------------
@@ -215,11 +215,11 @@ int main( int argc, char** argv  )
 		data.insert(data.end(), data_db.begin(), data_db.end());
 
 		// plot dalitz distribution 
-		auto plotterWithTime = DalitzPlotterWithTime<MSqPlus, MSqMinus, MSqZero, DecayTime>(phsp,"#it{K}^{0}_{S}","#it{#pi}^{+}","#it{#pi}^{#minus}",(args.prlevel>3));
+		auto plotter = DalitzPlotterWithTimeAndTimeError<MSqPlus, MSqMinus, MSqZero, DecayTime, DecayTimeError>(phsp,"#it{K}^{0}_{S}","#it{#pi}^{+}","#it{#pi}^{#minus}",(args.prlevel>3));
 
 		std::string outfilename = args.outdir + outprefix + "-HIST.root";
-		plotterWithTime.FillHistograms(data, model_dz, outfilename, args.plotnbins); 
-		plotterWithTime.SetCustomAxesTitles("#it{m}^{2}_{+} [GeV^{2}/#it{c}^{4}]","#it{m}^{2}_{#minus} [GeV^{2}/#it{c}^{4}]","#it{m}^{2}_{#it{#pi#pi}} [GeV^{2}/#it{c}^{4}]");
+		plotter.FillHistograms(data, model_dz, outfilename, args.plotnbins); 
+		plotter.SetCustomAxesTitles("#it{m}^{2}_{+} [GeV^{2}/#it{c}^{4}]","#it{m}^{2}_{#minus} [GeV^{2}/#it{c}^{4}]","#it{m}^{2}_{#it{#pi#pi}} [GeV^{2}/#it{c}^{4}]");
 
 		// plotting procedure
 		TApplication myapp("myapp",0,0);
@@ -246,20 +246,23 @@ int main( int argc, char** argv  )
 		pad6->SetLeftMargin(0.15);
 
 		pad1->cd();
-		plotterWithTime.Plot1DProjectionData(0, "e1");
-		plotterWithTime.Plot1DProjectionModel(0, "histo same");
+		plotter.Plot1DProjectionData(0, "e1");
+		plotter.Plot1DProjectionModel(0, "histo same");
 		pad2->cd();
-		plotterWithTime.Plot1DPull(0);
+		TH1D* h1_pull = plotter.Plot1DPull(0);
+		plotter.PlotPullLines(h1_pull->GetXaxis()->GetXmin(), h1_pull->GetXaxis()->GetXmax());
 
 		pad3->cd();
-		plotterWithTime.Plot1DProjectionData(1, "e1");
-		plotterWithTime.Plot1DProjectionModel(1, "histo same");
+		plotter.Plot1DProjectionData(1, "e1");
+		plotter.Plot1DProjectionModel(1, "histo same");
 		pad4->cd();
-		plotterWithTime.Plot1DPull(1);
+		h1_pull = plotter.Plot1DPull(1);
+		plotter.PlotPullLines(h1_pull->GetXaxis()->GetXmin(), h1_pull->GetXaxis()->GetXmax());
+
 
 		pad5->cd();
-		TH1D* h1_data = plotterWithTime.Plot1DProjectionData(2, "e1");
-		TH1D* h1_model = plotterWithTime.Plot1DProjectionModel(2, "histo same");
+		TH1D* h1_data = plotter.Plot1DProjectionData(2, "e1");
+		TH1D* h1_model = plotter.Plot1DProjectionModel(2, "histo same");
 		TLegend* leg = new TLegend(0.6,0.7,0.8,0.85);
 		leg->SetBorderSize(0);
 		leg->SetFillStyle(0);
@@ -268,7 +271,8 @@ int main( int argc, char** argv  )
 		leg->Draw();
 
 		pad6->cd();
-		plotterWithTime.Plot1DPull(2);
+		h1_pull = plotter.Plot1DPull(2);
+		plotter.PlotPullLines(h1_pull->GetXaxis()->GetXmin(), h1_pull->GetXaxis()->GetXmax());
 
 		outfilename = args.outdir + outprefix + "-1d-projection";
 		Print::Canvas(c1,outfilename);
@@ -278,13 +282,13 @@ int main( int argc, char** argv  )
 		c2.Divide(3,1);
 
 		c2.cd(1);
-		plotterWithTime.Plot2DProjectionData(0,1); 
+		plotter.Plot2DProjectionData(0,1); 
 
 		c2.cd(2);
-		plotterWithTime.Plot2DProjectionData(1,2);
+		plotter.Plot2DProjectionData(1,2);
 
 		c2.cd(3);
-		plotterWithTime.Plot2DPull(0,1);
+		plotter.Plot2DPull(0,1);
 
 		c2.Update();
 		outfilename = args.outdir + outprefix + "-2d-projection";
@@ -317,11 +321,12 @@ int main( int argc, char** argv  )
 		pad10->SetLeftMargin(0.15);
 
 		pad7->cd();
-		h1_data = plotterWithTime.Plot1DProjectionData(3, "e1");
-		h1_model = plotterWithTime.Plot1DProjectionModel(3, "histo same");
+		h1_data = plotter.Plot1DProjectionData(3, "e1");
+		h1_model = plotter.Plot1DProjectionModel(3, "histo same");
 
 		pad8->cd();
-		TH1D* h1_pull = plotterWithTime.Plot1DPull(3);
+		h1_pull = plotter.Plot1DPull(3);
+		plotter.PlotPullLines(h1_pull->GetXaxis()->GetXmin(), h1_pull->GetXaxis()->GetXmax());
 
 		pad9->cd();
 		h1_data->Draw("e1");
@@ -336,8 +341,51 @@ int main( int argc, char** argv  )
 
 		pad10->cd();
 		h1_pull->Draw();
+		plotter.PlotPullLines(h1_pull->GetXaxis()->GetXmin(), h1_pull->GetXaxis()->GetXmax());
 
 		outfilename = args.outdir + outprefix + "-decay-time";
+		Print::Canvas(c4,outfilename);
+
+
+		// sigmat distribution
+		TCanvas c5("c5","c5",1200,500);
+		pad7 = new TPad("pad7","pad7",0.01,0.25,0.49,0.99);
+		pad8 = new TPad("pad8","pad8",0.01,0.01,0.49,0.25);
+		pad9 = new TPad("pad9","pad9",0.5,0.25,0.99,0.99);
+		pad10 = new TPad("pad10","pad10",0.5,0.01,0.99,0.25);	
+		pad7->Draw();
+		pad8->Draw();
+		pad9->Draw();
+		pad10->Draw();
+		pad7->SetLeftMargin(0.15);
+		pad8->SetLeftMargin(0.15);
+		pad9->SetLeftMargin(0.15);
+		pad10->SetLeftMargin(0.15);
+
+		pad7->cd();
+		h1_data = plotter.Plot1DProjectionData(4, "e1");
+		h1_model = plotter.Plot1DProjectionModel(4, "histo same");
+
+		pad8->cd();
+		h1_pull = plotter.Plot1DPull(4);
+		plotter.PlotPullLines(h1_pull->GetXaxis()->GetXmin(), h1_pull->GetXaxis()->GetXmax());
+
+		pad9->cd();
+		h1_data->Draw("e1");
+		h1_model->Draw("histo same");
+		pad9->SetLogy();
+
+		leg = new TLegend(0.75,0.75,0.9,0.9);
+		leg->SetBorderSize(0);
+		leg->SetFillStyle(0);
+		leg->AddEntry(h1_data, h1_data->GetTitle(), "pe");
+		leg->AddEntry(h1_model, h1_model->GetTitle(), "l");
+
+		pad10->cd();
+		h1_pull->Draw();
+		plotter.PlotPullLines(h1_pull->GetXaxis()->GetXmin(), h1_pull->GetXaxis()->GetXmax());
+
+		outfilename = args.outdir + outprefix + "-sigmat";
 		Print::Canvas(c4,outfilename);
 		
 		if (args.interactive) {
@@ -346,7 +394,7 @@ int main( int argc, char** argv  )
 		}
 		
 	}
-	*/
+	
 	return 0;
 }
 
