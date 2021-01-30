@@ -51,22 +51,52 @@ auto time_dependent_rate(hydra::Parameter const& tau, hydra::Parameter const& x,
 	return rate(amp);
 }
 
-template<typename T>
-T _phi(T z)
+template<typename Amplitude>
+auto real_part(Amplitude const& amplitude)
 {
-	//return exp(z*z/2.) * 1./2. * std::complex<double>(RooMath::erfc(z/sqrt(2.))); 
-
-	return exp(std::norm(z)/2.) * 1./2. * RooMathM::erfc(-z/sqrt(2.));
-
-	//return (z.real() >= 0) ? exp(std::norm(z)/2.) * 1./2. * std::complex<double>(1. + RooMath::erf(z/sqrt(2.))) :
-	//                         exp(std::norm(z)/2.) * 1./2. * std::complex<double>(1. - RooMath::erf(-z/sqrt(2.))) ;  
+	auto _real = hydra::wrap_lambda(
+			  [=] __hydra_dual__ (hydra::complex<double> amp){
+						 return amp.real();
+			  }
+	);
+	
+	return hydra::compose(_real, amplitude);
 }
 
-template<typename T>
-T _psi(double x, T kappa)
+template<typename Amplitude>
+auto conjugate(Amplitude const& amplitude)
 {
-	// return exp(-x*x/2.) * _phi<T>(x-kappa);
-	return exp((-2*x*kappa+kappa*kappa)/2.) * 1./2. * (1. + RooMathM::erf((x - kappa)/sqrt(2.)));
+	auto _conj = hydra::wrap_lambda(
+			  [=] __hydra_dual__ (hydra::complex<double> amp){
+						 return hydra::conj(amp);
+			  }
+	);
+	
+	return hydra::compose(_conj, amplitude);
+}
+
+template<typename Amplitude>
+auto divideBy(Amplitude const& amplitude, const double denominator)
+{
+	auto _divide = hydra::wrap_lambda(
+			  [=] __hydra_dual__ (hydra::complex<double> amp){
+						 return amp / denominator;
+			  }
+	);
+	
+	return hydra::compose(_divide, amplitude);
+}
+
+template<typename Amplitude>
+auto rateOfDivideBy(Amplitude const& amplitude, const double denominator)
+{
+	auto _norm_divide = hydra::wrap_lambda(
+			  [=] __hydra_dual__ (hydra::complex<double> amp){
+						 return hydra::norm( amp / denominator );
+			  }
+	);
+	
+	return hydra::compose(_norm_divide, amplitude);
 }
 
 
@@ -75,43 +105,29 @@ auto time_dependent_rate_with_time_resolution(hydra::Parameter const& tau, hydra
 {
 	auto rcp = QoverP<Tag>(qop,phi);
 
-	auto T2 = hydra::wrap_lambda(
-			  [=] __hydra_dual__ (MSqPlus m2p, MSqMinus m2m, Time t, TimeError sigma_t){
-			  		// m2p = 1.5;
-			  		// m2m = 0.8;
+	auto psi_p = MixingPsip<Time, TimeError>(y,tau,s,b);
+	auto psi_m = MixingPsim<Time, TimeError>(y,tau,s,b);
+	auto psi_i = MixingPsii<Time, TimeError>(x,tau,s,b);
 
+	auto As = Adir + rcp * Abar; 
+	auto Ad = conjugate( Adir - rcp * Abar ) ; 
 
-			  		double _tau = double(tau); // turn hydra::Parameter to double
-			  		double _x = double(x);
-			  		double _y = double(y);
-			  		double _b = double(b);
-			  		double _s = double(s);
+	auto _arrange = hydra::wrap_lambda(
+			  [=] __hydra_dual__ (hydra::tuple< hydra::complex<double>, hydra::complex<double>, hydra::complex<double>, hydra::complex<double>, hydra::complex<double>, double > input_amplitudes){
+			  		auto _As = hydra::get<0>(input_amplitudes);
+			  		auto _Ad = hydra::get<1>(input_amplitudes);
+			  		auto _psi_p = hydra::get<2>(input_amplitudes);
+			  		auto _psi_m = hydra::get<3>(input_amplitudes);
+			  		auto _psi_i = hydra::get<4>(input_amplitudes);
+			  		auto _pdf_sigma_t = hydra::get<5>(input_amplitudes);
 
-			  		// A sum = (A + A-bar)/2
-			  		std::complex<double> As = (Adir(m2p, m2m) + rcp()*Abar(m2p, m2m))/2; 
-
-
-			  		// A difference = (A* - A-bar*)/2
-			  		std::complex<double> Ad = (hydra::conj(Adir(m2p, m2m)) - hydra::conj(rcp()*Abar(m2p, m2m)))/2; 
-
-			  		double Gamma = 1./_tau;
-			  		double chi = (t-_b) / (_s*sigma_t);
-			  		double kappa_p = (1.+_y)*Gamma*_s*sigma_t;
-			  		double kappa_m = (1.-_y)*Gamma*_s*sigma_t;
-			  		std::complex<double> kappa_i(Gamma*_s*sigma_t, -_x*Gamma*_s*sigma_t);
-
-			  		double result = norm(As)*_psi(chi, kappa_p) + norm(Ad)*_psi(chi, kappa_m) + 2.*(As*Ad*_psi(chi, std::complex<double>(kappa_i))).real();
-			  		result = result * pdf_sigma_t(sigma_t);
-
-			  		// return norm(As)*_psi(chi, kappa_p) + norm(Ad)*_psi(chi, kappa_m) + 2.*(As*Ad*_psi(chi, std::complex<double>(kappa_i))).real();
-			  		// return pdf_sigma_t(sigma_t); // for debugging
-			  		return result;
+			  		return  ( norm(_As/2.)*_psi_p.real() + norm(_Ad/2.)*_psi_m.real() + (_As*_Ad/2.*_psi_i).real() ) * _pdf_sigma_t ;
 			  }
 	);
 	
-	return T2;
-}
+	return hydra::compose(_arrange, As, Ad, psi_p, psi_m, psi_i, pdf_sigma_t);
 
+}
 
 
 } // namespace dafne
