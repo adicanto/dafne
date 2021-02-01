@@ -473,10 +473,10 @@ public:
 					exit(-1);
 				}
 
-				std::vector< std::vector<double> > zs_in;
+				std::vector< std::vector<double> > zs_in(ny);
 				for (int i = 0; i < ny; ++i) {
 					std::istringstream is_eff_sub(_efficiencyHistogramLines[i_eff+i]);
-					zs_in.push_back(ParseLineToVector(is_eff_sub.str()));
+					zs_in[ny-1-i] = ParseLineToVector(is_eff_sub.str());
 				}
 
 				zs = Transpose(zs_in);
@@ -495,10 +495,10 @@ public:
 				}
 
 
-				std::vector< std::vector<double> > zerrors_in;
+				std::vector< std::vector<double> > zerrors_in(ny);
 				for (int i = 0; i < ny; ++i) {
 					std::istringstream is_eff_sub(_efficiencyHistogramLines[i_eff+i]);
-					zerrors_in.push_back(ParseLineToVector(is_eff_sub.str()));
+					zerrors_in[ny-1-i] = ParseLineToVector(is_eff_sub.str());
 				}
 
 				zerrors = Transpose(zerrors_in);

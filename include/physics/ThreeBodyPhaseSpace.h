@@ -657,7 +657,7 @@ public:
 
 	template<typename MSq12, typename MSq13, typename MSq23, typename Time, typename TimeError, typename Model>
 	__hydra_dual__ inline
-	auto GenerateDataWithTimeAndTimeError(Model &model, size_t nevents, size_t rndseed=0, double TimeErrorMaxSearchLowBound=-999., double TimeErrorMaxSearchHighBound=-999.)
+	auto GenerateDataWithTimeAndTimeError(Model &model, size_t nevents, size_t rndseed=0, double TimeMaxSearchLowBound=-999., double TimeMaxSearchHighBound=-999., double TimeErrorMaxSearchLowBound=-999., double TimeErrorMaxSearchHighBound=-999., bool debug=false)
 	{
 		// Output container
 		hydra::multivector<hydra::tuple<MSq12,MSq13,MSq23,Time,TimeError>, hydra::device::sys_t> data;
@@ -678,37 +678,56 @@ public:
 		// initialize the random seed
 		hydra::SeedRNG seed{rndseed};
 
+
 		// Find maximum
-		// For the moment the maximum value of sigmat distribution (which is JohnsonSU function in many case) 
-		// is also searched by numerical method, and the range of the maximum value search could be set by input 
+
+		// For the moment, the maximum value of sigmat distribution (which is JohnsonSU function in many cases) 
+		// is currently searched by numerical method, and the range of the maximum value search could be set by input 
 		// arguments.
 		// The sampling time performance could be improved, if analytical method is used.
+
+		// After considering the resolution, model(t = 0) is not longer max(model(t)), therefore, the maximum value 
+		// of decay-time distribution should also be searched by numerical method, and the range of the search could
+		// also be set by input arguments.
 		double max_model(-1.);
 		{
 			auto max_search_seed = seed();
-			auto phsp_events = Decays<hydra::Vector4R,hydra::Vector4R,hydra::Vector4R>(10*nevents);
-			hydra::device::vector<TimeError> sigmat_data(10*nevents);
+			int max_search_nevents = (nevents*5 > 10000000) ? nevents*5 : 10000000;
+			auto phsp_events = Decays<hydra::Vector4R,hydra::Vector4R,hydra::Vector4R>(max_search_nevents);
+			hydra::multivector< hydra::tuple<Time, TimeError>, hydra::device::sys_t > time_data(max_search_nevents);
 
 			phsp_generator.Generate(parent, phsp_events);
 			auto phsp_weight = phsp_events.GetEventWeightFunctor();
 
+			if (TimeMaxSearchLowBound != -999. && TimeMaxSearchHighBound != -999.) 
+				hydra::fill_random(time_data.begin(hydra::placeholders::_0), time_data.end(hydra::placeholders::_0), hydra::UniformShape<Time>(TimeMaxSearchLowBound, TimeMaxSearchHighBound), seed());	
+			else
+				hydra::fill_random(time_data.begin(hydra::placeholders::_0), time_data.end(hydra::placeholders::_0), hydra::UniformShape<Time>(TimeMin(), TimeMax()), seed());
+
 			if (TimeErrorMaxSearchLowBound != -999. && TimeErrorMaxSearchHighBound != -999.) 
-				hydra::fill_random( sigmat_data, hydra::UniformShape<TimeError>(TimeErrorMaxSearchLowBound, TimeErrorMaxSearchHighBound), max_search_seed); 
+				hydra::fill_random(time_data.begin(hydra::placeholders::_1), time_data.end(hydra::placeholders::_1), hydra::UniformShape<TimeError>(TimeErrorMaxSearchLowBound, TimeErrorMaxSearchHighBound), max_search_seed);
 			else 
-				hydra::fill_random( sigmat_data, hydra::UniformShape<TimeError>(TimeErrorMin(),TimeErrorMax()), max_search_seed);
+				hydra::fill_random(time_data.begin(hydra::placeholders::_1), time_data.end(hydra::placeholders::_1), hydra::UniformShape<TimeError>(TimeErrorMin(), TimeErrorMax()), max_search_seed);
 
-			auto events = phsp_events.Meld( sigmat_data );
+			
 
-			auto dalitz_model = hydra::wrap_lambda( [&phsp_weight, &model] __hydra_dual__ (hydra::Vector4R a, hydra::Vector4R b, hydra::Vector4R c, TimeError sigmat)
+			auto events = phsp_events.Meld( time_data );
+
+			auto dalitz_model = hydra::wrap_lambda( [&phsp_weight, &model] __hydra_dual__ (hydra::Vector4R a, hydra::Vector4R b, hydra::Vector4R c, Time t, TimeError sigmat)
 			{
 				MSq12 m0 = (a+b).mass2();
 				MSq13 m1 = (a+c).mass2();
-				Time t(0.);
 				return phsp_weight(a,b,c) * model(hydra::tie(m0,m1,t,sigmat));
 			});
 		
 			auto variables = events | dalitz_model;
 			max_model = *( hydra_thrust::max_element(hydra::device::sys, variables.begin(), variables.end() ) );
+
+			if (debug) {
+				std::cout << "Finish the search for max value of model(mSqP, mSqM, t, sigma_t). " << std::endl; 
+				std::cout << "max(model(mSqP, mSqM, t, sigma_t)) = " << max_model << std::endl;
+			}
+
 		}
 
 		// Sample total number of events to be generated
@@ -717,7 +736,13 @@ public:
 		size_t n = poisson(random_mt);
 
 		// Generated in bunches
-		hydra::multivector< hydra::tuple<Time, TimeError>, hydra::device::sys_t > time_data(10*n);
+		long bunch_size = 10*n;
+		if (300*n < 50000000) bunch_size = 300*n;
+		else if (100*n < 50000000) bunch_size = 100*n;
+		else if (10*n < 50000000) bunch_size = 10*n;
+		else bunch_size = 3*n;
+
+		hydra::multivector< hydra::tuple<Time, TimeError>, hydra::device::sys_t > time_data(bunch_size);
 
 		auto phsp_events = Decays<hydra::Vector4R,hydra::Vector4R,hydra::Vector4R>(time_data.size());
 		do {
@@ -741,12 +766,22 @@ public:
 
 			auto events = phsp_events.Meld( time_data );
 
+			// confirm there is no pdfmax value issue
+			if (debug) {
+				double bunch_max_model(-1.);
+				auto pdfmax_check_variables = events | dalitz_time_model;
+				bunch_max_model = *( hydra_thrust::max_element(hydra::device::sys, pdfmax_check_variables.begin(), pdfmax_check_variables.end() ) );
+				std::cout << "For the current bunch max(model(mSqP, mSqM, t, sigma_t)) = " << bunch_max_model << std::endl; 
+			}
+
 			// Unweight
 			auto dalitz_variables = hydra::unweight(hydra::device::sys, events, dalitz_time_model, 1.3*max_model, seed()) | dalitz_calculator;
 
 			// First copy unweighted events into a container
 			hydra::multivector<hydra::tuple<MSq12,MSq13,MSq23,Time,TimeError>, hydra::device::sys_t> bunch( dalitz_variables.size() );
 			hydra::copy(dalitz_variables, bunch);
+
+			if (debug) std::cout << "Generated " << bunch.size() << " events" << std::endl; 
 
 			// Then add to output container
 			data.insert( data.end(), bunch.begin(), bunch.end() );

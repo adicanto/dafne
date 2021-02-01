@@ -207,10 +207,10 @@ int main(int argc, char** argv)
 	// Build pdf and log-likelihood function from model
 	//---------------------------------------------------------------------------------------
 	std::cout << "***** Build likelihood" << std::endl;
-	auto pdf_dz = hydra::make_pdf( model_dz, phsp.IntegratorWithTimeAndTimeError(10*ncands_dz) );
+	auto pdf_dz = hydra::make_pdf( model_dz, phsp.IntegratorWithTimeAndTimeError(100*ncands_dz) );
 	std::cout << "Initial normalization for D0 PDF: "<< pdf_dz.GetNorm() << " +/- " << pdf_dz.GetNormError() << std::endl;
 	
-	auto pdf_db = hydra::make_pdf( model_db, phsp.IntegratorWithTimeAndTimeError(10*ncands_db) );
+	auto pdf_db = hydra::make_pdf( model_db, phsp.IntegratorWithTimeAndTimeError(100*ncands_db) );
 	std::cout << "Initial normalization for D0bar PDF: "<< pdf_db.GetNorm() << " +/- " << pdf_db.GetNormError() << std::endl;
 	
 	auto fcn_dz = hydra::make_loglikehood_fcn( pdf_dz, data_dz.begin(), data_dz.end() );
@@ -264,7 +264,7 @@ int main(int argc, char** argv)
 
 		// get the fitted model_dz
 		fcn_dz.GetParameters().UpdateParameters(minimum);
-		auto model_dz_fitted = fcn_dz.GetPDF().GetFunctor().GetFunctor(hydra::placeholders::_0);
+		auto model_dz_fitted = fcn_dz.GetPDF().GetFunctor();
 		model_dz_fitted.PrintRegisteredParameters();
 
 		auto data = data_dz;

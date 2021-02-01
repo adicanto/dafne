@@ -109,6 +109,7 @@ auto time_dependent_rate_with_time_resolution(hydra::Parameter const& tau, hydra
 	auto psi_m = MixingPsim<Time, TimeError>(y,tau,s,b);
 	auto psi_i = MixingPsii<Time, TimeError>(x,tau,s,b);
 
+
 	auto As = Adir + rcp * Abar; 
 	auto Ad = conjugate( Adir - rcp * Abar ) ; 
 
@@ -122,11 +123,35 @@ auto time_dependent_rate_with_time_resolution(hydra::Parameter const& tau, hydra
 			  		auto _pdf_sigma_t = hydra::get<5>(input_amplitudes);
 
 			  		return  ( norm(_As/2.)*_psi_p.real() + norm(_Ad/2.)*_psi_m.real() + (_As*_Ad/2.*_psi_i).real() ) * _pdf_sigma_t ;
+
 			  }
 	);
 	
 	return hydra::compose(_arrange, As, Ad, psi_p, psi_m, psi_i, pdf_sigma_t);
 
+	// code for debugging with PHSP 
+	// auto As = hydra::wrap_lambda(
+	// 		  [=] __hydra_dual__ (MSqPlus a, MSqMinus b){
+	// 					 return 1.0;
+	// 		  }
+	// );
+
+	// auto Ad = hydra::wrap_lambda(
+	// 		  [=] __hydra_dual__ (MSqPlus a, MSqMinus b){
+	// 					 return 0.0;
+	// 		  }
+	// );
+
+	// auto _arrange = hydra::wrap_lambda(
+	// 		  [=] __hydra_dual__ (hydra::tuple< hydra::complex<double>, hydra::complex<double>, hydra::complex<double>, hydra::complex<double>, hydra::complex<double>, double > input_amplitudes){
+
+	// 		  		auto _pdf_sigma_t = hydra::get<5>(input_amplitudes);
+	// 		  		auto _psi_p = hydra::get<2>(input_amplitudes);
+	// 		  		return _psi_p.real() * _pdf_sigma_t;
+	// 		  }
+	// );
+
+	// return hydra::compose(_arrange, As, Ad, psi_p, psi_m, psi_i, pdf_sigma_t);
 }
 
 
