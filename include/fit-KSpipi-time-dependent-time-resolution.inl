@@ -207,10 +207,12 @@ int main(int argc, char** argv)
 	// Build pdf and log-likelihood function from model
 	//---------------------------------------------------------------------------------------
 	std::cout << "***** Build likelihood" << std::endl;
-	auto pdf_dz = hydra::make_pdf( model_dz, phsp.IntegratorWithTimeAndTimeError(100*ncands_dz) );
+	auto pdf_dz = hydra::make_pdf( model_dz, phsp.PlainIntegratorWithTimeAndTimeError(100*ncands_dz) );
+	//auto pdf_dz = hydra::make_pdf( model_dz, phsp.GenzMalikIntegratorWithTimeAndTimeError(5) );
 	std::cout << "Initial normalization for D0 PDF: "<< pdf_dz.GetNorm() << " +/- " << pdf_dz.GetNormError() << std::endl;
 	
-	auto pdf_db = hydra::make_pdf( model_db, phsp.IntegratorWithTimeAndTimeError(100*ncands_db) );
+	auto pdf_db = hydra::make_pdf( model_db, phsp.PlainIntegratorWithTimeAndTimeError(100*ncands_db) );
+	//auto pdf_db = hydra::make_pdf( model_db, phsp.GenzMalikIntegratorWithTimeAndTimeError(5) );
 	std::cout << "Initial normalization for D0bar PDF: "<< pdf_db.GetNorm() << " +/- " << pdf_db.GetNormError() << std::endl;
 	
 	auto fcn_dz = hydra::make_loglikehood_fcn( pdf_dz, data_dz.begin(), data_dz.end() );

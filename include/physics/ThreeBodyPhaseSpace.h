@@ -11,6 +11,7 @@
 #include <hydra/functions/UniformShape.h>
 #include <hydra/functions/Exponential.h>
 #include <hydra/Plain.h>
+#include <hydra/GenzMalikQuadrature.h>
 
 #include <TH3D.h>
 #include <THnSparse.h>
@@ -619,10 +620,19 @@ public:
 	
 	__hydra_dual__ inline
 	double TimeErrorMax() const { return _timeErrorRange[1]; }
-	
+
+	__hydra_dual__ inline
+	auto GenzMalikIntegratorWithTimeAndTimeError(size_t grid=30)
+	// still has segment fault problem, and needs further check
+	{
+		std::array<double,4> min{MSqMin<1,2>(), MSqMin<1,3>(), TimeMin(), TimeErrorMin()};
+		std::array<double,4> max{MSqMax<1,2>(), MSqMax<1,3>(), TimeMax(), TimeErrorMax()};
+		return hydra::GenzMalikQuadrature<4, hydra::device::sys_t>(min,max,grid);
+	}
+
 	template<typename RND=hydra::default_random_engine>
 	__hydra_dual__ inline
-	auto IntegratorWithTimeAndTimeError(size_t nevents=1000000)
+	auto PlainIntegratorWithTimeAndTimeError(size_t nevents=1000000)
 	{
 		nevents = (nevents>=1000000) ? nevents : 1000000; // force nevents = 1000000 if nevents is too small
 		
@@ -737,9 +747,11 @@ public:
 
 		// Generated in bunches
 		long bunch_size = 10*n;
-		if (300*n < 50000000) bunch_size = 300*n;
-		else if (100*n < 50000000) bunch_size = 100*n;
-		else if (10*n < 50000000) bunch_size = 10*n;
+		long bunch_size_limit = 50000000;
+		if (300*n < bunch_size_limit) bunch_size = 300*n;
+		else if (100*n < bunch_size_limit) bunch_size = 100*n;
+		else if (50*n < bunch_size_limit) bunch_size = 50*n;
+		else if (10*n < bunch_size_limit) bunch_size = 10*n;
 		else bunch_size = 3*n;
 
 		hydra::multivector< hydra::tuple<Time, TimeError>, hydra::device::sys_t > time_data(bunch_size);
@@ -771,7 +783,8 @@ public:
 				double bunch_max_model(-1.);
 				auto pdfmax_check_variables = events | dalitz_time_model;
 				bunch_max_model = *( hydra_thrust::max_element(hydra::device::sys, pdfmax_check_variables.begin(), pdfmax_check_variables.end() ) );
-				std::cout << "For the current bunch max(model(mSqP, mSqM, t, sigma_t)) = " << bunch_max_model << std::endl; 
+				std::cout << "Events number for the current bunch = " << pdfmax_check_variables.size() << std::endl;
+				std::cout << "For the current bunch, max(model(mSqP, mSqM, t, sigma_t)) = " << bunch_max_model << std::endl; 
 			}
 
 			// Unweight
