@@ -24,6 +24,7 @@
 #include <models/D0ToKsPiPi_FVECTOR_BABAR.h>
 #include <tools/Plotter.h>
 #include <tools/Printer.h>
+#include <tools/MinuitTools.h>
 #include <tools/ConfigFile.h>
 #include <tools/Arguments.h>
 #include <physics/Amplitudes.h>
@@ -219,7 +220,7 @@ int main(int argc, char** argv)
 	auto fcn_db = hydra::make_loglikehood_fcn( pdf_db, data_db.begin(), data_db.end() );
 	
 	auto fcn = hydra::make_simultaneous_fcn(fcn_dz, fcn_db);
-	Print::CheckFCN(fcn);
+	MinuitTools::CheckFCN(fcn);
 	
 	//---------------------------------------------------------------------------------------
 	// Configure and run MINUIT
@@ -245,7 +246,7 @@ int main(int argc, char** argv)
 
 
 	std::cout << minimum << std::endl;
-	Print::MinimizerStatus(minimum);
+	MinuitTools::MinimizerStatus(minimum);
 
 	if ( !minimum.IsValid() || !minimum.HasAccurateCovar() ) {
 		std::cout << "Fit did not converge or covariance matrix is not accurate." << std::endl;
@@ -256,7 +257,7 @@ int main(int argc, char** argv)
 	// auto covariance = minimum.UserCovariance();
 	// std::cout << "***** Fit results:\n" << parameters << covariance << std::endl;
 	std::cout << "***** Fit results:\n" << minimum.UserState() << std::endl;
-	Print::CovarianceMatrixStatus(minimum);
+	MinuitTools::CovarianceMatrixStatus(minimum);
 
 	//---------------------------------------------------------------------------------------
 	// Plot fit result
@@ -469,7 +470,7 @@ int main(int argc, char** argv)
 			};
 			
 			if (args.contour_option == "test") {
-				TGraph* contGraphSigma1 = Print::Contour(fcn, minimum, "cont_sigma1", "x", "y", 1.1478745, 15, 1, "silence"); // 1 sigma
+				TGraph* contGraphSigma1 = MinuitTools::Contour(fcn, minimum, "cont_sigma1", "x", "y", 1.1478745, 15, 1, "silence"); // 1 sigma
 
 				contGraphSigma1->SetLineColor(45);
 				contGraphSigma1->SetLineWidth(3);
@@ -481,7 +482,7 @@ int main(int argc, char** argv)
 				leg = new TLegend(0.75,0.9-0.06,0.9,0.9);
 				leg->AddEntry(contGraphSigma1, " 1 #sigma ", "f");
 			} else if (args.contour_option == "sigma1") {
-				TGraph* contGraphSigma1 = Print::Contour(fcn, minimum, "cont_sigma1", "x", "y", 1.1478745, 30, 1, "silence"); // 1 sigma
+				TGraph* contGraphSigma1 = MinuitTools::Contour(fcn, minimum, "cont_sigma1", "x", "y", 1.1478745, 30, 1, "silence"); // 1 sigma
 
 				contGraphSigma1->SetLineColor(45);
 				contGraphSigma1->SetLineWidth(3);
@@ -493,8 +494,8 @@ int main(int argc, char** argv)
 				leg = new TLegend(0.75,0.9-0.06,0.9,0.9);
 				leg->AddEntry(contGraphSigma1, " 1 #sigma ", "f");
 			} else if (args.contour_option == "sigma3") {
-				TGraph* contGraphSigma3 = Print::Contour(fcn, minimum, "cont_sigma3", "x", "y", 5.9145790, 30, 1, "silence"); // 3 sigma
-				TGraph* contGraphSigma1 = Print::Contour(fcn, minimum, "cont_sigma1", "x", "y", 1.1478745, 30, 1, "silence"); // 1 sigma
+				TGraph* contGraphSigma3 = MinuitTools::Contour(fcn, minimum, "cont_sigma3", "x", "y", 5.9145790, 30, 1, "silence"); // 3 sigma
+				TGraph* contGraphSigma1 = MinuitTools::Contour(fcn, minimum, "cont_sigma1", "x", "y", 1.1478745, 30, 1, "silence"); // 1 sigma
 
 				contGraphSigma3->SetLineColor(44);
 				contGraphSigma3->SetLineWidth(3);
@@ -512,9 +513,9 @@ int main(int argc, char** argv)
 				leg->AddEntry(contGraphSigma1, " 1 #sigma ", "f");
 				leg->AddEntry(contGraphSigma3, " 3 #sigma ", "f");
 			} else if (args.contour_option == "sigma5") {
-				TGraph* contGraphSigma5 = Print::Contour(fcn, minimum, "cont_sigma5", "x", "y", 14.371851, 30, 1, "silence"); // 5 sigma
-				TGraph* contGraphSigma3 = Print::Contour(fcn, minimum, "cont_sigma3", "x", "y", 5.9145790, 30, 1, "silence"); // 3 sigma
-				TGraph* contGraphSigma1 = Print::Contour(fcn, minimum, "cont_sigma1", "x", "y", 1.1478745, 30, 1, "silence"); // 1 sigma
+				TGraph* contGraphSigma5 = MinuitTools::Contour(fcn, minimum, "cont_sigma5", "x", "y", 14.371851, 30, 1, "silence"); // 5 sigma
+				TGraph* contGraphSigma3 = MinuitTools::Contour(fcn, minimum, "cont_sigma3", "x", "y", 5.9145790, 30, 1, "silence"); // 3 sigma
+				TGraph* contGraphSigma1 = MinuitTools::Contour(fcn, minimum, "cont_sigma1", "x", "y", 1.1478745, 30, 1, "silence"); // 1 sigma
 
 
 				// the color setting for contours is to be finished
@@ -537,11 +538,11 @@ int main(int argc, char** argv)
 				leg->AddEntry(contGraphSigma3, " 3 #sigma ", "f");
 				leg->AddEntry(contGraphSigma5, " 5 #sigma ", "f");
 			} else if (args.contour_option == "sigmafull") {
-				TGraph* contGraphSigma5 = Print::Contour(fcn, minimum, "cont_sigma5", "x", "y", 14.371851, 30, 1, "silence"); // 5 sigma
-				TGraph* contGraphSigma4 = Print::Contour(fcn, minimum, "cont_sigma4", "x", "y", 9.6669543, 30, 1, "silence"); // 4 sigma
-				TGraph* contGraphSigma3 = Print::Contour(fcn, minimum, "cont_sigma3", "x", "y", 5.9145790, 30, 1, "silence"); // 3 sigma
-				TGraph* contGraphSigma2 = Print::Contour(fcn, minimum, "cont_sigma2", "x", "y", 3.0900372, 30, 1, "silence"); // 2 sigma
-				TGraph* contGraphSigma1 = Print::Contour(fcn, minimum, "cont_sigma1", "x", "y", 1.1478745, 30, 1, "silence"); // 1 sigma
+				TGraph* contGraphSigma5 = MinuitTools::Contour(fcn, minimum, "cont_sigma5", "x", "y", 14.371851, 30, 1, "silence"); // 5 sigma
+				TGraph* contGraphSigma4 = MinuitTools::Contour(fcn, minimum, "cont_sigma4", "x", "y", 9.6669543, 30, 1, "silence"); // 4 sigma
+				TGraph* contGraphSigma3 = MinuitTools::Contour(fcn, minimum, "cont_sigma3", "x", "y", 5.9145790, 30, 1, "silence"); // 3 sigma
+				TGraph* contGraphSigma2 = MinuitTools::Contour(fcn, minimum, "cont_sigma2", "x", "y", 3.0900372, 30, 1, "silence"); // 2 sigma
+				TGraph* contGraphSigma1 = MinuitTools::Contour(fcn, minimum, "cont_sigma1", "x", "y", 1.1478745, 30, 1, "silence"); // 1 sigma
 
 				// the color setting for contours is to be finished
 

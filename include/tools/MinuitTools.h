@@ -76,7 +76,7 @@ void CheckFCN(T & fcn)
         if (!(parameters[i]->IsFixed())) n_free++;
     }
 
-    std::cout << "Number of floating parameters in FCN: " << n_free << std::endl;
+    std::cout << "Number of floating parameters in FCN (floating/all): " << n_free << "/" << parameters.size() << std::endl;
     if (n_free == 0) {
         std::cout << "All parameters in FCN are fixed. Exit!" << std::endl;
         exit(-1);
