@@ -23,6 +23,7 @@
 #include <models/D0ToKsPiPi_FVECTOR_BABAR.h>
 #include <tools/Plotter.h>
 #include <tools/Printer.h>
+#include <tools/MinuitTools.h>
 #include <tools/ConfigFile.h>
 #include <tools/Arguments.h>
 #include <physics/Amplitudes.h>
@@ -198,7 +199,7 @@ int main(int argc, char** argv)
 	auto fcn_db = hydra::make_loglikehood_fcn( pdf_db, data_db.begin(), data_db.end() );
 	
 	auto fcn = hydra::make_simultaneous_fcn(fcn_dz, fcn_db);
-	Print::CheckFCN(fcn);
+	MinuitTools::CheckFCN(fcn);
 	
 	//---------------------------------------------------------------------------------------
 	// Configure and run MINUIT
@@ -224,7 +225,7 @@ int main(int argc, char** argv)
 
 
 	std::cout << minimum << std::endl;
-	Print::MinimizerStatus(minimum);
+	MinuitTools::MinimizerStatus(minimum);
 
 	if ( !minimum.IsValid() || !minimum.HasAccurateCovar() ) {
 		std::cout << "Fit did not converge or covariance matrix is not accurate." << std::endl;
@@ -235,7 +236,7 @@ int main(int argc, char** argv)
 	// auto covariance = minimum.UserCovariance();
 	// std::cout << "***** Fit results:\n" << parameters << covariance << std::endl;
 	std::cout << "***** Fit results:\n" << minimum.UserState() << std::endl;
-	Print::CovarianceMatrixStatus(minimum);
+	MinuitTools::CovarianceMatrixStatus(minimum);
 
 	//---------------------------------------------------------------------------------------
 	// Plot fit result
@@ -389,109 +390,97 @@ int main(int argc, char** argv)
 			c5.SetRightMargin(.14);
 
 			// a function to cope with root plotting issue, the "CFA" in root does not work some time
-			auto plotCFA = [](TGraph * tgin, const bool drawAxis=1, const char* xtitle="x [%]", const char* ytitle="y [%]") {
-				TGraph* fgraph = new TGraph(*tgin);
+			auto plotCFA = [](TGraph * tgin, const bool drawAxis=1, const char* xtitle="#it{x} [%]", const char* ytitle="#it{y} [%]") {
 				TGraph* cgraph = new TGraph(*tgin);
 
 				if (drawAxis) {
-					fgraph->Draw("FA");
-					fgraph->GetXaxis()->SetTitle(xtitle);
-					fgraph->GetYaxis()->SetTitle(ytitle);
+					cgraph->Draw("CA");
+					cgraph->GetXaxis()->SetTitle(xtitle);
+					cgraph->GetYaxis()->SetTitle(ytitle);
 				}
-				else fgraph->Draw("F");
-				cgraph->Draw("C");
+				else cgraph->Draw("C");
 
 			};
 			
 			if (args.contour_option == "test") {
-				TGraph* contGraphSigma1 = Print::Contour(fcn, minimum, "cont_sigma1", "x", "y", 1.1478745, 15, 1, "silence"); // 1 sigma
+				TGraph* contGraph1Sigma = MinuitTools::Contour(fcn, minimum, "cont_sigma1", "x", "y", 1.1478745, 15, 1, "silence"); // 1 sigma
 
-				contGraphSigma1->SetLineColor(45);
-				contGraphSigma1->SetLineWidth(3);
-				contGraphSigma1->SetFillStyle(3244);
-				contGraphSigma1->SetFillColor(46);
+				contGraph1Sigma->SetLineColor(45);
+				contGraph1Sigma->SetLineWidth(3);
 
-				plotCFA(contGraphSigma1);
+				plotCFA(contGraph1Sigma);
 
 				leg = new TLegend(0.75,0.9-0.06,0.9,0.9);
-				leg->AddEntry(contGraphSigma1, " 1 #sigma ", "f");
-			} else if (args.contour_option == "sigma1") {
-				TGraph* contGraphSigma1 = Print::Contour(fcn, minimum, "cont_sigma1", "x", "y", 1.1478745, 30, 1, "silence"); // 1 sigma
+				leg->AddEntry(contGraph1Sigma, " 1#it{#sigma} ", "f");
+			} else if (args.contour_option == "1sigma") {
+				TGraph* contGraph1Sigma = MinuitTools::Contour(fcn, minimum, "cont_sigma1", "x", "y", 1.1478745, 30, 1, "silence"); // 1 sigma
 
-				contGraphSigma1->SetLineColor(45);
-				contGraphSigma1->SetLineWidth(3);
-				contGraphSigma1->SetFillStyle(3244);
-				contGraphSigma1->SetFillColor(46);
+				contGraph1Sigma->SetLineColor(45);
+				contGraph1Sigma->SetLineWidth(3);
 
-				plotCFA(contGraphSigma1);
+				plotCFA(contGraph1Sigma);
 
 				leg = new TLegend(0.75,0.9-0.06,0.9,0.9);
-				leg->AddEntry(contGraphSigma1, " 1 #sigma ", "f");
-			} else if (args.contour_option == "sigma3") {
-				TGraph* contGraphSigma3 = Print::Contour(fcn, minimum, "cont_sigma3", "x", "y", 5.9145790, 30, 1, "silence"); // 3 sigma
-				TGraph* contGraphSigma1 = Print::Contour(fcn, minimum, "cont_sigma1", "x", "y", 1.1478745, 30, 1, "silence"); // 1 sigma
+				leg->AddEntry(contGraph1Sigma, " 1#it{#sigma} ", "f");
+			} else if (args.contour_option == "3sigma") {
+				TGraph* contGraph3Sigma = MinuitTools::Contour(fcn, minimum, "cont_sigma3", "x", "y", 5.9145790, 30, 1, "silence"); // 3 sigma
+				TGraph* contGraph1Sigma = MinuitTools::Contour(fcn, minimum, "cont_sigma1", "x", "y", 1.1478745, 30, 1, "silence"); // 1 sigma
 
-				contGraphSigma3->SetLineColor(44);
-				contGraphSigma3->SetLineWidth(3);
-				contGraphSigma3->SetFillStyle(3001);
-				contGraphSigma3->SetFillColor(42);
-				contGraphSigma1->SetLineColor(45);
-				contGraphSigma1->SetLineWidth(3);
-				contGraphSigma1->SetFillStyle(3244);
-				contGraphSigma1->SetFillColor(46);
+				contGraph3Sigma->SetLineColor(44);
+				contGraph3Sigma->SetLineWidth(3);
+				contGraph1Sigma->SetLineColor(45);
+				contGraph1Sigma->SetLineWidth(3);
 
-				plotCFA(contGraphSigma3);
-				plotCFA(contGraphSigma1, 0);
+				plotCFA(contGraph3Sigma);
+				plotCFA(contGraph1Sigma, 0);
 
 				leg = new TLegend(0.75,0.9-0.06*2,0.9,0.9);
-				leg->AddEntry(contGraphSigma1, " 1 #sigma ", "f");
-				leg->AddEntry(contGraphSigma3, " 3 #sigma ", "f");
-			} else if (args.contour_option == "sigma5") {
-				TGraph* contGraphSigma5 = Print::Contour(fcn, minimum, "cont_sigma5", "x", "y", 14.371851, 30, 1, "silence"); // 5 sigma
-				TGraph* contGraphSigma3 = Print::Contour(fcn, minimum, "cont_sigma3", "x", "y", 5.9145790, 30, 1, "silence"); // 3 sigma
-				TGraph* contGraphSigma1 = Print::Contour(fcn, minimum, "cont_sigma1", "x", "y", 1.1478745, 30, 1, "silence"); // 1 sigma
+				leg->AddEntry(contGraph1Sigma, " 1#it{#sigma} ", "f");
+				leg->AddEntry(contGraph3Sigma, " 3#it{#sigma} ", "f");
+			} else if (args.contour_option == "5sigma") {
+				TGraph* contGraph5Sigma = MinuitTools::Contour(fcn, minimum, "cont_sigma5", "x", "y", 14.371851, 30, 1, "silence"); // 5 sigma
+				TGraph* contGraph3Sigma = MinuitTools::Contour(fcn, minimum, "cont_sigma3", "x", "y", 5.9145790, 30, 1, "silence"); // 3 sigma
+				TGraph* contGraph1Sigma = MinuitTools::Contour(fcn, minimum, "cont_sigma1", "x", "y", 1.1478745, 30, 1, "silence"); // 1 sigma
 
 
 				// the color setting for contours is to be finished
-				contGraphSigma3->SetLineColor(43);
-				contGraphSigma3->SetFillStyle(1001);
-				contGraphSigma3->SetFillColor(41);
-				contGraphSigma3->SetLineColor(44);
-				contGraphSigma3->SetFillStyle(3001);
-				contGraphSigma3->SetFillColor(42);
-				contGraphSigma1->SetLineColor(45);
-				contGraphSigma1->SetFillStyle(3244);
-				contGraphSigma1->SetFillColor(46);
+				contGraph5Sigma->SetLineColor(43);
+				contGraph5Sigma->SetLineWidth(3);
+				contGraph3Sigma->SetLineColor(44);
+				contGraph3Sigma->SetLineWidth(3);
+				contGraph1Sigma->SetLineColor(45);
+				contGraph1Sigma->SetLineWidth(3);
 
-				plotCFA(contGraphSigma5);
-				plotCFA(contGraphSigma3, 0);
-				plotCFA(contGraphSigma1, 0);
+
+				plotCFA(contGraph5Sigma);
+				plotCFA(contGraph3Sigma, 0);
+				plotCFA(contGraph1Sigma, 0);
 
 				leg = new TLegend(0.75,0.9-0.06*3,0.9,0.9);
-				leg->AddEntry(contGraphSigma1, " 1 #sigma ", "f");
-				leg->AddEntry(contGraphSigma3, " 3 #sigma ", "f");
-				leg->AddEntry(contGraphSigma5, " 5 #sigma ", "f");
-			} else if (args.contour_option == "sigmafull") {
-				TGraph* contGraphSigma5 = Print::Contour(fcn, minimum, "cont_sigma5", "x", "y", 14.371851, 30, 1, "silence"); // 5 sigma
-				TGraph* contGraphSigma4 = Print::Contour(fcn, minimum, "cont_sigma4", "x", "y", 9.6669543, 30, 1, "silence"); // 4 sigma
-				TGraph* contGraphSigma3 = Print::Contour(fcn, minimum, "cont_sigma3", "x", "y", 5.9145790, 30, 1, "silence"); // 3 sigma
-				TGraph* contGraphSigma2 = Print::Contour(fcn, minimum, "cont_sigma2", "x", "y", 3.0900372, 30, 1, "silence"); // 2 sigma
-				TGraph* contGraphSigma1 = Print::Contour(fcn, minimum, "cont_sigma1", "x", "y", 1.1478745, 30, 1, "silence"); // 1 sigma
+				leg->AddEntry(contGraph1Sigma, " 1#it{#sigma} ", "f");
+				leg->AddEntry(contGraph3Sigma, " 3#it{#sigma} ", "f");
+				leg->AddEntry(contGraph5Sigma, " 5#it{#sigma} ", "f");
+			} else if (args.contour_option == "full") {
+				TGraph* contGraph5Sigma = MinuitTools::Contour(fcn, minimum, "cont_sigma5", "x", "y", 14.371851, 30, 1, "silence"); // 5 sigma
+				TGraph* contGraph4Sigma = MinuitTools::Contour(fcn, minimum, "cont_sigma4", "x", "y", 9.6669543, 30, 1, "silence"); // 4 sigma
+				TGraph* contGraph3Sigma = MinuitTools::Contour(fcn, minimum, "cont_sigma3", "x", "y", 5.9145790, 30, 1, "silence"); // 3 sigma
+				TGraph* contGraph2Sigma = MinuitTools::Contour(fcn, minimum, "cont_sigma2", "x", "y", 3.0900372, 30, 1, "silence"); // 2 sigma
+				TGraph* contGraph1Sigma = MinuitTools::Contour(fcn, minimum, "cont_sigma1", "x", "y", 1.1478745, 30, 1, "silence"); // 1 sigma
 
 				// the color setting for contours is to be finished
 
-				plotCFA(contGraphSigma5);
-				plotCFA(contGraphSigma4, 0);
-				plotCFA(contGraphSigma3, 0);
-				plotCFA(contGraphSigma2, 0);
-				plotCFA(contGraphSigma1, 0);
+				plotCFA(contGraph5Sigma);
+				plotCFA(contGraph4Sigma, 0);
+				plotCFA(contGraph3Sigma, 0);
+				plotCFA(contGraph2Sigma, 0);
+				plotCFA(contGraph1Sigma, 0);
 
 				leg = new TLegend(0.75,0.9-0.06*5,0.9,0.9);
-				leg->AddEntry(contGraphSigma1, " 1 #sigma ", "f");
-				leg->AddEntry(contGraphSigma2, " 2 #sigma ", "f");
-				leg->AddEntry(contGraphSigma3, " 3 #sigma ", "f");
-				leg->AddEntry(contGraphSigma4, " 4 #sigma ", "f");
-				leg->AddEntry(contGraphSigma5, " 5 #sigma ", "f");
+				leg->AddEntry(contGraph1Sigma, " 1#it{#sigma} ", "f");
+				leg->AddEntry(contGraph2Sigma, " 2#it{#sigma} ", "f");
+				leg->AddEntry(contGraph3Sigma, " 3#it{#sigma} ", "f");
+				leg->AddEntry(contGraph4Sigma, " 4#it{#sigma} ", "f");
+				leg->AddEntry(contGraph5Sigma, " 5#it{#sigma} ", "f");
 			}
 
 

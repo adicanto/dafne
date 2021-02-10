@@ -137,10 +137,10 @@ public:
 		std::vector<std::string> allowedContourOptions;
 		allowedContourOptions.push_back("");
 		allowedContourOptions.push_back("test");
-		allowedContourOptions.push_back("sigma1");
-		allowedContourOptions.push_back("sigma3");
-		allowedContourOptions.push_back("sigma5");
-		allowedContourOptions.push_back("sigmafull");
+		allowedContourOptions.push_back("1sigma");
+		allowedContourOptions.push_back("3sigma");
+		allowedContourOptions.push_back("5sigma");
+		allowedContourOptions.push_back("full");
 		contourConstraints = new TCLAP::ValuesConstraint<std::string>( allowedContourOptions );
 
 		coArg = new TCLAP::ValueArg<std::string>("", "contouroption", "option for contour plotting", false, "", contourConstraints);
