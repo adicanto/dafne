@@ -95,7 +95,7 @@ int main( int argc, char** argv  )
 	efficiency_hist.GetTH2D((outprefix + "_efficiency_hist").c_str(), 
 	                    (outprefix + "_efficiency_hist").c_str(),
 	                    "m^{2}_{#it{#pi#pi}} [GeV^{2}/#it{c}^{4}]", "cos(#theta_{#it{#pi#pi}})")->Draw("COLZ");
-	Print::Canvas(cefficiency,  args.outdir + outprefix + "efficiency_hist");
+	Print::Canvas(cefficiency,  args.outdir + outprefix + "_efficiency_hist");
 	gStyle->SetOptStat(1);
 
 	// time dependent efficiency is ignored for the moment
@@ -131,6 +131,10 @@ int main( int argc, char** argv  )
 	auto model_dz = time_dependent_rate_with_time_resolution<Flavor::Positive,MSqPlus,MSqMinus,DecayTime,DecayTimeError>(tau,x,y,qop,phi,b,s,Adir,Abar,johnson_su)*efficiency; 
 	auto model_db = time_dependent_rate_with_time_resolution<Flavor::Negative,MSqPlus,MSqMinus,DecayTime,DecayTimeError>(tau,x,y,qop,phi,b,s,Adir,Abar,johnson_su)*efficiency;
 
+	// "turth level" model without sigma_t, but ... ... includes efficiency plane
+	auto model_truth_dz = time_dependent_rate<Flavor::Positive,DecayTime>(tau,x,y,qop,phi,Adir,Abar)*efficiency; 
+	auto model_truth_db = time_dependent_rate<Flavor::Negative,DecayTime>(tau,x,y,qop,phi,Adir,Abar)*efficiency;
+
 	// for checking the parameters order when debugging
 	// typename decltype(model_dz)::argument_type  test{};
 	// std::cout << test.dummy << '\n';
@@ -142,9 +146,11 @@ int main( int argc, char** argv  )
 
 	auto start = std::chrono::high_resolution_clock::now();	
 
-	auto data_dz = phsp.GenerateDataWithTimeAndTimeError<MSqPlus,MSqMinus,MSqZero,DecayTime,DecayTimeError>(model_dz,args.nevents,args.seed,0.,0.5,0.06,0.09,(args.prlevel>3));
+	// auto data_dz = phsp.GenerateDataWithTimeAndTimeError<MSqPlus,MSqMinus,MSqZero,DecayTime,DecayTimeError>(model_dz,args.nevents,args.seed,0.,0.5,0.06,0.09,(args.prlevel>3));
+	auto data_dz = phsp.GenerateDataWithTimeAndTimeErrorFast1<MSqPlus,MSqMinus,MSqZero,DecayTime,DecayTimeError>(model_truth_dz,b(),s(),johnson_su,args.nevents,args.seed,(args.prlevel>3));
 	std::cout << "Generated " << data_dz.size() << " D0 candidates." << std::endl;
-	auto data_db = phsp.GenerateDataWithTimeAndTimeError<MSqPlus,MSqMinus,MSqZero,DecayTime,DecayTimeError>(model_db,args.nevents,args.seed+1,0.,0.5,0.06,0.09,(args.prlevel>3));
+	// auto data_db = phsp.GenerateDataWithTimeAndTimeError<MSqPlus,MSqMinus,MSqZero,DecayTime,DecayTimeError>(model_db,args.nevents,args.seed+1,0.,0.5,0.06,0.09,(args.prlevel>3));
+	auto data_db = phsp.GenerateDataWithTimeAndTimeErrorFast1<MSqPlus,MSqMinus,MSqZero,DecayTime,DecayTimeError>(model_truth_db,b(),s(),johnson_su,args.nevents,args.seed,(args.prlevel>3));
 	std::cout << "Generated " << data_db.size() << " D0bar candidates." << std::endl;
 
 	auto end = std::chrono::high_resolution_clock::now();

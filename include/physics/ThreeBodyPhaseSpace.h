@@ -10,8 +10,10 @@
 #include <hydra/Vector4R.h>
 #include <hydra/functions/UniformShape.h>
 #include <hydra/functions/Exponential.h>
+#include <hydra/functions/Gaussian.h>
 #include <hydra/Plain.h>
 #include <hydra/GenzMalikQuadrature.h>
+
 
 #include <TH3D.h>
 #include <THnSparse.h>
@@ -805,6 +807,110 @@ public:
 		data.erase(data.begin()+n, data.end());
 		return data;
 	}
+
+	// This function first generate (mSqP, mSqM, t) in the same way as GenerateDataWithTime(), then it sample a sigmat from pdf(sigmat) and smear
+	// t with Gauss(t, b, s*sigmat).
+	// Therefore it is a 3D + 1D sampling, which would be much faster than the 4D sampling in GenerateDataWithTimeAndTimeError and easier
+	// to find a proper pdfmax.
+	template<typename MSq12, typename MSq13, typename MSq23, typename Time, typename TimeError, typename ModelTruth, typename PDFSIGMAT>
+	__hydra_dual__ inline
+	auto GenerateDataWithTimeAndTimeErrorFast1(ModelTruth &modelTruth, double b, double s, PDFSIGMAT const& pdf_sigma_t,  size_t nevents, size_t rndseed=0, bool debug=false)
+	{
+			// Output container
+		hydra::multivector<hydra::tuple<MSq12,MSq13,MSq23,Time,TimeError>, hydra::device::sys_t> data;
+
+
+		// Create PhaseSpace object
+		auto phsp_generator = Generator();
+		hydra::Vector4R parent(MMother(), 0., 0., 0.);
+		
+		// Find maximum
+		double max_model(-1.);
+		{
+			auto phsp_events = Decays<hydra::Vector4R,hydra::Vector4R,hydra::Vector4R>(10*nevents);
+			phsp_generator.Generate(parent, phsp_events);
+			auto phsp_weight = phsp_events.GetEventWeightFunctor();
+		
+			auto dalitz_model = hydra::wrap_lambda( [&phsp_weight, &modelTruth] __hydra_dual__ (hydra::Vector4R a, hydra::Vector4R b, hydra::Vector4R c)
+			{
+				MSq12 m0 = (a+b).mass2();
+				MSq13 m1 = (a+c).mass2();
+				Time t(0.);
+				return phsp_weight(a,b,c) * modelTruth(hydra::tie(t,m0,m1));
+			});
+		
+			auto variables = phsp_events | dalitz_model;
+			max_model = *( hydra_thrust::max_element(hydra::device::sys, variables.begin(), variables.end() ) );
+		}
+
+		// Sample total number of events to be generated
+		hydra::SeedRNG seed{rndseed};
+
+		static std::mt19937_64 random_mt(seed());
+		std::poisson_distribution<size_t> poisson(nevents);
+		size_t n = poisson(random_mt);
+				
+		// Generated in bunches
+		auto uniform = hydra::UniformShape<Time>(0,TimeMax()); // truth level decay-time axis should start from 0
+		auto gaus = hydra::Gaussian<double>(b,s);
+
+		hydra::multivector< hydra::tuple<Time, TimeError, double> , hydra::device::sys_t> time_data(10*n);
+		auto phsp_events = Decays<hydra::Vector4R,hydra::Vector4R,hydra::Vector4R>(time_data.size());
+
+
+		// Functor to compute Dalitz variables from 4-momenta
+		auto dalitz_calculator = hydra::wrap_lambda( [] __hydra_dual__ (hydra::Vector4R a, hydra::Vector4R b, hydra::Vector4R c, Time t, TimeError sigma_t, double dtDsigmat)
+		{
+			MSq12 m0 = (a+b).mass2();
+			MSq13 m1 = (a+c).mass2();
+			MSq23 m2 = (b+c).mass2();
+			TimeError tsmear = dtDsigmat * sigma_t;
+			Time trec = t + tsmear;
+			return hydra::make_tuple(m0,m1,m2,trec,sigma_t);
+		});
+
+		do {
+			phsp_generator.SetSeed(seed());
+			phsp_generator.Generate(parent, phsp_events);
+
+			// Phase-space weighting functor
+			auto phsp_weight = phsp_events.GetEventWeightFunctor();
+
+			// Model weighting functor
+			auto dalitz_time_model = hydra::wrap_lambda( [&phsp_weight, &modelTruth] __hydra_dual__ (hydra::Vector4R a, hydra::Vector4R b, hydra::Vector4R c, Time t, TimeError sigma_t, double dtDsigmat)
+			{
+				MSq12 m0 = (a+b).mass2();
+				MSq13 m1 = (a+c).mass2();
+				return phsp_weight(a,b,c) * modelTruth(hydra::tie(m0,m1,t));
+			});
+
+			// Add uniformuly generated decay time to phase-space data
+			hydra::fill_random(time_data.begin(hydra::placeholders::_0), time_data.end(hydra::placeholders::_0), uniform, seed());
+
+			// sample sigma_t 
+			hydra::fill_random(time_data.begin(hydra::placeholders::_1), time_data.end(hydra::placeholders::_1), pdf_sigma_t, seed());
+
+			// sample deltat/sigam_t
+			hydra::fill_random(time_data.begin(hydra::placeholders::_2), time_data.end(hydra::placeholders::_2), gaus, seed());
+
+			auto events_with_time = phsp_events.Meld( time_data );
+
+			// Unweight
+			auto dalitz_variables = hydra::unweight(hydra::device::sys, events_with_time, dalitz_time_model, 1.1*max_model, seed()) | dalitz_calculator;
+
+			// First copy unweighted events into a container
+			hydra::multivector<hydra::tuple<MSq12,MSq13,MSq23,Time,TimeError>, hydra::device::sys_t> bunch( dalitz_variables.size() );
+			hydra::copy(dalitz_variables, bunch);
+
+			// Then add to output container
+			data.insert( data.end(), bunch.begin(), bunch.end() );
+		} while( data.size() < n );
+
+		// Erase excess of events
+		data.erase(data.begin()+n, data.end());
+		return data;
+	}
+
 
 	template<typename MSq12, typename MSq13, typename MSq23, typename Time, typename TimeError, typename Model>
 	__hydra_dual__ inline
