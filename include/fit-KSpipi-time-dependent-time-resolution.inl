@@ -101,7 +101,7 @@ int main(int argc, char** argv)
 
 	// time dependent efficiency is ignored for the moment
 	auto efficiency = hydra::wrap_lambda(
-		[phsp, efficiency_hist] __hydra_dual__ (DecayTime tau, MSqPlus m2p, MSqMinus m2m) {
+		[phsp, efficiency_hist] __hydra_dual__ (MSqPlus m2p, MSqMinus m2m) {
 
 		// judge whether in phase space or not
 		if (!phsp.Contains<2,3>(m2p, m2m)) return 0.0;
@@ -115,7 +115,7 @@ int main(int argc, char** argv)
 
 	}); 
 
-	// time resolution test
+	// handle time resolution
 	auto b   = hydra::Parameter::Create("b").Value(0.0).Error(0.0001).Limits(-1.,1.);
 	auto s   = hydra::Parameter::Create("s").Value(1.0).Error(0.0001).Limits(0.9,1.1);
 
@@ -127,15 +127,49 @@ int main(int argc, char** argv)
 	config.ConfigureTimeResolutionParameters({&b, &s, &johnson_delta, &johnson_lambda, &johnson_gamma, &johnson_xi});
 
 	auto johnson_su = hydra::JohnsonSU<DecayTimeError>(johnson_gamma, johnson_delta, johnson_xi, johnson_lambda);
-
+	// use normalized JohnsonSU function
+	// auto johnson_su = hydra::make_pdf(
+	// 					hydra::JohnsonSU<DecayTimeError>(johnson_gamma, johnson_delta, johnson_xi, johnson_lambda), 
+	// 					hydra::AnalyticalIntegral<hydra::JohnsonSU<DecayTimeError>>(phsp.TimeErrorMin(), phsp.TimeErrorMax()) 
+	// 					);
+	// auto johnson_su = NormalizedJohnsonSU<DecayTimeError>(johnson_gamma, johnson_delta, johnson_xi, johnson_lambda, phsp.TimeErrorMin(), phsp.TimeErrorMax());
 	
 
-	auto model_dz = time_dependent_rate_with_time_resolution<Flavor::Positive,MSqPlus,MSqMinus,DecayTime,DecayTimeError>(tau,x,y,qop,phi,b,s,Adir,Abar,johnson_su)*efficiency; 
-	auto model_db = time_dependent_rate_with_time_resolution<Flavor::Negative,MSqPlus,MSqMinus,DecayTime,DecayTimeError>(tau,x,y,qop,phi,b,s,Adir,Abar,johnson_su)*efficiency;
+	// auto model_dz = time_dependent_rate_with_time_resolution<Flavor::Positive,MSqPlus,MSqMinus,DecayTime,DecayTimeError>(tau,x,y,qop,phi,b,s,Adir,Abar,johnson_su)*efficiency; 
+	// auto model_db = time_dependent_rate_with_time_resolution<Flavor::Negative,MSqPlus,MSqMinus,DecayTime,DecayTimeError>(tau,x,y,qop,phi,b,s,Adir,Abar,johnson_su)*efficiency;
+	auto model_dz = time_dependent_rate_with_time_resolution_pdf_type1<Flavor::Positive,MSqPlus,MSqMinus,DecayTime,DecayTimeError>(
+						tau,x,y,qop,phi,b,s,efficiency,Adir,Abar,johnson_su,
+						{phsp.MSqMin<1,2>(),phsp.MSqMax<1,2>()},
+						{phsp.MSqMin<1,3>(),phsp.MSqMax<1,3>()},
+						phsp.TimeRange(),
+						phsp.TimeErrorRange()); 
+	auto model_db = time_dependent_rate_with_time_resolution_pdf_type1<Flavor::Negative,MSqPlus,MSqMinus,DecayTime,DecayTimeError>(
+						tau,x,y,qop,phi,b,s,efficiency,Adir,Abar,johnson_su,
+						{phsp.MSqMin<1,2>(),phsp.MSqMax<1,2>()},
+						{phsp.MSqMin<1,3>(),phsp.MSqMax<1,3>()},
+						phsp.TimeRange(),
+						phsp.TimeErrorRange()); 
 
 	// for checking the parameters order when debugging
 	// typename decltype(model_dz)::argument_type  test{};
 	// std::cout << test.dummy << '\n';
+
+	// build pdf
+
+	// auto pdf_dz = hydra::make_pdf( model_dz, phsp.PlainIntegratorWithTimeAndTimeError(100*ncands_dz) );
+	// auto pdf_dz = hydra::make_pdf( model_dz, phsp.GenzMalikIntegratorWithTimeAndTimeError(5) );
+	
+	// the time_dependent_rate_with_time_resolution_pdf_type1 functor is a pdf itself, but the FCN needs 
+	// Pdf<functor, integrator> as input, therefore we add a dummy constant integrator, always returning 
+	// 1.0, here
+	auto pdf_dz = hydra::make_pdf( model_dz, ConstantIntegrator<hydra::device::sys_t>(1.0) ); 
+	std::cout << "Initial normalization for D0 PDF: "<< pdf_dz.GetNorm() << " +/- " << pdf_dz.GetNormError() << std::endl;
+	
+	// auto pdf_db = hydra::make_pdf( model_db, phsp.PlainIntegratorWithTimeAndTimeError(100*ncands_db) );
+	// auto pdf_db = hydra::make_pdf( model_db, phsp.GenzMalikIntegratorWithTimeAndTimeError(5) );
+	auto pdf_db = hydra::make_pdf( model_db, ConstantIntegrator<hydra::device::sys_t>(1.0) );
+	std::cout << "Initial normalization for D0bar PDF: "<< pdf_db.GetNorm() << " +/- " << pdf_db.GetNormError() << std::endl;
+
 
 	//---------------------------------------------------------------------------------------
 	// get input data from ROOT file
@@ -208,13 +242,6 @@ int main(int argc, char** argv)
 	// Build pdf and log-likelihood function from model
 	//---------------------------------------------------------------------------------------
 	std::cout << "***** Build likelihood" << std::endl;
-	auto pdf_dz = hydra::make_pdf( model_dz, phsp.PlainIntegratorWithTimeAndTimeError(100*ncands_dz) );
-	//auto pdf_dz = hydra::make_pdf( model_dz, phsp.GenzMalikIntegratorWithTimeAndTimeError(5) );
-	std::cout << "Initial normalization for D0 PDF: "<< pdf_dz.GetNorm() << " +/- " << pdf_dz.GetNormError() << std::endl;
-	
-	auto pdf_db = hydra::make_pdf( model_db, phsp.PlainIntegratorWithTimeAndTimeError(100*ncands_db) );
-	//auto pdf_db = hydra::make_pdf( model_db, phsp.GenzMalikIntegratorWithTimeAndTimeError(5) );
-	std::cout << "Initial normalization for D0bar PDF: "<< pdf_db.GetNorm() << " +/- " << pdf_db.GetNormError() << std::endl;
 	
 	auto fcn_dz = hydra::make_loglikehood_fcn( pdf_dz, data_dz.begin(), data_dz.end() );
 	auto fcn_db = hydra::make_loglikehood_fcn( pdf_db, data_db.begin(), data_db.end() );

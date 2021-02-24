@@ -17,6 +17,7 @@
 #include <THnSparse.h>
 
 #include <physics/Utils.h>
+#include <physics/Rate.h>
 
 namespace dafne {
 
@@ -855,6 +856,8 @@ public:
 		return histo;
 	}
 };
+
+
 
 
 }//dafne namespace
