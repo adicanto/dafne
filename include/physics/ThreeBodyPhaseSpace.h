@@ -8,8 +8,8 @@
 #include <hydra/SparseHistogram.h>
 #include <hydra/SeedRNG.h>
 #include <hydra/Vector4R.h>
-#include <hydra/functions/UniformShape.h>
 #include <hydra/functions/Exponential.h>
+#include <hydra/functions/UniformShape.h>
 #include <hydra/functions/Gaussian.h>
 #include <hydra/Plain.h>
 #include <hydra/GenzMalikQuadrature.h>
@@ -440,7 +440,7 @@ public:
 
 	template<typename MSq12, typename MSq13, typename MSq23, typename Time, typename Model>
 	__hydra_dual__ inline
-	auto GenerateDataWithTime(Model &model, size_t nevents, size_t rndseed=0)
+	auto GenerateDataWithTime(Model &model, size_t nevents, size_t rndseed=0, double y=-999, double Gamma=-999)
 	{
 		// Output container
 		hydra::multivector<hydra::tuple<MSq12,MSq13,MSq23,Time>, hydra::device::sys_t> data;
@@ -486,7 +486,18 @@ public:
 				
 		// Generated in bunches
 		auto uniform = hydra::UniformShape<Time>(TimeMin(),TimeMax());
+		auto uniform_for_exp_outline = hydra::UniformShape<double>(0,1);
+		// the inverse function of cdf of pdf(t) = (1-|y|) Gamma * e^[ -(1-|y|) Gamma t ], 
+		// used only when !(y!=-999 && Gamma!=-999), to sample time according to Jordi's 
+		// method
+		auto exp_outline_invcdf = hydra::wrap_lambda( [y, Gamma] __hydra_dual__ (double q)
+		{
+			Time t = std::log(1-q) / ( -(1.0-abs(y))*Gamma )  ;
+			return t;
+		});
+
 		hydra::device::vector<Time> time_data(10*n);
+		hydra::device::vector<Time> uniform_data(time_data.size());
 		auto phsp_events = Decays<hydra::Vector4R,hydra::Vector4R,hydra::Vector4R>(time_data.size());
 		do {
 			phsp_generator.SetSeed(seed());
@@ -496,15 +507,23 @@ public:
 			auto phsp_weight = phsp_events.GetEventWeightFunctor();
 
 			// Model weighting functor
-			auto dalitz_time_model = hydra::wrap_lambda( [&phsp_weight, &model] __hydra_dual__ (hydra::Vector4R a, hydra::Vector4R b, hydra::Vector4R c, Time t)
+			auto dalitz_time_model = hydra::wrap_lambda( [&phsp_weight, &model, y, Gamma] __hydra_dual__ (hydra::Vector4R a, hydra::Vector4R b, hydra::Vector4R c, Time t)
 			{
 				MSq12 m0 = (a+b).mass2();
 				MSq13 m1 = (a+c).mass2();
-				return phsp_weight(a,b,c) * model(hydra::tie(m0,m1,t));
+				double weight = phsp_weight(a,b,c) * model(hydra::tie(m0,m1,t));
+				if (y!=-999 && Gamma!=-999) return weight * 1. / ((1.-abs(y))*Gamma * exp(-(1-abs(y))*Gamma*t)); // weight under exponential outline
+				return weight;
 			});
 
-			// Add uniformuly generated decay time to phase-space data
-			hydra::fill_random( time_data, uniform, seed());
+			// generated decay time uniformuly when Gamma and y is not set, otherwise generate with the exp(-(1-abs(y))*Gamma*t)
+			// just like Jordi's code
+			if (!(y!=-999 && Gamma!=-999)) hydra::fill_random( time_data, uniform, seed()); 
+			else {
+				hydra::fill_random( uniform_data, uniform_for_exp_outline, seed()); // the RngFormula<Exponential> looks confusing, 
+				hydra::copy(uniform_data | exp_outline_invcdf, time_data);	    	// I would like to use the explicit invcdf lambda above
+			}
+			
 
 			auto events_with_time = phsp_events.Meld( time_data );
 
