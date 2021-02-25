@@ -100,7 +100,7 @@ int main( int argc, char** argv  )
 
 	// time dependent efficiency is ignored for the moment
 	auto efficiency = hydra::wrap_lambda(
-		[phsp, efficiency_hist] __hydra_dual__ (DecayTime tau, MSqPlus m2p, MSqMinus m2m) {
+		[phsp, efficiency_hist] __hydra_dual__ (MSqPlus m2p, MSqMinus m2m) {
 
 		// judge whether in phase space or not
 		if (!phsp.Contains<2,3>(m2p, m2m)) return 0.0;

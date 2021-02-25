@@ -326,21 +326,22 @@ auto time_dependent_rate_with_time_resolution_pdf_type1(hydra::Parameter const& 
 
 	// the hydra::wrap_lambda and hydra::compose() below would handle the parameter list of Adir and Abar automatically
 	auto _arrange = hydra::wrap_lambda(
-			  [] __hydra_dual__ (hydra::tuple< hydra::complex<double>, hydra::complex<double>, hydra::complex<double>, hydra::complex<double>, hydra::complex<double>, double, double > input_amplitudes){
-			  		auto _As = hydra::get<0>(input_amplitudes);
-			  		auto _Ad = hydra::get<1>(input_amplitudes);
-			  		auto _psi_p = hydra::get<2>(input_amplitudes);
-			  		auto _psi_m = hydra::get<3>(input_amplitudes);
-			  		auto _psi_i = hydra::get<4>(input_amplitudes);
-			  		auto _pdf_sigma_t = hydra::get<5>(input_amplitudes);
-			  		auto _int_on_dalitzplane_decaytime = hydra::get<6>(input_amplitudes);
+			  [] __hydra_dual__ (hydra::tuple< double, hydra::complex<double>, hydra::complex<double>, hydra::complex<double>, hydra::complex<double>, hydra::complex<double>, double, double > input_amplitudes){
+			  		auto _efficiency = hydra::get<0>(input_amplitudes);
+			  		auto _As = hydra::get<1>(input_amplitudes);
+			  		auto _Ad = hydra::get<2>(input_amplitudes);
+			  		auto _psi_p = hydra::get<3>(input_amplitudes);
+			  		auto _psi_m = hydra::get<4>(input_amplitudes);
+			  		auto _psi_i = hydra::get<5>(input_amplitudes);
+			  		auto _pdf_sigma_t = hydra::get<6>(input_amplitudes);
+			  		auto _int_on_dalitzplane_decaytime = hydra::get<7>(input_amplitudes);
 
-			  		return  ( norm(_As/2.)*_psi_p.real() + norm(_Ad/2.)*_psi_m.real() + (_As*_Ad/2.*_psi_i).real() ) * _pdf_sigma_t / _int_on_dalitzplane_decaytime;
+			  		return  _efficiency * ( norm(_As/2.)*_psi_p.real() + norm(_Ad/2.)*_psi_m.real() + (_As*_Ad/2.*_psi_i).real() ) * _pdf_sigma_t / _int_on_dalitzplane_decaytime;
 
 			  }
 	);
 	
-	return hydra::compose(_arrange, As, Ad, psi_p, psi_m, psi_i, pdf_sigma_t, int_on_dalitzplane_decaytime);
+	return hydra::compose(_arrange, efficiency, As, Ad, psi_p, psi_m, psi_i, pdf_sigma_t, int_on_dalitzplane_decaytime);
 
 
 	// auto _arrange = hydra::wrap_lambda(
