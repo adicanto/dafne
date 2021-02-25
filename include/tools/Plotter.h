@@ -67,7 +67,7 @@ protected:
 		((TAttMarker*)att_keeper)->Copy(*h);
 	}
 	
-	TH2D* fill_pull_histogram(const TH2D *hdat, const TH2D *hfit, const char *name, const bool considerefit=0)
+	TH2D* fill_pull_histogram(const TH2D *hdat, const TH2D *hfit, const char *name, const bool considerefit=1)
 	{
 		TH2D *hpull = (TH2D*) hdat->Clone(name);
 		hpull->Reset();
@@ -95,7 +95,7 @@ protected:
 		return hpull;
 	}
 
-	TH1D* fill_pull_histogram(const TH1D *hdat, const TH1D *hfit, const char *name, const bool considerefit=0)
+	TH1D* fill_pull_histogram(const TH1D *hdat, const TH1D *hfit, const char *name, const bool considerefit=1)
 	{
 		TH1D *hpull = (TH1D*) hdat->Clone(name);
 		hpull->Reset();
