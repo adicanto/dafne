@@ -833,7 +833,7 @@ public:
 	// to find a proper pdfmax.
 	template<typename MSq12, typename MSq13, typename MSq23, typename Time, typename TimeError, typename ModelTruth, typename PDFSIGMAT>
 	__hydra_dual__ inline
-	auto GenerateDataWithTimeAndTimeErrorFast1(ModelTruth &modelTruth, double b, double s, PDFSIGMAT const& pdf_sigma_t,  size_t nevents, size_t rndseed=0, bool debug=false)
+	auto GenerateDataWithTimeAndTimeErrorFast1(ModelTruth &modelTruth, double b, double s, PDFSIGMAT const& pdf_sigma_t,  size_t nevents, size_t rndseed=0,  double y=-999, double Gamma=-999, bool debug=false)
 	{
 			// Output container
 		hydra::multivector<hydra::tuple<MSq12,MSq13,MSq23,Time,TimeError>, hydra::device::sys_t> data;
@@ -877,9 +877,19 @@ public:
 				
 		// Generated in bunches
 		auto uniform = hydra::UniformShape<Time>(0,TimeMax()*10); // truth level decay-time axis should start from 0
+		auto uniform_for_exp_outline = hydra::UniformShape<double>(0,1); // information of this sampling method could be found in GenerateDataWithTime()
+		auto exp_outline_invcdf = hydra::wrap_lambda( [y, Gamma] __hydra_dual__ (double q)
+		{
+			Time t = std::log(1-q) / ( -(1.0-abs(y))*Gamma )  ;
+			return t;
+		});
+
+
+
 		auto gaus = hydra::Gaussian<double>(b,s);
 
 		hydra::multivector< hydra::tuple<Time, TimeError, double> , hydra::device::sys_t> time_data(10*n);
+		hydra::device::vector<Time> uniform_data(time_data.size());
 		auto phsp_events = Decays<hydra::Vector4R,hydra::Vector4R,hydra::Vector4R>(time_data.size());
 
 
@@ -902,7 +912,7 @@ public:
 			auto phsp_weight = phsp_events.GetEventWeightFunctor();
 
 			// Model weighting functor
-			auto dalitz_time_model = hydra::wrap_lambda( [&phsp_weight, &modelTruth, this] __hydra_dual__ (hydra::Vector4R a, hydra::Vector4R b, hydra::Vector4R c, Time t, TimeError sigma_t, double dtDsigmat)
+			auto dalitz_time_model = hydra::wrap_lambda( [&phsp_weight, &modelTruth, y, Gamma, this] __hydra_dual__ (hydra::Vector4R a, hydra::Vector4R b, hydra::Vector4R c, Time t, TimeError sigma_t, double dtDsigmat)
 			{
 				// judge in range
 				TimeError tsmear = dtDsigmat * sigma_t;
@@ -912,11 +922,21 @@ public:
 
 				MSq12 m0 = (a+b).mass2();
 				MSq13 m1 = (a+c).mass2();
-				return phsp_weight(a,b,c) * modelTruth(hydra::tie(m0,m1,t));
+				double weight = phsp_weight(a,b,c) * modelTruth(hydra::tie(m0,m1,t));
+
+				if (y!=-999 && Gamma!=-999) return weight * 1. / ((1.-abs(y))*Gamma * exp(-(1-abs(y))*Gamma*t)); // weight under exponential outline
+				return weight;
 			});
 
 			// Add uniformuly generated decay time to phase-space data
-			hydra::fill_random(time_data.begin(hydra::placeholders::_0), time_data.end(hydra::placeholders::_0), uniform, seed());
+
+			if (!(y!=-999 && Gamma!=-999)) hydra::fill_random(time_data.begin(hydra::placeholders::_0), time_data.end(hydra::placeholders::_0), uniform, seed());
+			else {
+				hydra::fill_random( uniform_data, uniform_for_exp_outline, seed()); 
+				auto time_data_temp = uniform_data | exp_outline_invcdf;
+				hydra::copy(time_data_temp.begin(), time_data_temp.end(), time_data.begin(hydra::placeholders::_0));	    	
+			}
+			
 
 			// sample sigma_t 
 			hydra::fill_random(time_data.begin(hydra::placeholders::_1), time_data.end(hydra::placeholders::_1), pdf_sigma_t, seed());
