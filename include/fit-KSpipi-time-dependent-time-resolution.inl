@@ -126,13 +126,13 @@ int main(int argc, char** argv)
 
 	config.ConfigureTimeResolutionParameters({&b, &s, &johnson_delta, &johnson_lambda, &johnson_gamma, &johnson_xi});
 
-	auto johnson_su = hydra::JohnsonSU<DecayTimeError>(johnson_gamma, johnson_delta, johnson_xi, johnson_lambda);
+	// auto johnson_su = hydra::JohnsonSU<DecayTimeError>(johnson_gamma, johnson_delta, johnson_xi, johnson_lambda);
 	// use normalized JohnsonSU function
 	// auto johnson_su = hydra::make_pdf(
 	// 					hydra::JohnsonSU<DecayTimeError>(johnson_gamma, johnson_delta, johnson_xi, johnson_lambda), 
 	// 					hydra::AnalyticalIntegral<hydra::JohnsonSU<DecayTimeError>>(phsp.TimeErrorMin(), phsp.TimeErrorMax()) 
 	// 					);
-	// auto johnson_su = NormalizedJohnsonSU<DecayTimeError>(johnson_gamma, johnson_delta, johnson_xi, johnson_lambda, phsp.TimeErrorMin(), phsp.TimeErrorMax());
+	auto johnson_su = NormalizedJohnsonSU<DecayTimeError>(johnson_gamma, johnson_delta, johnson_xi, johnson_lambda, phsp.TimeErrorMin(), phsp.TimeErrorMax());
 	
 
 	// auto model_dz = time_dependent_rate_with_time_resolution<Flavor::Positive,MSqPlus,MSqMinus,DecayTime,DecayTimeError>(tau,x,y,qop,phi,b,s,Adir,Abar,johnson_su)*efficiency; 
@@ -149,6 +149,9 @@ int main(int argc, char** argv)
 						{phsp.MSqMin<1,3>(),phsp.MSqMax<1,3>()},
 						phsp.TimeRange(),
 						phsp.TimeErrorRange()); 
+
+
+
 
 	// for checking the parameters order when debugging
 	// typename decltype(model_dz)::argument_type  test{};
@@ -295,7 +298,30 @@ int main(int argc, char** argv)
 		// get the fitted model_dz
 		fcn_dz.GetParameters().UpdateParameters(minimum);
 		auto model_dz_fitted = fcn_dz.GetPDF().GetFunctor();
-		model_dz_fitted.PrintRegisteredParameters();
+		auto fitted_parameters = fcn_dz.GetParameters().GetVariables();
+		// model_dz_fitted.PrintRegisteredParameters();
+
+
+		// model for ploting
+
+		auto model_truth_dz = time_dependent_rate<Flavor::Positive,DecayTime>(tau,x,y,qop,phi,Adir,Abar)*efficiency; 
+		// auto model_truth_db = time_dependent_rate<Flavor::Negative,DecayTime>(tau,x,y,qop,phi,Adir,Abar)*efficiency;
+
+		// build a dummy fcn to easily synchronize the plotting model and fitting model
+		hydra::multivector<hydra::tuple<MSqPlus,MSqMinus,DecayTime>, hydra::device::sys_t> data_dummy;
+		data_dummy.push_back(hydra::make_tuple(MSqPlus(1.0),MSqMinus(1.0), DecayTime(0.2)));
+		auto dummy_fcn_for_plotting = hydra::make_loglikehood_fcn( hydra::make_pdf( model_truth_dz, ConstantIntegrator<hydra::device::sys_t>(1.0)) ,
+													 data_dummy.begin(),
+													 data_dummy.end());
+		dummy_fcn_for_plotting.GetParameters().UpdateParameters(minimum);
+		auto model_truth_dz_fitted = dummy_fcn_for_plotting.GetPDF().GetFunctor();
+
+		auto johnson_su_for_plot = hydra::JohnsonSU<DecayTimeError>(MinuitTools::GetParameterPointer(fitted_parameters, "johnson_gamma")->GetValue(), 
+																	MinuitTools::GetParameterPointer(fitted_parameters, "johnson_delta")->GetValue(), 
+																	MinuitTools::GetParameterPointer(fitted_parameters, "johnson_xi")->GetValue(), 
+																	MinuitTools::GetParameterPointer(fitted_parameters, "johnson_lambda")->GetValue());
+
+		// "turth level" model without sigma_t, but ... ... includes efficiency plane
 
 		auto data = data_dz;
 		// uncomment the line below, then data_dz + data_db will be plotted together with model_dz ignoring the CPV
@@ -306,10 +332,16 @@ int main(int argc, char** argv)
 		if (args.interactive) myapp = new TApplication("myapp",0,0);
 
 		// plot dalitz distribution 
-		auto plotter = DalitzPlotterWithTimeAndTimeError<MSqPlus, MSqMinus, MSqZero, DecayTime, DecayTimeError>(phsp,"#it{K}^{0}_{S}","#it{#pi}^{+}","#it{#pi}^{#minus}",(args.prlevel>3));
 
 		std::string outfilename = args.outdir + outprefix + "-HIST.root";
-		plotter.FillHistograms(data, model_dz_fitted, outfilename, args.plotnbins); 
+		auto plotter = DalitzPlotterWithTimeAndTimeError<MSqPlus, MSqMinus, MSqZero, DecayTime, DecayTimeError>(phsp,"#it{K}^{0}_{S}","#it{#pi}^{+}","#it{#pi}^{#minus}",(args.prlevel>3));
+		// plotter.FillHistograms(data, model_dz_fitted, outfilename, args.plotnbins); 
+		size_t nbins = 50;
+		plotter.FillDataHistogram(data, nbins);
+		plotter.FillModelHistogramFast1(model_truth_dz_fitted, b(), s(), johnson_su_for_plot, nbins, 0, 
+										MinuitTools::GetParameterPointer(fitted_parameters, "y")->GetValue(), 
+										MinuitTools::GetParameterPointer(fitted_parameters, "tau")->GetValue());
+		if (outfilename != "") plotter.SaveHistograms(outfilename);
 		plotter.SetCustomAxesTitles("#it{m}^{2}_{+} [GeV^{2}/#it{c}^{4}]","#it{m}^{2}_{#minus} [GeV^{2}/#it{c}^{4}]","#it{m}^{2}_{#it{#pi#pi}} [GeV^{2}/#it{c}^{4}]");
 
 		// 1D Projection for dalitz distribution

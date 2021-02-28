@@ -228,7 +228,11 @@ int main( int argc, char** argv  )
 		auto plotter = DalitzPlotterWithTimeAndTimeError<MSqPlus, MSqMinus, MSqZero, DecayTime, DecayTimeError>(phsp,"#it{K}^{0}_{S}","#it{#pi}^{+}","#it{#pi}^{#minus}",(args.prlevel>3));
 
 		std::string outfilename = args.outdir + outprefix + "-HIST.root";
-		plotter.FillHistograms(data, model_dz, outfilename, args.plotnbins); 
+		// plotter.FillHistograms(data, model_dz, outfilename, args.plotnbins); 
+		size_t nbins = 50;
+		plotter.FillDataHistogram(data, nbins);
+		plotter.FillModelHistogramFast1(model_truth_dz, b(), s(), johnson_su, nbins, 0, y(), 1./tau());
+		if (outfilename != "") plotter.SaveHistograms(outfilename);
 		plotter.SetCustomAxesTitles("#it{m}^{2}_{+} [GeV^{2}/#it{c}^{4}]","#it{m}^{2}_{#minus} [GeV^{2}/#it{c}^{4}]","#it{m}^{2}_{#it{#pi#pi}} [GeV^{2}/#it{c}^{4}]");
 
 		// plotting procedure

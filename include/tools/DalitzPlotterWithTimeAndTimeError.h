@@ -17,6 +17,17 @@ private:
 		return h;
 	}
 
+	template<typename ModelTruth, typename PDFSIGMAT>
+	THnSparseD *fill_histogram_fast1(ModelTruth const &modelTruth, double b, double s, PDFSIGMAT const& pdf_sigma_t, size_t n, size_t nbins=200, size_t rndseed=0, double y=-999, double Gamma=-999)
+	{
+		auto histo = _phsp.GenerateSparseHistogramWithTimeAndTimeErrorFast1<MSq12, MSq13, MSq23, Time, TimeError>(modelTruth, b, s, pdf_sigma_t, n, nbins, rndseed, y, Gamma);
+
+		auto h = _phsp.RootHistogramWithTimeAndTimeError(_labels[0].c_str(), _labels[1].c_str(), _labels[2].c_str(), nbins);
+		fill_root_histogram(h,histo);
+		return h;
+	}
+
+
 public:
 	DalitzPlotterWithTimeAndTimeError() = delete;
 
@@ -73,6 +84,32 @@ public:
 
 		return _h_model;
 	}
+
+	template<typename ModelTruth, typename PDFSIGMAT>
+	THnSparseD* FillModelHistogramFast1(ModelTruth & model, double b, double s, PDFSIGMAT const& pdf_sigma_t, const size_t nbins=200, size_t rndseed=0, double y=-999, double Gamma=-999, Int_t lineColor=kRed, Int_t lineStyle=kSolid)
+	{
+		std::cout << "Filling histogram for model..." << std::flush;
+
+		if (!_h_data) {
+			std::cout << "WARNING: data histograms has not been filled, the model histogram cannot be correctly normalized." << std::endl;
+			_h_model = fill_histogram(model,5000000, nbins);
+		} else {
+			double ndata = get_integral(_h_data);
+			double nevents = (ndata<5e5) ? 1e7 : 20.*ndata;
+			_h_model = fill_histogram_fast1(model, b, s, pdf_sigma_t,nevents, nbins, rndseed, y, Gamma);
+			_h_model->Scale( ndata/get_integral(_h_model) );
+		}
+
+		_h_model->SetName("h_model");
+		_h_model->SetTitle("Total");
+		_att_keeper_model.SetLineColor(lineColor);
+		_att_keeper_model.SetLineStyle(lineStyle);
+
+		std::cout << " done" << std::endl ;
+
+		return _h_model;
+	}
+
 
 	template<typename T1, typename T2>
 	void FillHistograms(T1 & data, T2 & model, const std::string outfilename="", const size_t nbins=200, const bool plotComponents=false)

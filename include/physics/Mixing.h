@@ -193,7 +193,7 @@ public:
 
 		} else if (Tag == PSI_I) {
 			double x = suffix();
-			std::complex<double> kappa_i(Gamma()*s()*sigma_t, -x*Gamma()*s()*sigma_t); 
+			std::complex<double> kappa_i(Gamma()*s()*sigma_t, x*Gamma()*s()*sigma_t); 
 			std::complex<double> result = _psi(chi, kappa_i);
 			return result;
 		}
@@ -284,7 +284,7 @@ public:
 
 		double kappa_p = (1+y())*Gamma()*sigma;
 		double kappa_m = (1-y())*Gamma()*sigma;
-		std::complex<double> kappa_i(Gamma()*sigma, -x()*Gamma()*sigma); 
+		std::complex<double> kappa_i(Gamma()*sigma, x()*Gamma()*sigma); 
 		
 		double first_term = fAsumD2Sq_int * (_int_psi_dt(sigma, chi1, kappa_p) - _int_psi_dt(sigma, chi0, kappa_p));
 		double second_term = fAdiffD2Sq_int * (_int_psi_dt(sigma, chi1, kappa_m) - _int_psi_dt(sigma, chi0, kappa_m));
