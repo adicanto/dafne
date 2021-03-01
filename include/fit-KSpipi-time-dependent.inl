@@ -247,6 +247,7 @@ int main(int argc, char** argv)
 		// get the fitted model_dz
 		fcn_dz.GetParameters().UpdateParameters(minimum);
 		auto model_dz_fitted = fcn_dz.GetPDF().GetFunctor();
+		auto fitted_parameters = fcn_dz.GetParameters().GetVariables();
 		model_dz_fitted.PrintRegisteredParameters();
 
 		// data_dz + data_db are plotted with model_dz ignoring the CPV
@@ -261,7 +262,13 @@ int main(int argc, char** argv)
 		auto plotterWithTime = DalitzPlotterWithTime<MSqPlus, MSqMinus, MSqZero, DecayTime>(phsp,"#it{K}^{0}_{S}","#it{#pi}^{+}","#it{#pi}^{#minus}",(args.prlevel>3));
 
 		std::string outfilename = args.outdir + outprefix + "-HIST.root";
-		plotterWithTime.FillHistograms(data, model_dz_fitted, outfilename, args.plotnbins); 
+		//plotterWithTime.FillHistograms(data, model_dz_fitted, outfilename, args.plotnbins); 
+		plotterWithTime.FillDataHistogram(data, args.plotnbins);
+		plotterWithTime.FillModelHistogram(model_dz_fitted,
+										   MinuitTools::GetParameterPointer(fitted_parameters, "y")->GetValue(), 
+										   MinuitTools::GetParameterPointer(fitted_parameters, "tau")->GetValue(),
+										   args.plotnbins);
+		if (outfilename != "") plotterWithTime.SaveHistograms(outfilename);
 		plotterWithTime.SetCustomAxesTitles("#it{m}^{2}_{+} [GeV^{2}/#it{c}^{4}]","#it{m}^{2}_{#minus} [GeV^{2}/#it{c}^{4}]","#it{m}^{2}_{#it{#pi#pi}} [GeV^{2}/#it{c}^{4}]");
 
 		// 1D Projection for dalitz distribution

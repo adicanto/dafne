@@ -106,6 +106,13 @@ void CheckFCN(T & fcn)
 
 }
 
+hydra::Parameter * GetParameterPointer(std::vector<hydra::Parameter*> & parameters, const char* name)
+{
+    for (size_t i = 0; i < parameters.size(); ++i) {
+        if (std::string(name) == std::string(parameters[i]->GetName())) return parameters[i];
+    }
+    return NULL;
+}
 
 TGraph* ContourToTGraph(std::vector<std::pair<double,double> > contourPoints, const char * name="contour", const bool percentage=0)
 {
