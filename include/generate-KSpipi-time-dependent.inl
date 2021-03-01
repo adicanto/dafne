@@ -84,12 +84,14 @@ int main( int argc, char** argv  )
 	// efficiency plane described by irregular binning 2D histogram
 	ArbitraryBinningHistogram2D efficiency_hist = config.ConfigureEfficiencyHistogram();
 
-	// move to the plotting part after the plotting part is ready
+	// build and check the efficiency plane
 	TCanvas cefficiency("cefficiency", "cefficiency", 800, 600);
 	gStyle->SetOptStat(0);
 	gPad->SetRightMargin(0.15);
-	efficiency_hist.Draw((outprefix + "_efficiency_hist").c_str(), 100);
-	Print::Canvas(cefficiency,  args.outdir + outprefix + "efficiency_hist");
+	efficiency_hist.GetTH2D((outprefix + "_efficiency_hist").c_str(), 
+		                    (outprefix + "_efficiency_hist").c_str(),
+		                    "m^{2}_{#it{#pi#pi}} [GeV^{2}/#it{c}^{4}]", "cos(#theta_{#it{#pi#pi}})")->Draw("COLZ");
+	Print::Canvas(cefficiency,  args.outdir + outprefix + "_efficiency_hist");
 	gStyle->SetOptStat(1);
 
 	// time dependent efficiency is ignored for the moment

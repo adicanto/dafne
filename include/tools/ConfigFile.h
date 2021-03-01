@@ -392,17 +392,15 @@ public:
 
 		return vs;
 
-	};
+	}
 
 
 	ArbitraryBinningHistogram2D ConfigureEfficiencyHistogram()
 	{
 		ParseEfficiencyHistogramSetting();
 
-		std::vector<double> xhighs;
-		std::vector<double> xlows;
-		std::vector<double> yhighs;
-		std::vector<double> ylows;
+		std::vector<double> xticks;
+		std::vector<double> yticks;
 		std::vector< std::vector<double> > zs;
 		std::vector< std::vector<double> > zerrors;
 
@@ -435,33 +433,17 @@ public:
 
 			if (_debug) std::cout << "handling: " << indicator << std::endl;
 
-			if (indicator == "XLows:") {
+			if (indicator == "XTicks:") {
 
-				xlows = ParseLineToVector(is_eff.str(), 1);
-				nx = xlows.size(); // need to add some judgement here to judgement the dimensions are consistent
-				i_eff++;
-
-
-				continue;
-
-			} else if (indicator == "XHighs:") {
-
-				xhighs = ParseLineToVector(is_eff.str(), 1);
-				nx = xhighs.size();
+				xticks = ParseLineToVector(is_eff.str(), 1);
+				nx = xticks.size()-1; // need to add some judgement here to judgement the dimensions are consistent
 				i_eff++;
 				continue;
 
-			} else if (indicator == "YLows:") {
+			} else if (indicator == "YTicks:") {
 
-				ylows = ParseLineToVector(is_eff.str(), 1);
-				ny = ylows.size();
-				i_eff++;
-				continue;
-
-			} else if (indicator == "YHighs:") {
-
-				yhighs = ParseLineToVector(is_eff.str(), 1);
-				ny = yhighs.size();
+				yticks = ParseLineToVector(is_eff.str(), 1);
+				ny = yticks.size()-1;
 				i_eff++;
 				continue;
 
@@ -474,10 +456,10 @@ public:
 					exit(-1);
 				}
 
-				std::vector< std::vector<double> > zs_in;
+				std::vector< std::vector<double> > zs_in(ny);
 				for (int i = 0; i < ny; ++i) {
 					std::istringstream is_eff_sub(_efficiencyHistogramLines[i_eff+i]);
-					zs_in.push_back(ParseLineToVector(is_eff_sub.str()));
+					zs_in[ny-1-i] = ParseLineToVector(is_eff_sub.str());
 				}
 
 				zs = Transpose(zs_in);
@@ -496,10 +478,10 @@ public:
 				}
 
 
-				std::vector< std::vector<double> > zerrors_in;
+				std::vector< std::vector<double> > zerrors_in(ny);
 				for (int i = 0; i < ny; ++i) {
 					std::istringstream is_eff_sub(_efficiencyHistogramLines[i_eff+i]);
-					zerrors_in.push_back(ParseLineToVector(is_eff_sub.str()));
+					zerrors_in[ny-1-i] = ParseLineToVector(is_eff_sub.str());
 				}
 
 				zerrors = Transpose(zerrors_in);
@@ -517,12 +499,11 @@ public:
 
 		}
 
-		ArbitraryBinningHistogram2D hist(nx, ny, xlows, xhighs, ylows, yhighs, zs, zerrors);
+		ArbitraryBinningHistogram2D hist(xticks, yticks, zs, zerrors);
 		return hist;
 
 
 	}
-
 
 };
 
