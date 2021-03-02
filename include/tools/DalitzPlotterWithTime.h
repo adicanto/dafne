@@ -8,9 +8,9 @@ private:
 
 	// Fill amplitude histogram
 	template<typename Model>
-	THnSparseD *fill_histogram(Model const &model, size_t n, size_t nbins=200,  double y=-999, double Gamma=-999)
+	THnSparseD *fill_histogram(Model const &model, double tau, double y, size_t n, size_t nbins=200)
 	{
-		auto histo = _phsp.GenerateSparseHistogramWithTime<MSq12, MSq13, MSq23, Time>(model, n, nbins, y, Gamma);
+		auto histo = _phsp.GenerateSparseHistogramWithTime<MSq12, MSq13, MSq23, Time>(model, tau, y, n, nbins);
 
 		auto h = _phsp.RootHistogramWithTime(_labels[0].c_str(), _labels[1].c_str(), _labels[2].c_str(), nbins);
 		fill_root_histogram(h,histo);
@@ -50,17 +50,17 @@ public:
 	}
 
 	template<typename T>
-	THnSparseD* FillModelHistogram(T & model, double y=-999, double Gamma=-999, const size_t nbins=200, Int_t lineColor=kRed, Int_t lineStyle=kSolid)
+	THnSparseD* FillModelHistogram(T & model, double tau, double y, const size_t nbins=200, Int_t lineColor=kRed, Int_t lineStyle=kSolid)
 	{
 		std::cout << "Filling histogram for model..." << std::flush;
 
 		if (!_h_data) {
 			std::cout << "WARNING: data histograms has not been filled, the model histogram cannot be correctly normalized." << std::endl;
-			_h_model = fill_histogram(model,5000000, nbins, y, Gamma);
+			_h_model = fill_histogram(model, tau, y, 5000000, nbins);
 		} else {
 			double ndata = get_integral(_h_data);
 			double nevents = (ndata<5e5) ? 10*5e5 : 10*ndata;
-			_h_model = fill_histogram(model, nevents, nbins, y, Gamma);
+			_h_model = fill_histogram(model, tau, y, nevents, nbins);
 			_h_model->Scale( ndata/get_integral(_h_model) );
 		}
 

@@ -265,8 +265,8 @@ int main(int argc, char** argv)
 		//plotterWithTime.FillHistograms(data, model_dz_fitted, outfilename, args.plotnbins); 
 		plotterWithTime.FillDataHistogram(data, args.plotnbins);
 		plotterWithTime.FillModelHistogram(model_dz_fitted,
-										   MinuitTools::GetParameterPointer(fitted_parameters, "y")->GetValue(), 
 										   MinuitTools::GetParameterPointer(fitted_parameters, "tau")->GetValue(),
+										   MinuitTools::GetParameterPointer(fitted_parameters, "y")->GetValue(), 
 										   args.plotnbins);
 		if (outfilename != "") plotterWithTime.SaveHistograms(outfilename);
 		plotterWithTime.SetCustomAxesTitles("#it{m}^{2}_{+} [GeV^{2}/#it{c}^{4}]","#it{m}^{2}_{#minus} [GeV^{2}/#it{c}^{4}]","#it{m}^{2}_{#it{#pi#pi}} [GeV^{2}/#it{c}^{4}]");

@@ -124,10 +124,10 @@ int main( int argc, char** argv  )
 	auto start = std::chrono::high_resolution_clock::now();	
 
 	// auto data_dz = phsp.GenerateDataWithTime<MSqPlus,MSqMinus,MSqZero,DecayTime>(model_dz,args.nevents,args.seed);
-	auto data_dz = phsp.GenerateDataWithTime<MSqPlus,MSqMinus,MSqZero,DecayTime>(model_dz,args.nevents,args.seed  ,y(),1./tau());
+	auto data_dz = phsp.GenerateDataWithTime<MSqPlus,MSqMinus,MSqZero,DecayTime>(model_dz, tau(), y(), args.nevents, args.seed);
 	std::cout << "Generated " << data_dz.size() << " D0 candidates." << std::endl;
 	// auto data_db = phsp.GenerateDataWithTime<MSqPlus,MSqMinus,MSqZero,DecayTime>(model_db,args.nevents,args.seed+1);
-	auto data_db = phsp.GenerateDataWithTime<MSqPlus,MSqMinus,MSqZero,DecayTime>(model_db,args.nevents,args.seed+1,y(),1./tau());
+	auto data_db = phsp.GenerateDataWithTime<MSqPlus,MSqMinus,MSqZero,DecayTime>(model_db, tau(), y(), args.nevents, args.seed+1);
 	std::cout << "Generated " << data_db.size() << " D0bar candidates." << std::endl;
 
 
@@ -203,7 +203,7 @@ int main( int argc, char** argv  )
 		std::string outfilename = args.outdir + outprefix + "-HIST.root";
 		//plotterWithTime.FillHistograms(data, model_dz, outfilename, args.plotnbins); 
 		plotterWithTime.FillDataHistogram(data, args.plotnbins);
-		plotterWithTime.FillModelHistogram(model_dz, y(), 1./tau(), args.plotnbins); 
+		plotterWithTime.FillModelHistogram(model_dz, tau(), y(), args.plotnbins); 
 		// plotterWithTime.FillModelHistogram(model_dz, y(), 1./tau()); 
 		if (outfilename != "") plotterWithTime.SaveHistograms(outfilename);
 		plotterWithTime.SetCustomAxesTitles("#it{m}^{2}_{+} [GeV^{2}/#it{c}^{4}]","#it{m}^{2}_{#minus} [GeV^{2}/#it{c}^{4}]","#it{m}^{2}_{#it{#pi#pi}} [GeV^{2}/#it{c}^{4}]");

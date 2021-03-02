@@ -436,8 +436,11 @@ public:
 
 	template<typename MSq12, typename MSq13, typename MSq23, typename Time, typename Model>
 	__hydra_dual__ inline
-	auto GenerateDataWithTime(Model &model, size_t nevents, size_t rndseed=0, double y=-999, double Gamma=-999)
+	auto GenerateDataWithTime(Model &model, double tau, double y, size_t nevents, size_t rndseed=0)
 	{
+		// convert tau to Gamma
+		double Gamma = 1. / tau;
+
 		// Output container
 		hydra::multivector<hydra::tuple<MSq12,MSq13,MSq23,Time>, hydra::device::sys_t> data;
 
@@ -510,17 +513,12 @@ public:
 				MSq12 m0 = (a+b).mass2();
 				MSq13 m1 = (a+c).mass2();
 				double weight = phsp_weight(a,b,c) * model(hydra::tie(m0,m1,t));
-				if (y!=-999 && Gamma!=-999) return weight * 1. / ((1.-abs(y))*Gamma * exp(-(1-abs(y))*Gamma*t)); // weight under exponential outline
-				return weight;
+				return weight * 1. / exp(-(1-abs(y))*Gamma*t); // weight under exponential outline
 			});
 
-			// generated decay time uniformuly when Gamma and y is not set, otherwise generate with the exp(-(1-abs(y))*Gamma*t)
-			// just like Jordi's code
-			if (!(y!=-999 && Gamma!=-999)) hydra::fill_random( time_data, uniform, seed()); 
-			else {
-				hydra::fill_random( uniform_data, uniform_for_exp_outline, seed()); // the RngFormula<Exponential> looks confusing, 
-				hydra::copy(uniform_data | exp_outline_invcdf, time_data);	    	// I would like to use the explicit invcdf lambda above
-			}
+			// generated decay time from the exp(-(1-abs(y))*Gamma*t) distribution, just like Jordi's code
+			hydra::fill_random( uniform_data, uniform_for_exp_outline, seed()); // the RngFormula<Exponential> looks confusing, 
+			hydra::copy(uniform_data | exp_outline_invcdf, time_data);	    	// I would like to use the explicit invcdf lambda above
 			
 
 			auto events_with_time = phsp_events.Meld( time_data );
@@ -543,8 +541,11 @@ public:
 
 	template<typename MSq12, typename MSq13, typename MSq23, typename Time, typename Model>
 	__hydra_dual__ inline
-	auto GenerateSparseHistogramWithTime(Model &model, size_t nevents, size_t nbins=300, double y=-999, double Gamma=-999, size_t rndseed=0)
+	auto GenerateSparseHistogramWithTime(Model &model, double tau, double y, size_t nevents, size_t nbins=300, size_t rndseed=0)
 	{
+		// convert tau to Gamma
+		double Gamma = 1. / tau;
+
 		// Functor to compute Dalitz variables from 4-momenta
 		auto dalitz_calculator = hydra::wrap_lambda( [] __hydra_dual__ (hydra::Vector4R a, hydra::Vector4R b, hydra::Vector4R c, Time t)
 		{
@@ -575,12 +576,9 @@ public:
 		});
 
 
+		hydra::fill_random( uniform_data, uniform_for_exp_outline, seed());
+		hydra::copy(uniform_data | exp_outline_invcdf, time_data);
 
-		if (!(y!=-999 && Gamma!=-999)) hydra::fill_random( time_data, uniform, seed()); 
-		else {
-			hydra::fill_random( uniform_data, uniform_for_exp_outline, seed());
-			hydra::copy(uniform_data | exp_outline_invcdf, time_data);
-		}
 
 		auto events = phsp_events.Meld( time_data );
 
@@ -593,8 +591,7 @@ public:
 			MSq12 m0 = (a+b).mass2();
 			MSq13 m1 = (a+c).mass2();
 			double weight = phsp_weight(a,b,c) * model(hydra::tie(m0,m1,t));
-			if (y!=-999 && Gamma!=-999) return weight * 1. / ((1.-abs(y))*Gamma * exp(-(1-abs(y))*Gamma*t)); // weight under exponential outline
-			return weight;
+			return weight * 1. / exp(-(1-abs(y))*Gamma*t); // weight under exponential outline
 		});
 
 		// Compute Dalitz variables and weights
