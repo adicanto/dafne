@@ -510,7 +510,7 @@ public:
 				MSq12 m0 = (a+b).mass2();
 				MSq13 m1 = (a+c).mass2();
 				double weight = phsp_weight(a,b,c) * model(hydra::tie(m0,m1,t));
-				if (y!=-999 && Gamma!=-999) return weight * 1. / ((1.-abs(y))*Gamma * exp(-(1-abs(y))*Gamma*t)); // weight under exponential outline
+				if (y!=-999 && Gamma!=-999) return weight * 1. / exp(-(1-abs(y))*Gamma*t); // weight under exponential outline
 				return weight;
 			});
 
@@ -593,7 +593,7 @@ public:
 			MSq12 m0 = (a+b).mass2();
 			MSq13 m1 = (a+c).mass2();
 			double weight = phsp_weight(a,b,c) * model(hydra::tie(m0,m1,t));
-			if (y!=-999 && Gamma!=-999) return weight * 1. / ((1.-abs(y))*Gamma * exp(-(1-abs(y))*Gamma*t)); // weight under exponential outline
+			if (y!=-999 && Gamma!=-999) return weight * 1. / exp(-(1-abs(y))*Gamma*t); // weight under exponential outline
 			return weight;
 		});
 
