@@ -230,19 +230,19 @@ auto time_dependent_rate_with_time_resolution_pdf(hydra::Parameter const& tau, h
 
 	auto rcp = QoverP<Tag>(qop,phi);
 
-	auto AlphaSq = efficiency * rate(Adir);
-	auto BetaSq = efficiency * rate(rcp * Abar);
-	auto AlphaBetaStar_real = efficiency * real_part(Adir * conjugate(rcp * Abar)); 
-	auto AlphaBetaStar_imag = efficiency * imag_part(Adir * conjugate(rcp * Abar)); 
+	auto AdirSq = efficiency * rate(Adir);
+	auto AbarSq = efficiency * rate(rcp * Abar);
+	auto AdirAbarStar_real = efficiency * real_part(Adir * conjugate(rcp * Abar)); 
+	auto AdirAbarStar_imag = efficiency * imag_part(Adir * conjugate(rcp * Abar)); 
 	
-	double AlphaSq_int = PlainDalitzMC.Integrate(AlphaSq).first;
-	double BetaSq_int = PlainDalitzMC.Integrate(BetaSq).first;
-	double AlphaBetaStar_real_int = PlainDalitzMC.Integrate(AlphaBetaStar_real).first;
-	double AlphaBetaStar_imag_int = PlainDalitzMC.Integrate(AlphaBetaStar_imag).first;
+	double AdirSq_int = PlainDalitzMC.Integrate(AdirSq).first;
+	double AbarSq_int = PlainDalitzMC.Integrate(AbarSq).first;
+	double AdirAbarStar_real_int = PlainDalitzMC.Integrate(AdirAbarStar_real).first;
+	double AdirAbarStar_imag_int = PlainDalitzMC.Integrate(AdirAbarStar_imag).first;
 
-	double AsumD2Sq_int = 1. / 4. * ( AlphaSq_int + BetaSq_int + 2*AlphaBetaStar_real_int );
-	double AdiffD2Sq_int = 1. / 4. * ( AlphaSq_int + BetaSq_int - 2*AlphaBetaStar_real_int );
-	hydra::complex<double> AsumD2AdiffD2Star_int = 1. / 4. * hydra::complex<double>( AlphaSq_int - BetaSq_int , -2*AlphaBetaStar_imag_int );
+	double AsumD2Sq_int = 1. / 4. * ( AdirSq_int + AbarSq_int + 2*AdirAbarStar_real_int );
+	double AdiffD2Sq_int = 1. / 4. * ( AdirSq_int + AbarSq_int - 2*AdirAbarStar_real_int );
+	hydra::complex<double> AsumD2AdiffD2Star_int = 1. / 4. * hydra::complex<double>( AdirSq_int - AbarSq_int , -2*AdirAbarStar_imag_int );
 
 
 	// build the final functor
@@ -254,7 +254,7 @@ auto time_dependent_rate_with_time_resolution_pdf(hydra::Parameter const& tau, h
 	auto As = Adir + rcp * Abar; 
 	auto Ad = conjugate( Adir - rcp * Abar ) ; 
 
-	auto int_on_dalitzplane_decaytime = MixingNormType1<TimeError>(AlphaSq_int, BetaSq_int, AsumD2AdiffD2Star_int, 
+	auto int_on_dalitzplane_decaytime = MixingNormType1<TimeError>(AsumD2Sq_int, AdiffD2Sq_int, AsumD2AdiffD2Star_int, 
 																	  	 x, y, tau, s, b, timeRange);
 
 	// the hydra::wrap_lambda and hydra::compose() below would handle the parameter list of Adir and Abar automatically
