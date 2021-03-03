@@ -8,9 +8,12 @@
 #include <hydra/SparseHistogram.h>
 #include <hydra/SeedRNG.h>
 #include <hydra/Vector4R.h>
-#include <hydra/functions/UniformShape.h>
 #include <hydra/functions/Exponential.h>
+#include <hydra/functions/UniformShape.h>
+#include <hydra/functions/Gaussian.h>
 #include <hydra/Plain.h>
+#include <hydra/GenzMalikQuadrature.h>
+
 
 #include <TH3D.h>
 #include <THnSparse.h>
@@ -834,6 +837,8 @@ public:
 	__hydra_dual__ inline
 	auto GenerateSparseHistogramWithTimeAndTimeError(ModelTruth &modelTruth, double tau, double y, double b, double s, PDFSIGMAT const& pdf_sigma_t, size_t nevents, size_t nbins=300, size_t rndseed=0)
 	{
+		// conver tau to Gamma
+		double Gamma = 1. / tau;
 
 		// Generate flat phase-space
 		hydra::SeedRNG seed{rndseed};

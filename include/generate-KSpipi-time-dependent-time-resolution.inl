@@ -230,7 +230,7 @@ int main( int argc, char** argv  )
 		std::string outfilename = args.outdir + outprefix + "-HIST.root";
 		// plotter.FillHistograms(data, model_dz, tau, y, b, s, outfilename, args.plotnbins); 
 		plotter.FillDataHistogram(data, args.plotnbins);
-		plotter.FillModelHistogramFast1(model_truth_dz, tau(), y(), b(), s(), johnson_su, args.plotnbins);
+		plotter.FillModelHistogram(model_truth_dz, tau(), y(), b(), s(), johnson_su, args.plotnbins);
 		if (outfilename != "") plotter.SaveHistograms(outfilename);
 		plotter.SetCustomAxesTitles("#it{m}^{2}_{+} [GeV^{2}/#it{c}^{4}]","#it{m}^{2}_{#minus} [GeV^{2}/#it{c}^{4}]","#it{m}^{2}_{#it{#pi#pi}} [GeV^{2}/#it{c}^{4}]");
 

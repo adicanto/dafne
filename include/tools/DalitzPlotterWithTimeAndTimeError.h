@@ -58,11 +58,11 @@ public:
 
 		if (!_h_data) {
 			std::cout << "WARNING: data histograms has not been filled, the model histogram cannot be correctly normalized." << std::endl;
-			_h_model = fill_histogram(model, 5000000, nbins);
+			_h_model = fill_histogram(model, tau, y, b, s, pdf_sigma_t, 500000, nbins, rndseed);
 		} else {
 			double ndata = get_integral(_h_data);
 			double nevents = (ndata<5e5) ? 1e7 : 20.*ndata;
-			_h_model = fill_histogram(model, tau, y, b, s, pdf_sigma_t,nevents, nbins, rndseed);
+			_h_model = fill_histogram(model, tau, y, b, s, pdf_sigma_t, nevents, nbins, rndseed);
 			_h_model->Scale( ndata/get_integral(_h_model) );
 		}
 
