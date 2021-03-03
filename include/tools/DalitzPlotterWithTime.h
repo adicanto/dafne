@@ -75,11 +75,11 @@ public:
 	}
 
 	template<typename T1, typename T2>
-	void FillHistograms(T1 & data, T2 & model, const std::string outfilename="", const size_t nbins=200, const bool plotComponents=false)
+	void FillHistograms(T1 & data, T2 & model, double tau, double y, const std::string outfilename="", const size_t nbins=200, const bool plotComponents=false)
 	{
 		FillDataHistogram(data, nbins);
 
-		FillModelHistogram(model, nbins);
+		FillModelHistogram(model, tau, y, nbins);
 
 		if (plotComponents) {
 			std::cout << "WARNING: components plotting for time-dependent model is not supported yet." << std::endl;

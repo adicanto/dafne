@@ -339,5 +339,6 @@ public:
 
 #include <tools/DalitzPlotter.h>
 #include <tools/DalitzPlotterWithTime.h>
+#include <tools/DalitzPlotterWithTimeAndTimeError.h>
 
 }
