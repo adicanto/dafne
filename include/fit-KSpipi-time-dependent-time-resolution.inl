@@ -117,7 +117,7 @@ int main(int argc, char** argv)
 
 	// handle time resolution
 	auto b   = hydra::Parameter::Create("b").Value(0.0).Error(0.0001).Limits(-1.,1.);
-	auto s   = hydra::Parameter::Create("s").Value(1.0).Error(0.0001).Limits(0.9,1.1);
+	auto s   = hydra::Parameter::Create("s").Value(1.0).Error(0.0001).Limits(0.5,1.5);
 
 	auto johnson_delta  = hydra::Parameter::Create().Name("johnson_delta").Value(1.65335e+00).Error(0.01);
 	auto johnson_lambda = hydra::Parameter::Create().Name("johnson_lambda").Value(1.87922e-02).Error(0.001);
