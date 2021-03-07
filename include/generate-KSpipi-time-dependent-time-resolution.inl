@@ -17,6 +17,7 @@
 
 #include <physics/PDG.h>
 #include <physics/Rate.h>
+#include <physics/Resolution.h>
 #include <physics/ThreeBodyPhaseSpace.h>
 #include <models/D0ToKsPiPi_FVECTOR_BABAR.h>
 #include <tools/Plotter.h>
@@ -160,17 +161,49 @@ int main( int argc, char** argv  )
 	//---------------------------------------------------------------------------------------
 	// Save to ROOT file
 	//---------------------------------------------------------------------------------------
+
+	// prepare the resolution for smearing the dalitz variables, then smear before storing
+	Resolution2D resolution2D;
+	config.ConfigureResolution2D(resolution2D);
+
+	auto smear_dalitz = [&resolution2D, &phsp](double m2z, double helicity_z)->std::tuple<double,double,double,double>  {
+
+		double m2p_s, m2m_s, m2z_s, helicity_z_s;
+
+		do {
+
+			auto smear_result = resolution2D.Smear(m2z, helicity_z);
+			m2z_s = std::get<0>(smear_result);
+			helicity_z_s = std::get<1>(smear_result);
+
+			auto inv_helicity_z = phsp.invHelicityJK<2,3>(helicity_z_s, m2z_s);
+			m2p_s = std::get<0>(inv_helicity_z); 
+			m2m_s = std::get<1>(inv_helicity_z); 
+
+		} while (!phsp.Contains<2,3>(m2p_s, m2m_s));
+
+		return std::make_tuple(m2p_s, m2m_s, m2z_s, helicity_z_s);
+	};
+
+
 	{
 		std::string outfilename = args.outdir + outprefix + "-data.root";
 		std::cout << "Saving output to " << outfilename << std::endl;
 		TFile *outfile = new TFile(outfilename.c_str(),"recreate");
 
-		double m2p, m2m, m2z, t, sigmat;
+		double m2p, m2m, m2z, helicity_z;
+		double m2p_s, m2m_s, m2z_s, helicity_z_s; // smeared dalitz variables
+		double t, sigmat;
 		int flavor(+1);
 		TTree *ntp = new TTree("ntp","ntp");
 		ntp->Branch("mSqP",&m2p);
 		ntp->Branch("mSqM",&m2m);
 		ntp->Branch("mSqZ",&m2z);
+		ntp->Branch("HelicityZ",&helicity_z);
+		ntp->Branch("mSqP_S",&m2p_s);
+		ntp->Branch("mSqM_S",&m2m_s);
+		ntp->Branch("mSqZ_S",&m2z_s);
+		ntp->Branch("HelicityZ_S",&helicity_z_s);
 		ntp->Branch("t",&t);
 		ntp->Branch("sigmat",&sigmat);
 		ntp->Branch("flavor",&flavor);
@@ -186,6 +219,14 @@ int main( int argc, char** argv  )
 			m2p 		= a.Value();
 			m2m 		= b.Value();
 			m2z 		= c.Value();
+			helicity_z  = phsp.HelicityJK<2,3>(m2p, m2m);
+
+			auto smear_result 	= smear_dalitz(m2z, helicity_z);
+			m2p_s 			= std::get<0>(smear_result);
+			m2m_s 			= std::get<1>(smear_result);
+			m2z_s 			= std::get<2>(smear_result);
+			helicity_z_s 	= std::get<3>(smear_result);
+
 			t     		= d.Value();
 			sigmat      = f.Value();
 			
@@ -204,6 +245,14 @@ int main( int argc, char** argv  )
 			m2p 		= a.Value();
 			m2m		    = b.Value();
 			m2z		    = c.Value();
+			helicity_z  = phsp.HelicityJK<2,3>(m2p, m2m);
+
+			auto smear_result 	= smear_dalitz(m2z, helicity_z);
+			m2p_s 			= std::get<0>(smear_result);
+			m2m_s 			= std::get<1>(smear_result);
+			m2z_s 			= std::get<2>(smear_result);
+			helicity_z_s 	= std::get<3>(smear_result);
+
 			t   	    = d.Value();
 			sigmat      = f.Value();
 			
