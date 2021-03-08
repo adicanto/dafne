@@ -11,6 +11,7 @@
 #include <TCanvas.h>
 #include <TLegend.h>
 #include <TH2D.h>
+#include <TLine.h>
 
 #include <physics/ThreeBodyPhaseSpace.h>
 
@@ -314,6 +315,25 @@ public:
 		return h;
 	}
 
+	void PlotPullLines(double mFitMin, double mFitMax)
+	{
+		TLine *lineUP = new TLine(mFitMin, 3, mFitMax, 3);
+		lineUP->SetLineColor(38);
+		lineUP->SetLineStyle(2);
+		lineUP->SetLineWidth(1);
+		lineUP->Draw();
+		TLine *lineDOWN = new TLine(mFitMin, -3, mFitMax, -3);
+		lineDOWN->SetLineColor(38);
+		lineDOWN->SetLineStyle(2);
+		lineDOWN->SetLineWidth(1);
+		lineDOWN->Draw();
+		TLine *lineZERO = new TLine(mFitMin, 0., mFitMax, 0.);
+		lineZERO->SetLineColor(1);
+		lineZERO->SetLineStyle(0);
+		lineZERO->SetLineWidth(1);
+		lineZERO->Draw();
+	}
+
 	const THnSparseD* DataHistogram() const { return _h_data; }
 
 	const THnSparseD* ModelHistogram() const { return _h_model; }
@@ -339,5 +359,6 @@ public:
 
 #include <tools/DalitzPlotter.h>
 #include <tools/DalitzPlotterWithTime.h>
+#include <tools/DalitzPlotterWithTimeAndTimeError.h>
 
 }
