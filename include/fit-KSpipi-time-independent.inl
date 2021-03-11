@@ -244,7 +244,7 @@ int main(int argc, char** argv)
 		auto plotter = DalitzPlotter<MSqPlus, MSqMinus, MSqZero>(phsp,"#it{K}^{0}_{S}","#it{#pi}^{+}","#it{#pi}^{#minus}",(args.prlevel>3));
 		
 		std::string outfilename = args.outdir + outprefix + "-HIST.root";
-		plotter.FillHistograms(data, amp, outfilename);
+		plotter.FillHistograms(data, rate(amp), outfilename);
 
 		// 1D Projection
 		TCanvas c1("c1","c1",1800,700);

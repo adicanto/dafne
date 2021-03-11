@@ -7,12 +7,9 @@ private:
 	ThreeBodyPhaseSpace _phsp;
 
 	// Fill amplitude histogram
-	template<typename Amplitude>
-	THnSparseD* fill_histogram(Amplitude const &amp, size_t n, size_t nbins=200)
+	template<typename Model>
+	THnSparseD* fill_histogram(Model const &model, size_t n, size_t nbins=200)
 	{
-		auto model = hydra::wrap_lambda( [amp] __hydra_dual__ (MSq12 a, MSq13 b) {
-			return hydra::norm( amp(hydra::tie(a,b)) );
-		});
 		auto histo = _phsp.GenerateSparseHistogram<MSq12, MSq13, MSq23>(model, n, nbins);
 		auto h = _phsp.RootHistogram(_labels[0].c_str(), _labels[1].c_str(), _labels[2].c_str(), nbins);
 		fill_root_histogram(h,histo);

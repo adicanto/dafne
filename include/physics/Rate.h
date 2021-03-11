@@ -97,30 +97,6 @@ auto conjugate(Amplitude const& amplitude)
 	return hydra::compose(_conj, amplitude);
 }
 
-template<typename Amplitude>
-auto divideBy(Amplitude const& amplitude, const double denominator)
-{
-	auto _divide = hydra::wrap_lambda(
-			  [=] __hydra_dual__ (hydra::complex<double> amp){
-						 return amp / denominator;
-			  }
-	);
-	
-	return hydra::compose(_divide, amplitude);
-}
-
-template<typename Amplitude>
-auto multiplyBy(Amplitude const& amplitude, const double factor)
-{
-	auto _multiply = hydra::wrap_lambda(
-			  [=] __hydra_dual__ (hydra::complex<double> amp){
-						 return amp * factor;
-			  }
-	);
-	
-	return hydra::compose(_multiply, amplitude);
-}
-
 
 template<typename BACKEND>
 struct ConstantIntegrator;
