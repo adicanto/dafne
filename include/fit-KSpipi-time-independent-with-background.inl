@@ -279,9 +279,16 @@ int main(int argc, char** argv)
 	if (args.plot) {
 		// set and check the parameters
 		std::cout << "***** Set model according to fit result" << std::endl;
-		fcn.GetParameters().UpdateParameters(minimum);
-		auto averaged_sum_pdf_plotting = fcn.GetPDF().GetFunctor(); // get the result model from FCN // currently, the efficiency plane is not included in the plotting, and it would be included after the new plotting funtion is ready
-		// amp.PrintRegisteredParameters();
+
+		// parameters after fitting
+		auto fitted_parameters = fcn.GetParameters().GetVariables();
+
+		// build a dummy fcn to easily synchronize the paramters in plotting functor and fitting functor
+		hydra::multivector<hydra::tuple<MSqPlus,MSqMinus>, hydra::device::sys_t> data_dummy;
+		data_dummy.push_back(hydra::make_tuple(MSqPlus(1.0),MSqMinus(1.0)));
+		auto averaged_sum_pdf_for_plotting = dafne::MinuitTools::UpdateParametersByBuildingDummyFCN(data_dummy, averaged_sum_pdf, minimum);
+		auto amp_for_plotting_temp = dafne::MinuitTools::UpdateParametersByBuildingDummyFCN(data_dummy, rate(amp), minimum);
+		auto amp_for_plotting = amp_for_plotting_temp.GetFunctor(hydra::placeholders::_1);
 
 		// plot the model and its components
 		std::cout << "***** Plot data and model" << std::endl;
@@ -292,8 +299,11 @@ int main(int argc, char** argv)
 		
 		std::string outfilename = args.outdir + outprefix + "-HIST.root";
 		plotter.FillDataHistogram(data);
-		plotter.FillModelHistogram(averaged_sum_pdf_plotting);
-
+		plotter.FillModelHistogram(averaged_sum_pdf_for_plotting);
+		plotter.FillOtherHistogram("cmb_bkg", "background", combinatorial_background_pdf, MinuitTools::GetParameterPointer(fitted_parameters, "f_cmb")->GetValue(), 16, 7, 38);
+		plotter.FillComponentsHistogramsWithEfficiency(amp_for_plotting, efficiency, 1. - MinuitTools::GetParameterPointer(fitted_parameters, "f_cmb")->GetValue());
+		if (outfilename != "") plotter.SaveHistograms(outfilename);
+		plotter.SetCustomAxesTitles("#it{m}^{2}_{+} [GeV^{2}/#it{c}^{4}]","#it{m}^{2}_{#minus} [GeV^{2}/#it{c}^{4}]","#it{m}^{2}_{#it{#pi#pi}} [GeV^{2}/#it{c}^{4}]");
 
 		// 1D Projection
 		TCanvas c1("c1","c1",1800,700);
@@ -319,17 +329,21 @@ int main(int argc, char** argv)
 		pad1->cd();
 		plotter.Plot1DProjections(0, 0);
 		pad2->cd();
-		plotter.Plot1DPull(0);
+		auto h1_pull = plotter.Plot1DPull(0);
+		plotter.PlotPullLines(h1_pull->GetXaxis()->GetXmin(), h1_pull->GetXaxis()->GetXmax());
+
 
 		pad3->cd();
-		plotter.Plot1DProjections(1, 0);
+		plotter.Plot1DProjections(1, 1); // plot legend in this pad
 		pad4->cd();
-		plotter.Plot1DPull(1);
+		h1_pull = plotter.Plot1DPull(1);
+		plotter.PlotPullLines(h1_pull->GetXaxis()->GetXmin(), h1_pull->GetXaxis()->GetXmax());
 
 		pad5->cd();
-		plotter.Plot1DProjections(2, 1); // plot legend in this pad
+		plotter.Plot1DProjections(2, 0); 
 		pad6->cd();
-		plotter.Plot1DPull(2);
+		h1_pull = plotter.Plot1DPull(2);
+		plotter.PlotPullLines(h1_pull->GetXaxis()->GetXmin(), h1_pull->GetXaxis()->GetXmax());
 
 		outfilename = args.outdir + outprefix + "-1d-projection";
 		Print::Canvas(c1, outfilename);

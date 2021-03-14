@@ -286,7 +286,6 @@ int main( int argc, char** argv  )
 		auto plotter = DalitzPlotter<MSqPlus, MSqMinus, MSqZero>(phsp,"#it{K}^{0}_{S}","#it{#pi}^{+}","#it{#pi}^{#minus}",(args.prlevel>3));
 		
 		std::string outfilename = args.outdir + outprefix + "-HIST.root";
-		// plotter.FillHistograms(data, amp, outfilename); // currently, the efficiency plane is not included in the plotting, and it would be included after the new plotting funtion is ready
 		plotter.FillDataHistogram(data);
 		plotter.FillModelHistogram(averaged_sum_pdf);
 		plotter.FillOtherHistogram("cmb_bkg", "background", combinatorial_background_pdf, f_cmb(), 16, 7, 38);
