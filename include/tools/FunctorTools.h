@@ -217,7 +217,6 @@ public:
 	SingleValue& operator=(SingleValue const& other)
 	{
 		if(this==&other) return *this;
-		super_type::operator=(other);
 		return *this;
 	}
 	   
@@ -227,6 +226,35 @@ public:
 		return _par[0];
 	}
 };
+
+template<typename VARIABLES, typename Signature=double(VARIABLES)>
+class PassVariable: public hydra::BaseFunctor<PassVariable<VARIABLES>, Signature, 0>
+{
+	typedef hydra::BaseFunctor<PassVariable<VARIABLES>, Signature, 0> super_type;
+	using super_type::_par;
+
+public:
+	__hydra_dual__
+	PassVariable() {}
+	
+	__hydra_dual__
+	PassVariable(PassVariable<VARIABLES, Signature> const& other) {}
+	
+	__hydra_dual__ inline
+	PassVariable<VARIABLES, Signature>& operator=(PassVariable<VARIABLES, Signature> const& other)
+	{
+		if(this==&other) return *this;
+		super_type::operator=(other);
+		return *this;
+	}
+	   
+	__hydra_dual__ inline
+	double Evaluate(VARIABLES v) const
+	{
+		return v;
+	}
+};
+
 
 
 template<typename Amplitude>
