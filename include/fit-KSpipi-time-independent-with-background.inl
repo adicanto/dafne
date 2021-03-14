@@ -27,13 +27,16 @@
 using namespace dafne;
 
 // Output-files prefix
-std::string outprefix("fit-KSpipi-time-independent");
+std::string outprefix("fit-KSpipi-time-independent-with-background");
 
 // Define the arguments of the amplitude
 declarg(MSqZero  , double)
 declarg(MSqPlus  , double)
 declarg(MSqMinus , double)
-declarg(DecayTime, double)
+declarg(SignalFaction, double)
+// declarg(RandomBackfroundFaction, double)
+declarg(CombinatorialBackfroundFaction, double)
+
 using namespace hydra::arguments;
 
 // Main

@@ -26,10 +26,14 @@ using namespace dafne;
 declarg(MSqPlus , double)
 declarg(MSqMinus, double)
 declarg(MSqZero , double)
+declarg(SignalFaction, double)
+// declarg(RandomBackfroundFaction, double)
+declarg(CombinatorialBackfroundFaction, double)
+
 using namespace hydra::arguments;
 
 // output prefix
-std::string outprefix = "generate-KSpipi-time-independent";
+std::string outprefix = "generate-KSpipi-time-independent-with-background";
 
 // Main
 int main( int argc, char** argv  )
@@ -214,6 +218,12 @@ int main( int argc, char** argv  )
 	data.insert( data.end(), data_cmb.begin(), data_cmb.end());
 	std::random_shuffle(data.begin(), data.end());
 	ngenerated = data.size();
+
+	// add event by event fraction input
+	hydra::multivector< hydra::tuple<SignalFaction,CombinatorialBackfroundFaction>, hydra::device::sys_t> fraction(ngenerated);
+	hydra_thrust::fill(fraction.begin(), fraction.end(), hydra::make_tuple(SignalFaction(0.5),CombinatorialBackfroundFaction(0.5)));
+	auto data_with_fraction = data.meld(fraction);
+
 	std::cout << "Generated " << ngenerated << " events in total." << std::endl;
 
 
@@ -244,8 +254,17 @@ int main( int argc, char** argv  )
 		ntp->Branch("mSqZ_S",&m2z_s);
 		ntp->Branch("HelicityZ_S",&helicity_z_s);
 		ntp->Branch("flavor",&flavor);
+
+		// add event by event fraction
+		double f_sig, f_cmb;
+		ntp->Branch("f_sig",&f_sig);
+		ntp->Branch("f_cmb",&f_cmb);		
 		
-		for( auto event : data )
+		// with uniform fraction
+		// for( auto event : data )
+
+		// with event by event fraction
+		for( auto event : data_with_fraction )
 		{
 			MSqPlus  a = hydra::get<0>(event);
 			MSqMinus b = hydra::get<1>(event);
@@ -266,6 +285,12 @@ int main( int argc, char** argv  )
 				m2m_s = std::get<1>(inv_helicity_z); 
 
 			} while (!phsp.Contains<2,3>(m2p_s, m2m_s));
+
+			// add event by event fraction
+			SignalFaction e = hydra::get<3>(event);
+			CombinatorialBackfroundFaction f = hydra::get<4>(event);
+			f_sig = e.Value();
+			f_cmb = f.Value();	
 
 			ntp->Fill();
 		}
