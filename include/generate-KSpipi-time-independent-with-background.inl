@@ -289,6 +289,9 @@ int main( int argc, char** argv  )
 		// plotter.FillHistograms(data, amp, outfilename); // currently, the efficiency plane is not included in the plotting, and it would be included after the new plotting funtion is ready
 		plotter.FillDataHistogram(data);
 		plotter.FillModelHistogram(averaged_sum_pdf);
+		plotter.FillOtherHistogram("cmb_bkg", "background", combinatorial_background_pdf, f_cmb(), 16, 7, 38);
+		if (outfilename != "") plotter.SaveHistograms(outfilename);
+		plotter.SetCustomAxesTitles("#it{m}^{2}_{+} [GeV^{2}/#it{c}^{4}]","#it{m}^{2}_{#minus} [GeV^{2}/#it{c}^{4}]","#it{m}^{2}_{#it{#pi#pi}} [GeV^{2}/#it{c}^{4}]");
 
 		// 1D Projection
 		TCanvas c1("c1","c1",1800,700);
@@ -317,12 +320,12 @@ int main( int argc, char** argv  )
 		plotter.Plot1DPull(0);
 
 		pad3->cd();
-		plotter.Plot1DProjections(1, 0);
+		plotter.Plot1DProjections(1, 1); // plot legend in this pad
 		pad4->cd();
 		plotter.Plot1DPull(1);
 
 		pad5->cd();
-		plotter.Plot1DProjections(2, 1); // plot legend in this pad
+		plotter.Plot1DProjections(2, 0); 
 		pad6->cd();
 		plotter.Plot1DPull(2);
 

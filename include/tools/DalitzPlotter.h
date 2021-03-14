@@ -146,6 +146,39 @@ public:
 		if (outfilename != "") SaveHistograms(outfilename);
 	}
 
+
+
+	template<typename T>
+	THnSparseD* FillOtherHistogram(const std::string name, const std::string title, T & functor, const double fraction, Int_t lineColor, Int_t lineStyle, Int_t fillColor, size_t nbins=200)
+	{
+		std::cout << "Filling histogram for other histogram: " << name << "..." << std::flush;
+
+		_h_others[name] = nullptr;
+		// TH1D att_keeper_temp();
+		// _att_keeper_others[name] = att_keeper_temp;
+
+
+		if (!_h_data) {
+			std::cout << "WARNING: data histograms has not been filled, other histogram: " << name << " cannot be correctly normalized." << std::endl;
+			_h_others[name] = fill_histogram(functor,5000000,nbins);
+		} else {
+			double ndata = get_integral(_h_data);
+			double nevents = (ndata<5e5) ? 5e6 : 10.*ndata;
+			_h_others[name] = fill_histogram(functor, nevents);
+			_h_others[name]->Scale( fraction*ndata/get_integral(_h_others[name]) );
+		}
+		_h_others[name]->SetName(Form("h_other_%s", name.c_str()));
+		_h_others[name]->SetTitle(title.c_str());
+		_att_keeper_others[name].SetLineColor(lineColor);
+		_att_keeper_others[name].SetLineStyle(lineStyle);
+		_att_keeper_others[name].SetFillColor(fillColor);
+
+		std::cout << " done" << std::endl ;
+
+		return _h_others[name];
+	}
+
+
 	void Plot1DProjections(const int xdim, bool legendOn=false)
 	{
 		// add legend
@@ -175,6 +208,15 @@ public:
 			h1d->Draw("histo same");
 			if (leg) leg->AddEntry(h1d,h->GetTitle(),"l");
 			++i;
+		}
+
+		
+		for (auto &hmap : _h_others) {
+			if (_debug) std::cout << hmap.second->GetName() << "..." << std::endl;
+			auto h1d = hmap.second->Projection(xdim);
+			apply_attributes(h1d, &_att_keeper_others[hmap.first]); 
+			h1d->Draw("histo same");
+			if (leg) leg->AddEntry(h1d,hmap.second->GetTitle(),"l");
 		}
 
 		if (legendOn) {
