@@ -290,6 +290,7 @@ int main( int argc, char** argv  )
 		plotter.FillDataHistogram(data);
 		plotter.FillModelHistogram(averaged_sum_pdf);
 		plotter.FillOtherHistogram("cmb_bkg", "background", combinatorial_background_pdf, f_cmb(), 16, 7, 38);
+		plotter.FillComponentsHistogramsWithEfficiency(amp, efficiency, 1. - f_cmb());
 		if (outfilename != "") plotter.SaveHistograms(outfilename);
 		plotter.SetCustomAxesTitles("#it{m}^{2}_{+} [GeV^{2}/#it{c}^{4}]","#it{m}^{2}_{#minus} [GeV^{2}/#it{c}^{4}]","#it{m}^{2}_{#it{#pi#pi}} [GeV^{2}/#it{c}^{4}]");
 
@@ -317,18 +318,21 @@ int main( int argc, char** argv  )
 		pad1->cd();
 		plotter.Plot1DProjections(0, 0);
 		pad2->cd();
-		plotter.Plot1DPull(0);
+		auto h1_pull = plotter.Plot1DPull(0);
+		plotter.PlotPullLines(h1_pull->GetXaxis()->GetXmin(), h1_pull->GetXaxis()->GetXmax());
+
 
 		pad3->cd();
 		plotter.Plot1DProjections(1, 1); // plot legend in this pad
 		pad4->cd();
-		plotter.Plot1DPull(1);
+		h1_pull = plotter.Plot1DPull(1);
+		plotter.PlotPullLines(h1_pull->GetXaxis()->GetXmin(), h1_pull->GetXaxis()->GetXmax());
 
 		pad5->cd();
 		plotter.Plot1DProjections(2, 0); 
 		pad6->cd();
-		plotter.Plot1DPull(2);
-
+		h1_pull = plotter.Plot1DPull(2);
+		plotter.PlotPullLines(h1_pull->GetXaxis()->GetXmin(), h1_pull->GetXaxis()->GetXmax());
 		outfilename = args.outdir + outprefix + "-1d-projection";
 		Print::Canvas(c1, outfilename);
 

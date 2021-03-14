@@ -72,37 +72,49 @@ public:
 		return _h_model;
 	}
 
-	template<unsigned int I, typename T>
-	THnSparseD* FillComponentHistogram(T & model)
+	template<unsigned int I, typename T, typename EFFICIENCY>
+	THnSparseD* FillComponentHistogram(T & amp, EFFICIENCY efficiency=ConstantFunctor(1), const double signal_fraction=1.0)
 	{
-		if (!_h_model) FillModelHistogram(model);
+		if (!_h_model) {
+			std::cout << "The model sum (_h_model) is not filled, please fill it by calling ";
+			std::cout << "FillModelHisogram() at first! And be sure about the efficiency is "; 
+			std::cout << "consistent between model sum and components. " << std::endl;
+			std::cout << "Otherwise, I can not normlize the components correctly." << std::endl;
+		}
 
 		const hydra::placeholders::placeholder<I> X;
 
-		auto & amplitude = model.GetFunctor(X);
-		const std::string amplitudeName = amplitude.Name();
-		if (amplitude.IsRemoved()) {
+		// remove the rate functor and get the component
+		auto component_amplitude = amp.GetFunctor(X);
+		const std::string amplitudeName = component_amplitude.Name();
+
+		if (component_amplitude.IsRemoved()) {
 			if (_debug) std::cout << "Component " << amplitudeName << " is removed from the model, skipping it." << std::endl;
 			return 0;
 		}
-		const std::string amplitudeLabel = amplitude.Label();
+		const std::string amplitudeLabel = component_amplitude.Label();
 		const char *label = (amplitudeLabel.empty()) ? amplitudeName.c_str() : amplitudeLabel.c_str();
 
 		std::cout << "Filling histogram for component " << amplitudeName << " ( " << label << " )..." << std::flush;
 
-		auto amp_FF = _phsp.template FitFraction<MSq12, MSq13, T>(model, amplitude);
+
+		auto model = rate(amp) * efficiency;
+		auto component = rate(component_amplitude) * efficiency;
+
+
+		auto amp_FF = _phsp.FitFraction(model, component);
 		double nmodel = amp_FF.first * get_integral(_h_model);
 		double nevents = (nmodel<1e6) ? 1e6 : nmodel;
-		auto h = fill_histogram(amplitude, nevents);
-		h->Scale( nmodel/get_integral(h) );
+		auto h = fill_histogram(component, nevents);
+		h->Scale( nmodel/get_integral(h) * signal_fraction);
 
 		h->SetName( Form("h_%s",amplitudeName.c_str()) );
 		h->SetTitle(label);
 		
 		TH1D att;
 		att.SetName( Form("att_%s",amplitudeName.c_str()) );
-		att.SetLineColor(amplitude.Color());
-		att.SetLineStyle(amplitude.Style());
+		att.SetLineColor(component_amplitude.Color());
+		att.SetLineStyle(component_amplitude.Style());
 
 		std::cout << " done (fit fraction = " << amp_FF.first << ")" << std::endl;
 
@@ -111,40 +123,53 @@ public:
 		return h;
 	}
 
-	template<typename T, int ...Is>
-	void FillComponentsHistograms(T & model, std::integer_sequence<int, Is...>)
+	template<typename T, typename EFFICIENCY, int ...Is>
+	void FillComponentsHistogramsWithEfficiencyHelper(T & amp, EFFICIENCY & efficiency, const double signal_fraction, std::integer_sequence<int, Is...>)
 	{
-		((FillComponentHistogram<Is>(model)), ...);
+		((FillComponentHistogram<Is>(amp, efficiency, signal_fraction)), ...);
+	}
+
+	template<typename ...Fs, typename EFFICIENCY>
+	void FillComponentsHistogramsWithEfficiency(hydra::Sum<Fs...> & amp, EFFICIENCY & efficiency, const double signal_fraction)
+	{
+		FillComponentsHistogramsWithEfficiencyHelper(amp, efficiency, signal_fraction, std::make_integer_sequence<int, sizeof...(Fs)>{});
+	}
+
+
+	template<typename T, int ...Is>
+	void FillComponentsHistograms(T & amp, std::integer_sequence<int, Is...>)
+	{
+		((FillComponentHistogram<Is>(amp)), ...);
 	}
 
 	template<typename ...Fs>
-	void FillModelAndComponentsHistograms(hydra::Sum<Fs...> & model)
+	void FillModelAndComponentsHistograms(hydra::Sum<Fs...> & amp)
 	{
-		FillModelHistogram(model);
-		FillComponentsHistograms(model, std::make_integer_sequence<int, sizeof...(Fs)>{});
+		FillModelHistogram(amp);
+		FillComponentsHistograms(amp, std::make_integer_sequence<int, sizeof...(Fs)>{});
 	}
 
-	template<typename T1, typename T2>
-	void FillHistograms(T1 & data, T2 & model, const std::string outfilename="", const bool plotComponents=1)
-	{
-		//first reduce data to the phase-space variables only
-		auto reduce = hydra::wrap_lambda( [] __hydra_dual__ (MSq12 a, MSq13 b, MSq23 c)
-		{
-			return hydra::make_tuple(a,b,c);
-		} );
+	// template<typename T1, typename T2>
+	// void FillHistograms(T1 & data, T2 & model, const std::string outfilename="", const bool plotComponents=1)
+	// {
+	// 	//first reduce data to the phase-space variables only
+	// 	auto reduce = hydra::wrap_lambda( [] __hydra_dual__ (MSq12 a, MSq13 b, MSq23 c)
+	// 	{
+	// 		return hydra::make_tuple(a,b,c);
+	// 	} );
 
-		hydra::multivector<hydra::tuple<MSq12,MSq13,MSq23>, hydra::device::sys_t> reduced_data = data | reduce;
+	// 	hydra::multivector<hydra::tuple<MSq12,MSq13,MSq23>, hydra::device::sys_t> reduced_data = data | reduce;
 
-		FillDataHistogram(reduced_data);
+	// 	FillDataHistogram(reduced_data);
 
-		if (plotComponents) {
-			FillModelAndComponentsHistograms(model);
-		} else {
-			FillModelHistogram(model);
-		}
+	// 	if (plotComponents) {
+	// 		FillModelAndComponentsHistograms(model);
+	// 	} else {
+	// 		FillModelHistogram(model);
+	// 	}
 
-		if (outfilename != "") SaveHistograms(outfilename);
-	}
+	// 	if (outfilename != "") SaveHistograms(outfilename);
+	// }
 
 
 
@@ -195,9 +220,19 @@ public:
 		auto h1d_data = Plot1DProjectionData(xdim);
 		if (leg) leg->AddEntry(h1d_data,_h_data->GetTitle(),"pe");
 
+		for (auto &hmap : _h_others) {
+			if (_debug) std::cout << hmap.second->GetName() << "..." << std::endl;
+			auto h1d = hmap.second->Projection(xdim);
+			apply_attributes(h1d, &_att_keeper_others[hmap.first]); 
+			h1d->Draw("histo same");
+			if (leg) leg->AddEntry(h1d,hmap.second->GetTitle(),"l");
+		}
+
+
 		// plot total model sum
 		auto h1d_model = Plot1DProjectionModel(xdim, "histo same");
 		if (leg) leg->AddEntry(h1d_model,_h_model->GetTitle(),"l");
+
 
 		// plot components
 		unsigned i(0);
@@ -210,14 +245,6 @@ public:
 			++i;
 		}
 
-		
-		for (auto &hmap : _h_others) {
-			if (_debug) std::cout << hmap.second->GetName() << "..." << std::endl;
-			auto h1d = hmap.second->Projection(xdim);
-			apply_attributes(h1d, &_att_keeper_others[hmap.first]); 
-			h1d->Draw("histo same");
-			if (leg) leg->AddEntry(h1d,hmap.second->GetTitle(),"l");
-		}
 
 		if (legendOn) {
 			if (_debug) std::cout << "legend..." << std::endl;

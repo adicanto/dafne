@@ -337,28 +337,21 @@ public:
 	
 
 	// Compute fit fractions
-	template<typename MSq12, typename MSq13, typename Model, typename Amplitude>
+	// the input model and components, should be in norm square form instead of complex amplitude form
+	template<typename ModelSum, typename Component>
 	__hydra_dual__ inline
-	auto FitFraction(Model const& model, Amplitude const& amp, size_t nentries=1000000)
+	auto FitFraction(ModelSum const& modelsum, Component const& component, size_t nentries=1000000)
 	{
 		auto integrator = Integrator(nentries);
-		
-		auto ampsq = hydra::wrap_lambda( [amp] __hydra_dual__ (MSq12 a, MSq13 b) {
-			return hydra::norm( amp(hydra::tie(a,b)) );
-		});
-
-		auto modelsq = hydra::wrap_lambda( [model] __hydra_dual__ (MSq12 a, MSq13 b) {
-			return hydra::norm( model(hydra::tie(a,b)) );
-		});
 
 		hydra::SeedRNG seed{};
 		integrator.SetSeed(seed());
-		auto int_acomp = integrator.Integrate(ampsq);
+		auto int_component = integrator.Integrate(component);
 		integrator.SetSeed(seed()); 
-		auto int_model = integrator.Integrate(modelsq);
+		auto int_modelsum = integrator.Integrate(modelsum);
 	
-		auto f = int_acomp.first/int_model.first;
-		auto e = f * sqrt( pow(int_acomp.second/int_acomp.first,2) + pow(int_model.second/int_model.first,2) );
+		auto f = int_component.first/int_modelsum.first;
+		auto e = f * sqrt( pow(int_component.second/int_component.first,2) + pow(int_modelsum.second/int_modelsum.first,2) );
 		return std::make_pair(f,e);
 	}
 
