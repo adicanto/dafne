@@ -691,10 +691,13 @@ public:
 
 	// This function first generates a set of (mSqP, mSqM, t) in the same way as GenerateDataWithTime(), then it samples a sigmat from pdf(sigmat) and smears
 	// t with Gauss(t, b, s*sigmat).
-	template<typename MSq12, typename MSq13, typename MSq23, typename Time, typename TimeError, typename ModelTruth, typename PDFSIGMAT>
+	template<typename MSq12, typename MSq13, typename MSq23, typename Time, typename TimeError, typename ModelTruth, typename EFFICIENCY, typename PDFSIGMAT>
 	__hydra_dual__ inline
-	auto GenerateDataWithTimeAndTimeError(ModelTruth &modelTruth, double tau, double y, double b, double s, PDFSIGMAT const& pdf_sigma_t,  size_t nevents, size_t rndseed=0, bool debug=false)
+	auto GenerateDataWithTimeAndTimeError(ModelTruth &modelTruth, EFFICIENCY &efficiency, double tau, double y, double b, double s, PDFSIGMAT const& pdf_sigma_t,  size_t nevents, size_t rndseed=0, bool debug=false)
 	{
+		// apply efficiency plane on modelTruth
+		auto model = modelTruth*efficiency;
+
 		// conver tau to Gamma
 		double Gamma = 1. / tau;
 
@@ -712,12 +715,12 @@ public:
 			phsp_generator.Generate(parent, phsp_events);
 			auto phsp_weight = phsp_events.GetEventWeightFunctor();
 		
-			auto dalitz_model = hydra::wrap_lambda( [&phsp_weight, &modelTruth] __hydra_dual__ (hydra::Vector4R a, hydra::Vector4R b, hydra::Vector4R c)
+			auto dalitz_model = hydra::wrap_lambda( [&phsp_weight, &model] __hydra_dual__ (hydra::Vector4R a, hydra::Vector4R b, hydra::Vector4R c)
 			{
 				MSq12 m0 = (a+b).mass2();
 				MSq13 m1 = (a+c).mass2();
 				Time t(0.);
-				return phsp_weight(a,b,c) * modelTruth(hydra::tie(t,m0,m1));
+				return phsp_weight(a,b,c) * model(hydra::tie(t,m0,m1));
 			});
 		
 			auto variables = phsp_events | dalitz_model;
@@ -770,7 +773,7 @@ public:
 			auto phsp_weight = phsp_events.GetEventWeightFunctor();
 
 			// Model weighting functor
-			auto dalitz_time_model = hydra::wrap_lambda( [&phsp_weight, &modelTruth, y, Gamma, this] __hydra_dual__ (hydra::Vector4R a, hydra::Vector4R b, hydra::Vector4R c, Time t, TimeError sigma_t, double dtDsigmat)
+			auto dalitz_time_model = hydra::wrap_lambda( [&phsp_weight, &model, y, Gamma, this] __hydra_dual__ (hydra::Vector4R a, hydra::Vector4R b, hydra::Vector4R c, Time t, TimeError sigma_t, double dtDsigmat)
 			{
 				// judge in range
 				TimeError tsmear = dtDsigmat * sigma_t;
@@ -780,7 +783,7 @@ public:
 
 				MSq12 m0 = (a+b).mass2();
 				MSq13 m1 = (a+c).mass2();
-				double weight = phsp_weight(a,b,c) * modelTruth(hydra::tie(m0,m1,t));
+				double weight = phsp_weight(a,b,c) * model(hydra::tie(m0,m1,t));
 
 				return weight * 1. / ((1.-abs(y))*Gamma * exp(-(1-abs(y))*Gamma*t)); // weight under exponential outline
 			});
@@ -826,10 +829,13 @@ public:
 
 
 	// the following code is mostly duplicated with the GenerateDataWithTimeAndTimeErrorFast1(), we need to consider how to reduce the redundancy
-	template<typename MSq12, typename MSq13, typename MSq23, typename Time, typename TimeError, typename ModelTruth, typename PDFSIGMAT>
+	template<typename MSq12, typename MSq13, typename MSq23, typename Time, typename TimeError, typename ModelTruth, typename EFFICIENCY, typename PDFSIGMAT>
 	__hydra_dual__ inline
-	auto GenerateSparseHistogramWithTimeAndTimeError(ModelTruth &modelTruth, double tau, double y, double b, double s, PDFSIGMAT const& pdf_sigma_t, size_t nevents, size_t nbins=300, size_t rndseed=0)
+	auto GenerateSparseHistogramWithTimeAndTimeError(ModelTruth &modelTruth, EFFICIENCY & efficiency, double tau, double y, double b, double s, PDFSIGMAT const& pdf_sigma_t, size_t nevents, size_t nbins=300, size_t rndseed=0)
 	{
+		// apply efficiency plane on modelTruth
+		auto model = modelTruth*efficiency;
+
 		// conver tau to Gamma
 		double Gamma = 1. / tau;
 
@@ -871,7 +877,7 @@ public:
 		auto phsp_weight = phsp_events.GetEventWeightFunctor();
 
 		// Model weighting functor
-		auto dalitz_time_model = hydra::wrap_lambda( [&phsp_weight, &modelTruth, y, Gamma, this] __hydra_dual__ (hydra::Vector4R a, hydra::Vector4R b, hydra::Vector4R c, Time t, TimeError sigma_t, double dtDsigmat)
+		auto dalitz_time_model = hydra::wrap_lambda( [&phsp_weight, &model, y, Gamma, this] __hydra_dual__ (hydra::Vector4R a, hydra::Vector4R b, hydra::Vector4R c, Time t, TimeError sigma_t, double dtDsigmat)
 		{
 			// judge in range
 			TimeError tsmear = dtDsigmat * sigma_t;
@@ -882,7 +888,7 @@ public:
 			MSq12 m0 = (a+b).mass2();
 			MSq13 m1 = (a+c).mass2();
 
-			double weight = phsp_weight(a,b,c) * modelTruth(hydra::tie(m0,m1,t));
+			double weight = phsp_weight(a,b,c) * model(hydra::tie(m0,m1,t));
 
 			if (y!=-999 && Gamma!=-999) return weight * 1. / ((1.-abs(y))*Gamma * exp(-(1-abs(y))*Gamma*t)); // weight under exponential outline
 			return weight;

@@ -133,8 +133,8 @@ int main( int argc, char** argv  )
 	// auto model_db = time_dependent_rate_with_time_resolution<Flavor::Negative,MSqPlus,MSqMinus,DecayTime,DecayTimeError>(tau,x,y,qop,phi,b,s,Adir,Abar,johnson_su)*efficiency;
 
 	// "turth level" model without sigma_t, but ... ... includes efficiency plane
-	auto model_truth_dz = time_dependent_rate<Flavor::Positive,DecayTime>(tau,x,y,qop,phi,Adir,Abar)*efficiency; 
-	auto model_truth_db = time_dependent_rate<Flavor::Negative,DecayTime>(tau,x,y,qop,phi,Adir,Abar)*efficiency;
+	auto model_truth_dz = time_dependent_rate<Flavor::Positive,DecayTime>(tau,x,y,qop,phi,Adir,Abar); 
+	auto model_truth_db = time_dependent_rate<Flavor::Negative,DecayTime>(tau,x,y,qop,phi,Adir,Abar);
 
 	// for checking the parameters order when debugging
 	// typename decltype(model_dz)::argument_type  test{};
@@ -148,10 +148,10 @@ int main( int argc, char** argv  )
 	auto start = std::chrono::high_resolution_clock::now();	
 
 	// auto data_dz = phsp.GenerateDataWithTimeAndTimeError<MSqPlus,MSqMinus,MSqZero,DecayTime,DecayTimeError>(model_dz,args.nevents,args.seed,0.,0.5,0.06,0.09,(args.prlevel>3));
-	auto data_dz = phsp.GenerateDataWithTimeAndTimeError<MSqPlus,MSqMinus,MSqZero,DecayTime,DecayTimeError>(model_truth_dz,tau(),y(),b(),s(),johnson_su,args.nevents,args.seed,(args.prlevel>3));
+	auto data_dz = phsp.GenerateDataWithTimeAndTimeError<MSqPlus,MSqMinus,MSqZero,DecayTime,DecayTimeError>(model_truth_dz,efficiency,tau(),y(),b(),s(),johnson_su,args.nevents,args.seed,(args.prlevel>3));
 	std::cout << "Generated " << data_dz.size() << " D0 candidates." << std::endl;
 	// auto data_db = phsp.GenerateDataWithTimeAndTimeError<MSqPlus,MSqMinus,MSqZero,DecayTime,DecayTimeError>(model_db,args.nevents,args.seed+1,0.,0.5,0.06,0.09,(args.prlevel>3));
-	auto data_db = phsp.GenerateDataWithTimeAndTimeError<MSqPlus,MSqMinus,MSqZero,DecayTime,DecayTimeError>(model_truth_db,tau(),y(),b(),s(),johnson_su,args.nevents,args.seed+1,(args.prlevel>3));
+	auto data_db = phsp.GenerateDataWithTimeAndTimeError<MSqPlus,MSqMinus,MSqZero,DecayTime,DecayTimeError>(model_truth_db,efficiency,tau(),y(),b(),s(),johnson_su,args.nevents,args.seed+1,(args.prlevel>3));
 	std::cout << "Generated " << data_db.size() << " D0bar candidates." << std::endl;
 
 	auto end = std::chrono::high_resolution_clock::now();
@@ -279,7 +279,7 @@ int main( int argc, char** argv  )
 		std::string outfilename = args.outdir + outprefix + "-HIST.root";
 		// plotter.FillHistograms(data, model_dz, tau, y, b, s, outfilename, args.plotnbins); 
 		plotter.FillDataHistogram(data, args.plotnbins);
-		plotter.FillModelHistogram(model_truth_dz, tau(), y(), b(), s(), johnson_su, args.plotnbins);
+		plotter.FillModelHistogram(model_truth_dz, efficiency, tau(), y(), b(), s(), johnson_su, args.plotnbins);
 		if (outfilename != "") plotter.SaveHistograms(outfilename);
 		plotter.SetCustomAxesTitles("#it{m}^{2}_{+} [GeV^{2}/#it{c}^{4}]","#it{m}^{2}_{#minus} [GeV^{2}/#it{c}^{4}]","#it{m}^{2}_{#it{#pi#pi}} [GeV^{2}/#it{c}^{4}]");
 

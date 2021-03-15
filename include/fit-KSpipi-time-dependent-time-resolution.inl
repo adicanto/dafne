@@ -298,7 +298,7 @@ int main(int argc, char** argv)
 
 		// model for ploting
 
-		auto model_truth_dz = time_dependent_rate<Flavor::Positive,DecayTime>(tau,x,y,qop,phi,Adir,Abar)*efficiency; 
+		auto model_truth_dz = time_dependent_rate<Flavor::Positive,DecayTime>(tau,x,y,qop,phi,Adir,Abar); 
 		// auto model_truth_db = time_dependent_rate<Flavor::Negative,DecayTime>(tau,x,y,qop,phi,Adir,Abar)*efficiency;
 
 		// build a dummy fcn to easily synchronize the plotting model and fitting model
@@ -332,7 +332,7 @@ int main(int argc, char** argv)
 		// plotter.FillHistograms(data, model_dz_fitted, outfilename, args.plotnbins); 
 		size_t nbins = 50;
 		plotter.FillDataHistogram(data, args.plotnbins);
-		plotter.FillModelHistogram(model_truth_dz_fitted, 
+		plotter.FillModelHistogram(model_truth_dz_fitted, efficiency,
 								   MinuitTools::GetParameterPointer(fitted_parameters, "tau")->GetValue(), 
 								   MinuitTools::GetParameterPointer(fitted_parameters, "y")->GetValue(), 
 								   MinuitTools::GetParameterPointer(fitted_parameters, "b")->GetValue(), 
