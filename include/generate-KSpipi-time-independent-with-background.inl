@@ -158,7 +158,7 @@ int main( int argc, char** argv  )
 
 	// build averaged sum pdf for the plotting
 
-	auto f_cmb_functor = SingleValue(f_cmb);
+	auto f_cmb_functor = PassParameter(f_cmb);
 
 	auto _build_averaged_sum_pdf = hydra::wrap_lambda(
 			  [] __hydra_dual__ (hydra::tuple< double, double, double> input_functors){
@@ -315,8 +315,9 @@ int main( int argc, char** argv  )
 		plotter.FillModelHistogram(averaged_sum_pdf);
 		plotter.FillOtherHistogram("cmb_bkg", "background", combinatorial_background_pdf, f_cmb(), 16, 7, 38);
 		plotter.FillComponentsHistogramsWithEfficiency(amp, efficiency, 1. - f_cmb());
-		if (outfilename != "") plotter.SaveHistograms(outfilename);
 		plotter.SetCustomAxesTitles("#it{m}^{2}_{+} [GeV^{2}/#it{c}^{4}]","#it{m}^{2}_{#minus} [GeV^{2}/#it{c}^{4}]","#it{m}^{2}_{#it{#pi#pi}} [GeV^{2}/#it{c}^{4}]");
+		if (outfilename != "") plotter.SaveHistograms(outfilename);
+		
 
 		// 1D Projection
 		TCanvas c1("c1","c1",1800,700);

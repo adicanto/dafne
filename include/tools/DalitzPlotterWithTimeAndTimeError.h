@@ -76,6 +76,56 @@ public:
 		return _h_model;
 	}
 
+	THnSparseD* FillModelHistogramFromOtherHistograms(std::vector<std::string> names, const size_t nbins=200, Int_t lineColor=kRed, Int_t lineStyle=kSolid) {
+		_h_model = _phsp.RootHistogramWithTimeAndTimeError("1", "2", "3", nbins);
+		_h_model->SetName("h_model");
+		_h_model->SetTitle("Total");
+		_att_keeper_model.SetLineColor(lineColor);
+		_att_keeper_model.SetLineStyle(lineStyle);
+
+		for (auto name : names) {
+			auto it = _h_others.find(name);
+			if (it == _h_others.end()) {
+				std::cout << "FillModelHistogramFromOtherHistograms: Cannot find other histogram: " << name << std::endl;
+				return nullptr;
+			} else {
+				_h_model->Add(it->second);
+			}
+
+		}
+
+		return _h_model;
+	}
+
+	template<typename FUNCTOR, typename EFFICIENCY, typename PDFSIGMAT>
+	THnSparseD* FillOtherHistogram(const std::string name, const std::string title, FUNCTOR & functor, EFFICIENCY & efficiency, double tau, double y, double b, double s, PDFSIGMAT const& pdf_sigma_t,  const double fraction, Int_t lineColor, Int_t lineStyle, Int_t fillColor,  const size_t nbins=200, size_t rndseed=0)
+	{
+		std::cout << "Filling histogram for other histogram: " << name << "..." << std::flush;
+
+		_h_others[name] = nullptr;
+
+
+		if (!_h_data) {
+			std::cout << "WARNING: data histograms has not been filled, the model histogram cannot be correctly normalized." << std::endl;
+			_h_model = fill_histogram(functor, efficiency, tau, y, b, s, pdf_sigma_t, 500000, nbins, rndseed);
+		} else {
+			double ndata = get_integral(_h_data);
+			double nevents = (ndata<5e5) ? 1e7 : 20.*ndata;
+			_h_others[name] = fill_histogram(functor, efficiency, tau, y, b, s, pdf_sigma_t, nevents, nbins, rndseed);
+			_h_others[name]->Scale( fraction*ndata/get_integral(_h_others[name]) );
+		}
+
+		_h_others[name]->SetName(Form("h_other_%s", name.c_str()));
+		_h_others[name]->SetTitle(title.c_str());
+		_att_keeper_others[name].SetLineColor(lineColor);
+		_att_keeper_others[name].SetLineStyle(lineStyle);
+		_att_keeper_others[name].SetFillColor(fillColor);
+
+		std::cout << " done" << std::endl ;
+
+		return _h_others[name];
+	}
+
 
 	template<typename DATA, typename ModelTruth, typename EFFICIENCY, typename PDFSIGMAT>
 	void FillHistograms(DATA & data, ModelTruth & modelTruth, EFFICIENCY & efficiency, double tau, double y, double b, double s, PDFSIGMAT const& pdf_sigma_t, const std::string outfilename="", const size_t nbins=200, const bool plotComponents=false)

@@ -161,7 +161,7 @@ int main(int argc, char** argv)
 
 	// build averaged sum pdf for fitting with uniform background fraction
 
-	auto uniform_f_cmb_functor = SingleValue(f_cmb);
+	auto uniform_f_cmb_functor = PassParameter(f_cmb);
 
 	auto _build_sum_pdf = hydra::wrap_lambda(
 			  [] __hydra_dual__ (hydra::tuple< double, double, double> input_functors){
