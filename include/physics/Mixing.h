@@ -450,7 +450,7 @@ public:
 };
 
 // analytical integration of Psi0
-template<typename TimeError, typename Signature=hydra::complex<double>(TimeError)>
+template<typename TimeError, typename Signature=double(TimeError)>
 class Psi0Integration: public hydra::BaseFunctor<Psi0Integration<TimeError>, Signature, 3>
 {
 	typedef hydra::BaseFunctor<Psi0Integration<TimeError>, Signature, 3> super_type;
@@ -490,7 +490,7 @@ public:
 	}
 
 	__hydra_dual__ inline
-	std::complex<double> Evaluate(TimeError sigma_t) const
+	double Evaluate(TimeError sigma_t) const
 	{
 		double sigma = s()*sigma_t;
 
