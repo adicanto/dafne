@@ -13,36 +13,13 @@
 #include <hydra/multivector.h>
 #include <hydra/Integrator.h>
 
+#include <tools/FunctorTools.h>
+
 #include "RooMathM.h"
 
 
 namespace dafne {
 
-template<typename Amplitude>
-auto rate(Amplitude const& amplitude)
-{
-	auto norm = hydra::wrap_lambda(
-			  [=] __hydra_dual__ (hydra::complex<double> amp){
-						 return hydra::norm( amp );
-			  }
-	);
-	
-	return hydra::compose(norm, amplitude);
-}
-
-template<typename ...Amplitudes>
-auto rate(Amplitudes const& ... amplitudes)
-{
-	auto tot = hydra::sum(amplitudes...);
-	
-	auto norm = hydra::wrap_lambda(
-			  [=] __hydra_dual__ (hydra::complex<double> amp){
-						 return hydra::norm( amp );
-			  }
-	);
-	
-	return hydra::compose(norm, tot);
-}
 
 template<Flavor Tag, typename Time, typename ADIR, typename ABAR>
 auto time_dependent_rate(hydra::Parameter const& tau, hydra::Parameter const& x, hydra::Parameter const& y, hydra::Parameter const& qop, hydra::Parameter const& phi, ADIR const& Adir, ABAR const& Abar)
@@ -58,104 +35,6 @@ auto time_dependent_rate(hydra::Parameter const& tau, hydra::Parameter const& x,
 	auto amp = gp * Adir + rcp * gm * Abar;
 	return rate(amp);
 }
-
-
-template<typename Amplitude>
-auto real_part(Amplitude const& amplitude)
-{
-	auto _real = hydra::wrap_lambda(
-			  [=] __hydra_dual__ (hydra::complex<double> amp){
-						 return amp.real();
-			  }
-	);
-	
-	return hydra::compose(_real, amplitude);
-}
-
-template<typename Amplitude>
-auto imag_part(Amplitude const& amplitude)
-{
-	auto _imag = hydra::wrap_lambda(
-			  [=] __hydra_dual__ (hydra::complex<double> amp){
-						 return amp.imag();
-			  }
-	);
-	
-	return hydra::compose(_imag, amplitude);
-}
-
-
-template<typename Amplitude>
-auto conjugate(Amplitude const& amplitude)
-{
-	auto _conj = hydra::wrap_lambda(
-			  [=] __hydra_dual__ (hydra::complex<double> amp){
-						 return hydra::conj(amp);
-			  }
-	);
-	
-	return hydra::compose(_conj, amplitude);
-}
-
-template<typename Amplitude>
-auto divideBy(Amplitude const& amplitude, const double denominator)
-{
-	auto _divide = hydra::wrap_lambda(
-			  [=] __hydra_dual__ (hydra::complex<double> amp){
-						 return amp / denominator;
-			  }
-	);
-	
-	return hydra::compose(_divide, amplitude);
-}
-
-template<typename Amplitude>
-auto multiplyBy(Amplitude const& amplitude, const double factor)
-{
-	auto _multiply = hydra::wrap_lambda(
-			  [=] __hydra_dual__ (hydra::complex<double> amp){
-						 return amp * factor;
-			  }
-	);
-	
-	return hydra::compose(_multiply, amplitude);
-}
-
-
-template<typename BACKEND>
-struct ConstantIntegrator;
-
-template<hydra::detail::Backend BACKEND>
-class ConstantIntegrator<hydra::detail::BackendPolicy<BACKEND>>: 
-public hydra::Integral<ConstantIntegrator<hydra::detail::BackendPolicy<BACKEND>>>
-{
-	typedef hydra::detail::BackendPolicy<BACKEND> system_t;
-public:
-	ConstantIntegrator()=delete;
-
-	ConstantIntegrator(double norm):fNorm(norm){};
-
-	// double is not allow to be template parameter, therefore we need to treat the norm as member variables
-	ConstantIntegrator( ConstantIntegrator<hydra::detail::BackendPolicy<BACKEND>> const& other):fNorm(other.fNorm){}
-
-	ConstantIntegrator<hydra::detail::BackendPolicy<BACKEND>>&
-	operator=( ConstantIntegrator<hydra::detail::BackendPolicy<BACKEND>> const& other){fNorm = other.fNorm;}
-
-	template<hydra::detail::Backend BACKEND2>
-	ConstantIntegrator( ConstantIntegrator<hydra::detail::BackendPolicy<BACKEND2>> const& other):fNorm(other.fNorm){}
-
-	template<hydra::detail::Backend BACKEND2>
-	ConstantIntegrator<hydra::detail::BackendPolicy<BACKEND>>&
-    operator=( ConstantIntegrator<hydra::detail::BackendPolicy<BACKEND2>> const& other){fNorm = other.fNorm;}
-
-    template<typename FUNCTOR> 
-    inline std::pair<double, double> Integrate(FUNCTOR const& fFunctor) 
-    {
-    	return std::make_pair(fNorm, 0.0); // constant has no error
-    }
-private:
-	const double fNorm;
-};
 
 
 // This function would build a pdf functor (the funtor is a pdf iself!) for time dependent amplitude with fixed Adir and Abar, and normalized pdf(sigma_t).

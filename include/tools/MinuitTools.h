@@ -17,6 +17,10 @@
 #include <Minuit2/MnPlot.h>
 
 #include <hydra/Parameter.h>
+#include <hydra/LogLikelihoodFCN.h>
+
+
+#include <tools/FunctorTools.h>
 
 namespace dafne {
 
@@ -113,6 +117,22 @@ hydra::Parameter * GetParameterPointer(std::vector<hydra::Parameter*> & paramete
     }
     return NULL;
 }
+
+// build a dummy fcn to easily synchronize the paramters in plotting functor and fitting functor, according
+// to the parameter names. 
+template<typename DUMMYDATA, typename FUNCTOR, typename MINIMUM>
+auto UpdateParametersByBuildingDummyFCN(DUMMYDATA data_dummy, FUNCTOR functor, MINIMUM minimum)
+{
+    auto dummy_fcn_for_plotting = hydra::make_loglikehood_fcn( 
+                                    hydra::make_pdf( functor, ConstantIntegrator<hydra::device::sys_t>(1.0)) ,
+                                    data_dummy.begin(),
+                                    data_dummy.end()
+                                  );
+
+    dummy_fcn_for_plotting.GetParameters().UpdateParameters(minimum);
+    return dummy_fcn_for_plotting.GetPDF().GetFunctor();
+}
+
 
 TGraph* ContourToTGraph(std::vector<std::pair<double,double> > contourPoints, const char * name="contour", const bool percentage=0)
 {

@@ -14,6 +14,9 @@
 #include <TLine.h>
 
 #include <physics/ThreeBodyPhaseSpace.h>
+#include <tools/FunctorTools.h>
+
+#include <map>
 
 namespace dafne {
 
@@ -27,12 +30,14 @@ protected:
 	THnSparseD* _h_data;
 	THnSparseD* _h_model;
 	std::vector<THnSparseD*> _h_components;
+	std::map<std::string, THnSparseD*> _h_others;
 
 	// Since THnSparseD does not inherit from TAttLine TAttFill TAttMarker,
 	// we use the following members to keep the plotting attributes
 	TH1D _att_keeper_data;
 	TH1D _att_keeper_model;
 	std::vector<TH1D> _att_keeper_components;
+	std::map<std::string, TH1D> _att_keeper_others;
 	
 	bool _debug;
 
@@ -121,7 +126,7 @@ protected:
 public:
 	PlotterBase() = delete;
 
-	PlotterBase(std::vector<std::string> particles_labels, bool debug=false) :  _labels(particles_labels), _h_data(nullptr), _h_model(nullptr), _h_components(), _att_keeper_model(), _att_keeper_data(), _att_keeper_components(), _debug(debug)
+	PlotterBase(std::vector<std::string> particles_labels, bool debug=false) :  _labels(particles_labels), _h_data(nullptr), _h_model(nullptr), _h_components(), _h_others(), _att_keeper_model(), _att_keeper_data(), _att_keeper_components(), _att_keeper_others(), _debug(debug)
 	{
 		// set style
 		gROOT->SetStyle("Modern");
@@ -195,6 +200,37 @@ public:
 		return h2d_model;
 	}
 
+	TH2D* Plot2DProjectionOther(const std::string name, const int xdim, const int ydim, const char *goption="colz")
+	{
+		if (_debug) {
+			std::cout << "--- Plotting 2D projection of model on " << xdim <<", "<< ydim << " axes..." << std::endl;
+			std::cout << "other histogram: " << name << "..." << std::endl;
+		}
+
+		auto it = _h_others.find(name);
+		if (it == _h_others.end()) {
+			std::cout << "Cannot find other histogram: " << name << std::endl;
+			return nullptr;
+		}
+
+		if (!it->second) {
+			std::cout << "Only found a null pointer to other histogram: " << name << std::endl;
+			return nullptr;
+		}
+
+		auto h2d_other = (TH2D*) gDirectory->FindObject(Form("other_%s_proj%d%d",name.c_str(),xdim,ydim));
+		if (!h2d_other) {
+			h2d_other = (TH2D*)(it->second->Projection(xdim, ydim));
+			h2d_other->SetName(Form("other_%s_proj%d%d",xdim,ydim));
+		}
+		h2d_other->Draw(goption);
+
+		if (_debug) std::cout << "done" << std::endl;
+
+		return h2d_other;
+	}
+
+
 	TH1D* Plot1DProjectionData(const int xdim, const char *goption="pe")
 	{
 		// plot data
@@ -247,6 +283,38 @@ public:
 		if (_debug) std::cout << "done" << std::endl;
 
 		return h1d_model;
+	}
+
+	TH1D* Plot1DProjectionOther(const std::string name, const int xdim, const char *goption="histo")
+	{
+		if (_debug) {
+			std::cout << "--- Plotting 1D projection of other histogram: " << name << " on " << xdim << " axes..." << std::endl;
+			std::cout << "other histogram: " << name << "..." << std::endl;
+		}
+
+		auto it = _h_others.find(name);
+		if (it == _h_others.end()) {
+			std::cout << "Cannot find other histogram: " << name << std::endl;
+			return nullptr;
+		}
+
+		if (!it->second) {
+			std::cout << "Only found a null pointer to other histogram: " << name << std::endl;
+			return nullptr;
+		}
+
+		auto h1d_other = (TH1D*) gDirectory->FindObject(Form("other_%s_proj%d",name.c_str(),xdim));
+		if (!h1d_other) {
+			h1d_other = (TH1D*)(it->second->Projection(xdim));
+			h1d_other->SetName(Form("other_%s_proj%d",name.c_str(),xdim));
+			h1d_other->SetYTitle(Form("Candidates per %.3g GeV^{2}/#it{c}^{4}",h1d_other->GetBinWidth(1)));
+			apply_attributes(h1d_other, &_att_keeper_others);
+		}
+		h1d_other->Draw(goption);
+
+		if (_debug) std::cout << "done" << std::endl;
+
+		return h1d_other;
 	}
 
 
@@ -350,6 +418,7 @@ public:
 		if (_h_data) _h_data->Write();
 		if (_h_model) _h_model->Write();
 		if (_h_components.size() > 0) for (auto h : _h_components) h->Write();
+		if (_h_others.size() > 0) for (auto &hmap : _h_others) hmap.second->Write();
 		
 		f->Close();
 		delete f;

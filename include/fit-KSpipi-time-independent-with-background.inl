@@ -27,13 +27,16 @@
 using namespace dafne;
 
 // Output-files prefix
-std::string outprefix("fit-KSpipi-time-independent");
+std::string outprefix("fit-KSpipi-time-independent-with-background");
 
 // Define the arguments of the amplitude
 declarg(MSqZero  , double)
 declarg(MSqPlus  , double)
 declarg(MSqMinus , double)
-declarg(DecayTime, double)
+declarg(SignalFaction, double)
+// declarg(RandomBackfroundFaction, double)
+declarg(CombinatorialBackfroundFaction, double)
+
 using namespace hydra::arguments;
 
 // Main
@@ -128,14 +131,76 @@ int main(int argc, char** argv)
 	config.ConfigureEfficiency(efficiency);*/
 
 	// compute the decay rate
-	auto model = rate(amp)*efficiency;
+	auto model_truth = rate(amp);
+	auto model = model_truth*efficiency;
+	auto plainIntegrator = phsp.Integrator(10*args.nevents);
+	auto normalized_model = make_numerical_normalized_functor(model, plainIntegrator);
+
+
+	// add background
+
+	// auto f_rnd = hydra::Parameter::Create("f_rnd").Value(0.1).Error(0.0001);
+	auto f_cmb = hydra::Parameter::Create("f_cmb").Value(0.5).Error(0.0001).Limits(-1.,1.).Fixed(0);
+
+	// auto random_background = [phsp](MSqPlus m2p, MSqMinus m2m)->double {
+	// 		// judge whether in phase space or not
+	// 		if (!phsp.Contains<2,3>(m2p, m2m)) return 0.0;
+	// 		return 1;
+	// };
+
+	auto combinatorial_background = hydra::wrap_lambda( 
+		[phsp] __hydra_dual__ (MSqPlus m2p, MSqMinus m2m) {
+			// judge whether in phase space or not
+			if (!phsp.Contains<2,3>(m2p, m2m)) return 0.0;
+			return 1.;
+		}
+	);
+	
+	auto combinatorial_background_norm = plainIntegrator(combinatorial_background).first;
+	auto combinatorial_background_pdf =  divideBy<double>(combinatorial_background, combinatorial_background_norm); 
+
+	// build averaged sum pdf for fitting with uniform background fraction
+
+	auto uniform_f_cmb_functor = SingleValue(f_cmb);
+
+	auto _build_sum_pdf = hydra::wrap_lambda(
+			  [] __hydra_dual__ (hydra::tuple< double, double, double> input_functors){
+			  		auto _pdf_sig = hydra::get<0>(input_functors);
+			  		auto _f_cmb = hydra::get<1>(input_functors);
+			  		auto _pdf_cmb = hydra::get<2>(input_functors);
+
+			  		return  (1-_f_cmb)*_pdf_sig + _f_cmb*_pdf_cmb;
+			  }
+	);
+
+	auto averaged_sum_pdf = hydra::compose(_build_sum_pdf, normalized_model, uniform_f_cmb_functor, combinatorial_background_pdf);
+
+	// build pdf with event by event fraction
+	auto f_cmb_passor = PassVariable<CombinatorialBackfroundFaction>();
+
+	auto evt_frac_pdf = hydra::compose(_build_sum_pdf, normalized_model, f_cmb_passor, combinatorial_background_pdf);
+
+
+
+
+	// Build hydra Pdf<FUNCTOR, INTEGRATOR>. Since the averaged_sum_pdf is already normalized, we only need to
+	// add constant "1" as INTEGRATOR, to adapt to hydra framework's convention.
+	// auto pdf = hydra::make_pdf( averaged_sum_pdf, ConstantIntegrator<hydra::device::sys_t>(1.0));
+	auto pdf = hydra::make_pdf( evt_frac_pdf, ConstantIntegrator<hydra::device::sys_t>(1.0));
+	std::cout << "Initial normalization for D0 PDF: "<< pdf.GetNorm() << " +/- " << pdf.GetNormError() << std::endl;
+
 
 	//---------------------------------------------------------------------------------------
 	// get input data from ROOT file
 	//---------------------------------------------------------------------------------------
 	std::cout << "***** Input data" << std::endl;
 	std::cout << "Creating data containers ... ...  " << std::endl;
-	hydra::multivector<hydra::tuple<MSqPlus,MSqMinus,MSqZero>, hydra::device::sys_t> data; // create data container for D0 events
+
+	// with uniform fraction
+	//hydra::multivector<hydra::tuple<MSqPlus,MSqMinus,MSqZero>, hydra::device::sys_t> data; // create data container for D0 events
+
+	// with event by event fraction
+	hydra::multivector<hydra::tuple<MSqPlus,MSqMinus,MSqZero,SignalFaction,CombinatorialBackfroundFaction>, hydra::device::sys_t> data; // create data container for D0 events
 
 	auto file = TFile::Open(args.input.c_str());
 	if (!file) {
@@ -157,11 +222,24 @@ int main(int argc, char** argv)
 	ntp->SetBranchAddress("mSqM",&m2m);
 	ntp->SetBranchAddress("mSqZ",&m2z);
 
+	// add event by event fraction
+	double f_sig_i, f_cmb_i;
+	if (!ntp->GetBranch("f_sig") && !ntp->GetBranch("f_cmb")) {
+		std::cout << "It seems f_sig and f_cmb are not in input file. Quit!" << std::endl;
+		exit(-1);
+	}
+	ntp->SetBranchAddress("f_sig",&f_sig_i);
+	ntp->SetBranchAddress("f_cmb",&f_cmb_i);		
+
 	for (auto i=0; i<nentries; ++i) {
 		ntp->GetEntry(i);
 
 		if (i % 100000 == 0) std::cout << "Reading " << i << "events" << std::endl;
-		data.push_back(hydra::make_tuple(MSqPlus(m2p),MSqMinus(m2m),MSqZero(m2z)));
+
+		// data.push_back(hydra::make_tuple(MSqPlus(m2p),MSqMinus(m2m),MSqZero(m2z)));
+
+		// with event by event fraction
+		data.push_back(hydra::make_tuple(MSqPlus(m2p),MSqMinus(m2m),MSqZero(m2z),SignalFaction(f_sig_i),CombinatorialBackfroundFaction(f_cmb_i)));
 	}
 	
 	file->Close();
@@ -183,8 +261,6 @@ int main(int argc, char** argv)
 	// Build pdf and log-likelihood function from model
 	//---------------------------------------------------------------------------------------
 	std::cout << "***** Build likelihood" << std::endl;
-	auto pdf = hydra::make_pdf( model, phsp.Integrator(10*ncands) );
-	std::cout << "Initial normalization for D0 PDF: "<< pdf.GetNorm() << " +/- " << pdf.GetNormError() << std::endl;
 	
 	auto fcn = hydra::make_loglikehood_fcn( pdf, data.begin(), data.end() );
 	MinuitTools::CheckFCN(fcn);
@@ -232,9 +308,28 @@ int main(int argc, char** argv)
 	if (args.plot) {
 		// set and check the parameters
 		std::cout << "***** Set model according to fit result" << std::endl;
-		fcn.GetParameters().UpdateParameters(minimum);
-		auto amp = fcn.GetPDF().GetFunctor().GetFunctor(hydra::placeholders::_0).GetFunctor(hydra::placeholders::_1); // get the result model from FCN // currently, the efficiency plane is not included in the plotting, and it would be included after the new plotting funtion is ready
-		amp.PrintRegisteredParameters();
+
+		// parameters after fitting
+		auto fitted_parameters = fcn.GetParameters().GetVariables();
+
+		// build a dummy fcn to easily synchronize the paramters in plotting functor and fitting functor
+		hydra::multivector<hydra::tuple<MSqPlus,MSqMinus>, hydra::device::sys_t> data_dummy;
+		data_dummy.push_back(hydra::make_tuple(MSqPlus(1.0),MSqMinus(1.0)));
+		auto averaged_sum_pdf_for_plotting = dafne::MinuitTools::UpdateParametersByBuildingDummyFCN(data_dummy, averaged_sum_pdf, minimum);
+		auto amp_for_plotting_temp = dafne::MinuitTools::UpdateParametersByBuildingDummyFCN(data_dummy, rate(amp), minimum);
+		auto amp_for_plotting = amp_for_plotting_temp.GetFunctor(hydra::placeholders::_1);
+
+		// directly get the f_cmb for the uniform fraction case
+		// double f_cmb_plotting = MinuitTools::GetParameterPointer(fitted_parameters, "f_cmb")->GetValue();
+
+		// calculate the f_cmb for the event by event case
+		double f_cmb_sum = 0;
+		for( auto event : data ) {
+			CombinatorialBackfroundFaction a = hydra::get<4>(event);
+			f_cmb_sum += a;
+		}		
+		double f_cmb_plotting = f_cmb_sum / data.size();
+		averaged_sum_pdf_for_plotting.SetParameter("f_cmb", f_cmb_plotting);
 
 		// plot the model and its components
 		std::cout << "***** Plot data and model" << std::endl;
@@ -244,7 +339,16 @@ int main(int argc, char** argv)
 		auto plotter = DalitzPlotter<MSqPlus, MSqMinus, MSqZero>(phsp,"#it{K}^{0}_{S}","#it{#pi}^{+}","#it{#pi}^{#minus}",(args.prlevel>3));
 		
 		std::string outfilename = args.outdir + outprefix + "-HIST.root";
-		plotter.FillHistograms(data, rate(amp), outfilename);
+		// uniform fraction case
+		// auto data_for_plotting = data;
+		// event by event fraction case
+		auto data_for_plotting = data.column(hydra::placeholders::_0, hydra::placeholders::_1, hydra::placeholders::_2);
+		plotter.FillDataHistogram(data_for_plotting);
+		plotter.FillModelHistogram(averaged_sum_pdf_for_plotting);
+		plotter.FillOtherHistogram("cmb_bkg", "background", combinatorial_background_pdf, f_cmb_plotting, 16, 7, 38);
+		plotter.FillComponentsHistogramsWithEfficiency(amp_for_plotting, efficiency, 1. - f_cmb_plotting);
+		if (outfilename != "") plotter.SaveHistograms(outfilename);
+		plotter.SetCustomAxesTitles("#it{m}^{2}_{+} [GeV^{2}/#it{c}^{4}]","#it{m}^{2}_{#minus} [GeV^{2}/#it{c}^{4}]","#it{m}^{2}_{#it{#pi#pi}} [GeV^{2}/#it{c}^{4}]");
 
 		// 1D Projection
 		TCanvas c1("c1","c1",1800,700);
@@ -270,17 +374,21 @@ int main(int argc, char** argv)
 		pad1->cd();
 		plotter.Plot1DProjections(0, 0);
 		pad2->cd();
-		plotter.Plot1DPull(0);
+		auto h1_pull = plotter.Plot1DPull(0);
+		plotter.PlotPullLines(h1_pull->GetXaxis()->GetXmin(), h1_pull->GetXaxis()->GetXmax());
+
 
 		pad3->cd();
-		plotter.Plot1DProjections(1, 0);
+		plotter.Plot1DProjections(1, 1); // plot legend in this pad
 		pad4->cd();
-		plotter.Plot1DPull(1);
+		h1_pull = plotter.Plot1DPull(1);
+		plotter.PlotPullLines(h1_pull->GetXaxis()->GetXmin(), h1_pull->GetXaxis()->GetXmax());
 
 		pad5->cd();
-		plotter.Plot1DProjections(2, 1); // plot legend in this pad
+		plotter.Plot1DProjections(2, 0); 
 		pad6->cd();
-		plotter.Plot1DPull(2);
+		h1_pull = plotter.Plot1DPull(2);
+		plotter.PlotPullLines(h1_pull->GetXaxis()->GetXmin(), h1_pull->GetXaxis()->GetXmax());
 
 		outfilename = args.outdir + outprefix + "-1d-projection";
 		Print::Canvas(c1, outfilename);
