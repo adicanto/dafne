@@ -152,7 +152,13 @@ int main(int argc, char** argv)
 
 	// add background
 
-	auto f_rnd = hydra::Parameter::Create("f_rnd").Value(0.25).Error(0.0001).Limits(0.,1.);
+	auto f_rnd = hydra::Parameter::Create("f_rnd").Value(0.0192).Fixed();
+	auto f_cmb = hydra::Parameter::Create("f_cmb").Value(0.0482).Fixed();
+	auto tau_cmb = hydra::Parameter::Create("tau_cmb").Value(Tau::D0*0.9).Fixed();
+	auto b_cmb   = hydra::Parameter::Create("b_cmb").Value(0.0).Fixed();
+	auto s_cmb   = hydra::Parameter::Create("s_cmb").Value(1.0).Fixed();
+	config.ConfigureBackgroundParameters({&f_rnd, &f_cmb, &tau_cmb, &b_cmb, &s_cmb});
+
 	auto f_rnd_functor = PassParameter(f_rnd);
 	auto random_background_pdf = hydra::wrap_lambda( // ignore CPV
 		[&model_dz] __hydra_dual__ (MSqPlus a, MSqMinus b, DecayTime t, DecayTimeError sigma_t) {
@@ -161,12 +167,8 @@ int main(int argc, char** argv)
 			return 0.5*model_dz(a,b,t,sigma_t) + 0.5*model_dz(switched_a,switched_b,t,sigma_t);
 	});
 
-	auto f_cmb = hydra::Parameter::Create("f_cmb").Value(0.25).Error(0.0001).Limits(0.,1.);
+	
 	auto f_cmb_functor = PassParameter(f_cmb);
-	auto tau_cmb = hydra::Parameter::Create("tau_cmb").Value(Tau::D0*0.9).Fixed();
-	auto b_cmb   = hydra::Parameter::Create("b_cmb").Value(0.0).Fixed();
-	auto s_cmb   = hydra::Parameter::Create("s_cmb").Value(1.0).Fixed();
-
 	auto combinatorial_background_without_time = hydra::wrap_lambda( 
 		[phsp] __hydra_dual__ (MSqPlus m2p, MSqMinus m2m) {
 			// judge whether in phase space or not

@@ -144,16 +144,12 @@ int main( int argc, char** argv  )
 
 	// add background
 
-	auto f_rnd = hydra::Parameter::Create("f_rnd").Value(0.25).Error(0.0001).Limits(0.,1.);
-	// auto tau_rnd = hydra::Parameter::Create("tau_rnd").Value(Tau::D0).Fixed();
-	// auto b_rnd   = hydra::Parameter::Create("b_rnd").Value(0.0).Fixed();
-	// auto s_rnd   = hydra::Parameter::Create("s_rnd").Value(1.0).Fixed();
-
-	auto f_cmb = hydra::Parameter::Create("f_cmb").Value(0.25).Error(0.0001).Limits(0.,1.);
+	auto f_rnd = hydra::Parameter::Create("f_rnd").Value(0.0192).Fixed();
+	auto f_cmb = hydra::Parameter::Create("f_cmb").Value(0.0482).Fixed();
 	auto tau_cmb = hydra::Parameter::Create("tau_cmb").Value(Tau::D0*0.9).Fixed();
 	auto b_cmb   = hydra::Parameter::Create("b_cmb").Value(0.0).Fixed();
 	auto s_cmb   = hydra::Parameter::Create("s_cmb").Value(1.0).Fixed();
-
+	config.ConfigureBackgroundParameters({&f_rnd, &f_cmb, &tau_cmb, &b_cmb, &s_cmb});
 
 	auto random_background_t_truth = hydra::wrap_lambda( 
 		[&model_truth_dz] __hydra_dual__ (MSqPlus a, MSqMinus b, DecayTime t) {
