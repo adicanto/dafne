@@ -197,24 +197,24 @@ inline NumericalNormalizedFunctor<FUNCTOR, INTEGRATOR, ConstantFunctor> make_num
 }
 
 
-class SingleValue: public hydra::BaseFunctor<SingleValue, double(void), 1>
+class PassParameter: public hydra::BaseFunctor<PassParameter, double(void), 1>
 {
-	typedef hydra::BaseFunctor<SingleValue, double(void), 1> super_type;
+	typedef hydra::BaseFunctor<PassParameter, double(void), 1> super_type;
 	using super_type::_par;
 
 public:
-	SingleValue() = delete;
+	PassParameter() = delete;
      
 	__hydra_dual__
-	SingleValue(hydra::Parameter const& v) : super_type({v})
+	PassParameter(hydra::Parameter const& v) : super_type({v})
 	{}
 	
 	__hydra_dual__
-	SingleValue(SingleValue const& other) : super_type(other)
+	PassParameter(PassParameter const& other) : super_type(other)
 	{}
 	
 	__hydra_dual__ inline
-	SingleValue& operator=(SingleValue const& other)
+	PassParameter& operator=(PassParameter const& other)
 	{
 		if(this==&other) return *this;
 		return *this;
@@ -378,6 +378,8 @@ public:
 private:
 	const double fNorm;
 };
+
+
 
 
 } // namespace dafne

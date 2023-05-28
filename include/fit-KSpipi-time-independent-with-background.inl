@@ -140,7 +140,7 @@ int main(int argc, char** argv)
 	// add background
 
 	// auto f_rnd = hydra::Parameter::Create("f_rnd").Value(0.1).Error(0.0001);
-	auto f_cmb = hydra::Parameter::Create("f_cmb").Value(0.5).Error(0.0001).Limits(-1.,1.).Fixed(0);
+	auto f_cmb = hydra::Parameter::Create("f_cmb").Value(0.15).Error(0.01).Limits(0,1.);
 
 	// auto random_background = [phsp](MSqPlus m2p, MSqMinus m2m)->double {
 	// 		// judge whether in phase space or not
@@ -161,7 +161,7 @@ int main(int argc, char** argv)
 
 	// build averaged sum pdf for fitting with uniform background fraction
 
-	auto uniform_f_cmb_functor = SingleValue(f_cmb);
+	auto uniform_f_cmb_functor = PassParameter(f_cmb);
 
 	auto _build_sum_pdf = hydra::wrap_lambda(
 			  [] __hydra_dual__ (hydra::tuple< double, double, double> input_functors){
@@ -269,7 +269,8 @@ int main(int argc, char** argv)
 	// Configure and run MINUIT
 	//---------------------------------------------------------------------------------------
 	std::cout << "***** Fit" << std::endl;
-	ROOT::Minuit2::MnPrint::SetLevel(2);
+	// ROOT::Minuit2::MnPrint::SetLevel(2); // for earlier versions of CERN ROOT (before 6.24)
+	ROOT::Minuit2::MnPrint::SetGlobalLevel(2); 
 	ROOT::Minuit2::MnStrategy strategy(2);
 	
 	// print starting values of parameters
@@ -334,7 +335,8 @@ int main(int argc, char** argv)
 		// plot the model and its components
 		std::cout << "***** Plot data and model" << std::endl;
 
-		TApplication myapp("myapp",0,0);
+		TApplication* myapp = NULL;
+		if (args.interactive) myapp = new TApplication("myapp",0,0);
 		
 		auto plotter = DalitzPlotter<MSqPlus, MSqMinus, MSqZero>(phsp,"#it{K}^{0}_{S}","#it{#pi}^{+}","#it{#pi}^{#minus}",(args.prlevel>3));
 		
@@ -346,7 +348,7 @@ int main(int argc, char** argv)
 		plotter.FillDataHistogram(data_for_plotting);
 		plotter.FillModelHistogram(averaged_sum_pdf_for_plotting);
 		plotter.FillOtherHistogram("cmb_bkg", "background", combinatorial_background_pdf, f_cmb_plotting, 16, 7, 38);
-		plotter.FillComponentsHistogramsWithEfficiency(amp_for_plotting, efficiency, 1. - f_cmb_plotting);
+		plotter.FillComponentHistograms(amp_for_plotting, efficiency, 1. - f_cmb_plotting);
 		if (outfilename != "") plotter.SaveHistograms(outfilename);
 		plotter.SetCustomAxesTitles("#it{m}^{2}_{+} [GeV^{2}/#it{c}^{4}]","#it{m}^{2}_{#minus} [GeV^{2}/#it{c}^{4}]","#it{m}^{2}_{#it{#pi#pi}} [GeV^{2}/#it{c}^{4}]");
 
@@ -426,7 +428,7 @@ int main(int argc, char** argv)
 
 		if (args.interactive) {
 			std::cout << "Press Crtl+C to terminate" << std::endl;
-			myapp.Run();
+			myapp->Run();
 		}
 	}
 

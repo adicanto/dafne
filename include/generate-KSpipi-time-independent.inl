@@ -122,6 +122,9 @@ int main( int argc, char** argv  )
 	// prepare the resolution for smearing
 	Resolution2D resolution2D;
 	config.ConfigureResolution2D(resolution2D);
+	TCanvas cresolution("cresolution", "cresolution", 800, 600);
+	resolution2D.Draw("m^{2}_{#it{#pi#pi}} [GeV^{2}/#it{c}^{4}]", "cos(#theta_{#it{#pi#pi}})");
+	Print::Canvas(cresolution,  args.outdir + outprefix + "_resolution");
 
 	//---------------------------------------------------------------------------------------
 	// Generate data
@@ -196,7 +199,9 @@ int main( int argc, char** argv  )
 	if (args.plot) {
 		std::cout << "***** Plot data and model" << std::endl;
 
-		TApplication myapp("myapp",0,0);
+		TApplication* myapp = NULL;
+		if (args.interactive) myapp = new TApplication("myapp",0,0);
+		
 		
 		auto plotter = DalitzPlotter<MSqPlus, MSqMinus, MSqZero>(phsp,"#it{K}^{0}_{S}","#it{#pi}^{+}","#it{#pi}^{#minus}",(args.prlevel>3));
 		
@@ -249,7 +254,7 @@ int main( int argc, char** argv  )
 
 		if (args.interactive) {
 			std::cout << "Press Crtl+C to terminate" << std::endl;
-			myapp.Run();
+			myapp->Run();
 		}
 	}
 	

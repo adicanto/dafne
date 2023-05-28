@@ -400,6 +400,114 @@ private:
 
 };
 
+// Psi0 and integration of Psi0 for the time dependent background
+template<typename Time, typename TimeError, typename Signature=double(Time,TimeError)>
+class Psi0: public hydra::BaseFunctor<Psi0<Time,TimeError>, Signature, 3>
+{
+	typedef hydra::BaseFunctor<Psi0<Time,TimeError>, Signature, 3> super_type;
+	using super_type::_par;
+
+private:
+	__hydra_dual__ inline
+	double tau() const { return _par[0]; }
+
+	__hydra_dual__ inline
+	double Gamma() const { return 1./_par[0]; }
+
+	__hydra_dual__ inline
+	double s() const { return _par[1]; }
+
+	__hydra_dual__ inline
+	double b() const { return _par[2]; }
+
+public:
+	Psi0() = delete;
+     
+	__hydra_dual__
+	Psi0(hydra::Parameter const& tau, hydra::Parameter const& s, hydra::Parameter const& b) : super_type({tau,s,b})
+	{}
+	
+	__hydra_dual__
+	Psi0(Psi0<Time,TimeError> const& other) : super_type(other)
+	{}
+	
+	__hydra_dual__ inline
+	Psi0<Time,TimeError>& operator=( Psi0<Time,TimeError> const& other)
+	{
+		if(this==&other) return *this;
+		super_type::operator=(other);
+		return *this;
+	}
+
+	__hydra_dual__ inline
+	double Evaluate(Time t, TimeError sigma_t) const
+	{
+		double chi = (t-b()) / (s()*sigma_t);
+		double kappa_0 = (1+0)*Gamma()*s()*sigma_t;
+		double result = _psi(chi, kappa_0); 
+		return result; 
+	}
+};
+
+// analytical integration of Psi0
+template<typename TimeError, typename Signature=double(TimeError)>
+class Psi0Integration: public hydra::BaseFunctor<Psi0Integration<TimeError>, Signature, 3>
+{
+	typedef hydra::BaseFunctor<Psi0Integration<TimeError>, Signature, 3> super_type;
+	using super_type::_par;
+
+private:
+	__hydra_dual__ inline
+	double tau() const { return _par[0]; }
+
+	__hydra_dual__ inline
+	double Gamma() const { return 1./_par[0]; }
+
+	__hydra_dual__ inline
+	double s() const { return _par[1]; }
+
+	__hydra_dual__ inline
+	double b() const { return _par[2]; }
+
+public:
+	Psi0Integration() = delete;
+     
+	__hydra_dual__
+	Psi0Integration(hydra::Parameter const& tau, hydra::Parameter const& s, hydra::Parameter const& b, std::array<double,2> const& timeRange) : super_type({tau,s,b}), _timeRange(timeRange)
+	{}
+	
+	__hydra_dual__
+	Psi0Integration(Psi0Integration<TimeError> const& other) : super_type(other), _timeRange(other._timeRange)
+	{}
+	
+	__hydra_dual__ inline
+	Psi0Integration<TimeError>& operator=( Psi0Integration<TimeError> const& other)
+	{
+		if(this==&other) return *this;
+		super_type::operator=(other);
+		_timeRange = other._timeRange;
+		return *this;
+	}
+
+	__hydra_dual__ inline
+	double Evaluate(TimeError sigma_t) const
+	{
+		double sigma = s()*sigma_t;
+
+		double chi0 = (_timeRange[0]-b()) / sigma;
+		double chi1 = (_timeRange[1]-b()) / sigma;
+
+		double kappa_0 = (1+0)*Gamma()*sigma;
+		double result = _int_psi_dt(sigma, chi1, kappa_0) - _int_psi_dt(sigma, chi0, kappa_0); 
+		return result; 
+	}
+
+private:
+	std::array<double,2> _timeRange;
+};
+
+
+
 
 } // namespace dafne
 

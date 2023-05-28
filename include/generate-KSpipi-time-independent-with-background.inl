@@ -75,7 +75,7 @@ int main( int argc, char** argv  )
 	efficiency_hist.GetTH2D((outprefix + "_efficiency_hist").c_str(), 
 		                    (outprefix + "_efficiency_hist").c_str(),
 		                    "m^{2}_{#it{#pi#pi}} [GeV^{2}/#it{c}^{4}]", "cos(#theta_{#it{#pi#pi}})")->Draw("COLZ");
-	Print::Canvas(cefficiency,  args.outdir + outprefix + "efficiency_hist");
+	Print::Canvas(cefficiency,  args.outdir + outprefix + "_efficiency_hist");
 	gStyle->SetOptStat(1);
 
 	auto efficiency = hydra::wrap_lambda(
@@ -135,7 +135,7 @@ int main( int argc, char** argv  )
 	// add background
 
 	// auto f_rnd = hydra::Parameter::Create("f_rnd").Value(0.1).Error(0.0001);
-	auto f_cmb = hydra::Parameter::Create("f_cmb").Value(0.5).Error(0.0001).Limits(-1.,1.);
+	auto f_cmb = hydra::Parameter::Create("f_cmb").Value(0.15).Error(0.01).Limits(0,1.);
 
 	// auto random_background = [phsp](MSqPlus m2p, MSqMinus m2m)->double {
 	// 		// judge whether in phase space or not
@@ -158,7 +158,7 @@ int main( int argc, char** argv  )
 
 	// build averaged sum pdf for the plotting
 
-	auto f_cmb_functor = SingleValue(f_cmb);
+	auto f_cmb_functor = PassParameter(f_cmb);
 
 	auto _build_averaged_sum_pdf = hydra::wrap_lambda(
 			  [] __hydra_dual__ (hydra::tuple< double, double, double> input_functors){
@@ -235,6 +235,9 @@ int main( int argc, char** argv  )
 	// prepare the resolution for smearing
 	Resolution2D resolution2D;
 	config.ConfigureResolution2D(resolution2D);
+	TCanvas cresolution("cresolution", "cresolution", 800, 600);
+	resolution2D.Draw("m^{2}_{#it{#pi#pi}} [GeV^{2}/#it{c}^{4}]", "cos(#theta_{#it{#pi#pi}})");
+	Print::Canvas(cresolution,  args.outdir + outprefix + "_resolution");
 
 	{
 		std::string outfilename = args.outdir + outprefix + "-data.root";
@@ -306,7 +309,9 @@ int main( int argc, char** argv  )
 		std::cout << "***** Plot data and model" << std::endl;
 
 		// plotting procedure
-		TApplication myapp("myapp",0,0);
+		TApplication* myapp = NULL;
+		if (args.interactive) myapp = new TApplication("myapp",0,0);
+		
 		
 		auto plotter = DalitzPlotter<MSqPlus, MSqMinus, MSqZero>(phsp,"#it{K}^{0}_{S}","#it{#pi}^{+}","#it{#pi}^{#minus}",(args.prlevel>3));
 		
@@ -314,9 +319,10 @@ int main( int argc, char** argv  )
 		plotter.FillDataHistogram(data);
 		plotter.FillModelHistogram(averaged_sum_pdf);
 		plotter.FillOtherHistogram("cmb_bkg", "background", combinatorial_background_pdf, f_cmb(), 16, 7, 38);
-		plotter.FillComponentsHistogramsWithEfficiency(amp, efficiency, 1. - f_cmb());
-		if (outfilename != "") plotter.SaveHistograms(outfilename);
+		plotter.FillComponentHistograms(amp, efficiency, 1. - f_cmb());
 		plotter.SetCustomAxesTitles("#it{m}^{2}_{+} [GeV^{2}/#it{c}^{4}]","#it{m}^{2}_{#minus} [GeV^{2}/#it{c}^{4}]","#it{m}^{2}_{#it{#pi#pi}} [GeV^{2}/#it{c}^{4}]");
+		if (outfilename != "") plotter.SaveHistograms(outfilename);
+		
 
 		// 1D Projection
 		TCanvas c1("c1","c1",1800,700);
@@ -402,7 +408,7 @@ int main( int argc, char** argv  )
 
 		if (args.interactive) {
 			std::cout << "Press Crtl+C to terminate" << std::endl;
-			myapp.Run();
+			myapp->Run();
 		}
 	}
 	

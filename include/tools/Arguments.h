@@ -12,6 +12,7 @@ public:
 	std::string  input;
 	std::string  config_file;
 	std::string  outdir;
+	std::string  strongphase_binning_file;
 	bool         plot;
 	unsigned int plotnbins;
 	int          prlevel;
@@ -31,6 +32,7 @@ public:
 	TCLAP::ValueArg<unsigned int> nArg;
 	TCLAP::ValueArg<unsigned int> sArg;
 	TCLAP::SwitchArg xArg;
+	TCLAP::ValueArg<std::string> binArg;
 
 	BaseArguments(std::string exename, std::string exever, std::string definput="") : name(exename), 
 		version(exever), input(definput), cmd(name,' ',version), 
@@ -43,18 +45,22 @@ public:
 		gArg("g", "gentoy", "Generate toy data?", false),
 		nArg("n", "nevents", "Number of events to be generated.", false, 100000, "unsigned int" ),
 		sArg("", "seed", "Seed used in the generation.", false, 12345, "unsigned int" ),
-		xArg("", "interactive", "Plot results in an interactive session.", false)
+		xArg("", "interactive", "Plot results in an interactive session.", false),
+		binArg("", "strongphasebinning", "The file containt the strong phase binning information", false, "", "name" )
 	{		
 		// Add arguments to the command line
-		cmd.add(sArg);
-		cmd.add(nArg);
-		cmd.add(gArg);
-		cmd.add(lArg);
-		cmd.add(xArg);
-		cmd.add(pArg);
-		cmd.add(oArg);
-		cmd.add(cArg);
 		cmd.add(iArg);
+		cmd.add(cArg);
+		cmd.add(oArg);
+		cmd.add(pArg);
+		cmd.add(nbArg);
+		cmd.add(lArg);
+		cmd.add(gArg);
+		cmd.add(nArg);
+		cmd.add(sArg);
+		cmd.add(xArg);
+		cmd.add(binArg);
+
 	}
 
 	void LoadBasicArguments()
@@ -70,6 +76,7 @@ public:
 		gentoy  	  = gArg.getValue();
 		nevents 	  = nArg.getValue();
 		seed    	  = sArg.getValue();
+		strongphase_binning_file = binArg.getValue();
 
 		if (interactive) plot = true;
 
@@ -93,6 +100,9 @@ public:
 		if (gentoy) {
 			out << "\tNumber of events to be generated: " << nevents << std::endl;
 			out << "\tSeed: " << seed << std::endl;
+		}
+		if (strongphase_binning_file != "") {
+			out << "Compute Fi ci si with the binning setting in : " << strongphase_binning_file << std::endl;
 		}
 	}
 

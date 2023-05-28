@@ -205,7 +205,8 @@ int main(int argc, char** argv)
 	// Configure and run MINUIT
 	//---------------------------------------------------------------------------------------
 	std::cout << "***** Fit" << std::endl;
-	ROOT::Minuit2::MnPrint::SetLevel(2);
+	// ROOT::Minuit2::MnPrint::SetLevel(2); // for earlier versions of CERN ROOT (before 6.24)
+	ROOT::Minuit2::MnPrint::SetGlobalLevel(2); 
 	ROOT::Minuit2::MnStrategy strategy(2);
 	
 	// print starting values of parameters

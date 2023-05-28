@@ -113,7 +113,7 @@ auto Amplitude(ThreeBodyPhaseSpace const &phsp)
 	auto kst_892_0_im = hydra::Parameter::Create("KST_892_0_cIm").Value(KST_892_0_CIm  ).Error(0.001);
 
 	auto KST_892_0_Resonance  = BreitWignerAmplitude<MSq12,MSq13,hydra::PWave,1,2,J,H>(kst_892_0_re, kst_892_0_im, kst_892_0_m, kst_892_0_w, radiusReso, radiusMother, phsp, "KST_892_0","#it{K}*(892)^{0}#it{#pi}^{0}");
-	KST_892_M_Resonance.SetColor(kGreen+2);
+	KST_892_0_Resonance.SetColor(kGreen+2);
 		
 	//K*_0(1430)- -> K-pi0
 	auto k0_1430_m_m  = hydra::Parameter::Create("K0_1430_M_m").Value(K0_1430_M_MASS ).Error(0.001);
@@ -156,6 +156,7 @@ auto Amplitude(ThreeBodyPhaseSpace const &phsp)
 	auto nr_im = hydra::Parameter::Create("NR_cIm").Value(NR_CIm).Error(0.001);
 
 	auto NR = NonResonantAmplitude<MSq12,MSq13>(nr_re, nr_im, phsp, "Nonresonant");
+	NR.SetColor(15);
 	NR.SetStyle(7);
 
 	//---------------------------------------------------------------------------------------

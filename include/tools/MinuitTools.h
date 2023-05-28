@@ -115,6 +115,7 @@ hydra::Parameter * GetParameterPointer(std::vector<hydra::Parameter*> & paramete
     for (size_t i = 0; i < parameters.size(); ++i) {
         if (std::string(name) == std::string(parameters[i]->GetName())) return parameters[i];
     }
+
     return NULL;
 }
 

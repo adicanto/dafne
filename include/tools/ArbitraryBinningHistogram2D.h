@@ -43,16 +43,34 @@ class ArbitraryBinningHistogram2D {
 public:
 	ArbitraryBinningHistogram2D() = delete;
 
-	ArbitraryBinningHistogram2D(const TH2D& th2):fXTicks(th2.GetXaxis()->GetXbins()->GetSize(), 0), fYTicks(th2.GetYaxis()->GetXbins()->GetSize(), 0) {
+	ArbitraryBinningHistogram2D(const TH2D& th2):fXTicks(th2.GetXaxis()->GetNbins(), 0), fYTicks(th2.GetYaxis()->GetNbins()+1, 0) {
 
 		const double * XTicks = th2.GetXaxis()->GetXbins()->GetArray();
-		for (int i = 0; i < GetNXTicks(); ++i) {
-			fXTicks[i] = XTicks[i];
-		}
+		if (XTicks != nullptr) { // irregular binning case
+			for (int i = 0; i < GetNXTicks(); ++i) {
+				fXTicks[i] = XTicks[i];
+			}
+		} else { // regular binning case
+			double xmin = th2.GetXaxis()->GetXmin();
+			double xmax = th2.GetXaxis()->GetXmax();
+			double xgap = (xmax - xmin) / (GetNXTicks()-1);
+			for (int i = 0; i < GetNXTicks(); ++i) {
+				fXTicks[i] = xmin + i*xgap;
+			}
+		} 
 
 		const double * YTicks = th2.GetYaxis()->GetXbins()->GetArray();
-		for (int i = 0; i < GetNYTicks(); ++i) {
-			fYTicks[i] = YTicks[i];
+		if (YTicks != nullptr) { // irregular binning case
+			for (int i = 0; i < GetNYTicks(); ++i) {
+				fYTicks[i] = YTicks[i];
+			}
+		} else { // regular binning case
+			double ymin = th2.GetYaxis()->GetXmin();
+			double ymax = th2.GetYaxis()->GetXmax();
+			double ygap = (ymax - ymin) / (GetNYTicks()-1);
+			for (int i = 0; i < GetNYTicks(); ++i) {
+				fYTicks[i] = ymin + i*ygap;
+			}
 		}
 
 		// initialize fZs and fZErrors

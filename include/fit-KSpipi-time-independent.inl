@@ -193,7 +193,8 @@ int main(int argc, char** argv)
 	// Configure and run MINUIT
 	//---------------------------------------------------------------------------------------
 	std::cout << "***** Fit" << std::endl;
-	ROOT::Minuit2::MnPrint::SetLevel(2);
+	// ROOT::Minuit2::MnPrint::SetLevel(2); // for earlier versions of CERN ROOT (before 6.24)
+	ROOT::Minuit2::MnPrint::SetGlobalLevel(2); 
 	ROOT::Minuit2::MnStrategy strategy(2);
 	
 	// print starting values of parameters
@@ -208,7 +209,7 @@ int main(int argc, char** argv)
 	std::chrono::duration<double, std::milli> elapsed = end - start;
 	
 	std::cout << "-----------------------------------------" << std::endl;
-	std::cout << "| [Migrad] Time (ms) ="<< elapsed.count() << std::endl;
+	std::cout << "| [Migrad] Time (ms) = " << elapsed.count() << std::endl;
 	std::cout << "-----------------------------------------" << std::endl;
 
 
@@ -239,7 +240,8 @@ int main(int argc, char** argv)
 		// plot the model and its components
 		std::cout << "***** Plot data and model" << std::endl;
 
-		TApplication myapp("myapp",0,0);
+		TApplication* myapp = NULL;
+		if (args.interactive) myapp = new TApplication("myapp",0,0);
 		
 		auto plotter = DalitzPlotter<MSqPlus, MSqMinus, MSqZero>(phsp,"#it{K}^{0}_{S}","#it{#pi}^{+}","#it{#pi}^{#minus}",(args.prlevel>3));
 		
@@ -318,7 +320,7 @@ int main(int argc, char** argv)
 
 		if (args.interactive) {
 			std::cout << "Press Crtl+C to terminate" << std::endl;
-			myapp.Run();
+			myapp->Run();
 		}
 	}
 
