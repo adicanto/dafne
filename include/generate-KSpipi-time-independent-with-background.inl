@@ -27,8 +27,7 @@ declarg(MSqPlus , double)
 declarg(MSqMinus, double)
 declarg(MSqZero , double)
 declarg(SignalFaction, double)
-// declarg(RandomBackfroundFaction, double)
-declarg(CombinatorialBackfroundFaction, double)
+declarg(CombinatorialBackgroundFaction, double)
 
 using namespace hydra::arguments;
 
@@ -132,17 +131,9 @@ int main( int argc, char** argv  )
 	auto plainIntegrator = phsp.Integrator(10*args.nevents);
 	auto normalized_model = make_numerical_normalized_functor(model, plainIntegrator);
 
-	// add background
+	// add combinatorial background
 
-	// auto f_rnd = hydra::Parameter::Create("f_rnd").Value(0.1).Error(0.0001);
-	auto f_cmb = hydra::Parameter::Create("f_cmb").Value(0.15).Error(0.01).Limits(0,1.);
-
-	// auto random_background = [phsp](MSqPlus m2p, MSqMinus m2m)->double {
-	// 		// judge whether in phase space or not
-	// 		if (!phsp.Contains<2,3>(m2p, m2m)) return 0.0;
-	// 		return 1;
-	// };
-
+	// define combinatorial background
 	auto combinatorial_background = hydra::wrap_lambda( 
 		[phsp] __hydra_dual__ (MSqPlus m2p, MSqMinus m2m) {
 			// judge whether in phase space or not
@@ -150,17 +141,13 @@ int main( int argc, char** argv  )
 			return 1.;
 		}
 	);
-	
+	// normalize the background and build a background pdf
 	auto combinatorial_background_norm = plainIntegrator(combinatorial_background).first;
 	auto combinatorial_background_pdf =  divideBy<double>(combinatorial_background, combinatorial_background_norm); 
 
-
-
-	// build averaged sum pdf for the plotting
-
-	auto f_cmb_functor = PassParameter(f_cmb);
-
-	auto _build_averaged_sum_pdf = hydra::wrap_lambda(
+	// build a sum pdf for the plotting. The f_cmb in the pdf below is the average of the 
+	// the f_cmb of all events.
+	auto _build_sum_pdf = hydra::wrap_lambda(
 			  [] __hydra_dual__ (hydra::tuple< double, double, double> input_functors){
 			  		auto _pdf_sig = hydra::get<0>(input_functors);
 			  		auto _f_cmb = hydra::get<1>(input_functors);
@@ -169,18 +156,25 @@ int main( int argc, char** argv  )
 			  		return  (1-_f_cmb)*_pdf_sig + _f_cmb*_pdf_cmb;
 			  }
 	);
+	auto f_cmb = hydra::Parameter::Create("f_cmb").Value(0.15).Error(0.01).Limits(0,1.);
+	auto f_cmb_functor = PassParameter(f_cmb);
+	auto averaged_sum_pdf = hydra::compose(_build_sum_pdf, normalized_model, f_cmb_functor, combinatorial_background_pdf);
 
-	auto averaged_sum_pdf = hydra::compose(_build_averaged_sum_pdf, normalized_model, f_cmb_functor, combinatorial_background_pdf);
+	// validate the pdf combination, by checking the values in a certain point
+	if (args.prlevel > 3) {
+		std::cout << "combinatorial_background_pdf(1., 1.): ";
+		std::cout << combinatorial_background_pdf(1., 1.) << std::endl ; 
 
-	std::cout << "combinatorial_background_pdf(1., 1.): " << combinatorial_background_pdf(1., 1.) << std::endl ; // for debug
-	std::cout << "normalized_model(1., 1.): " << normalized_model(1., 1.) << std::endl ; // for debug
-	std::cout << "(1-f_cmb) * normalized_model(1., 1.) + f_cmb * combinatorial_background_pdf(1., 1.): ";
-	std::cout << (1-f_cmb.GetValue()) * normalized_model(MSqPlus(1.), MSqMinus(1.)) 
-				 + f_cmb.GetValue() * combinatorial_background_pdf(MSqPlus(1.), MSqMinus(1.)) << std::endl; // for debug
-	std::cout << "averaged_sum_pdf(1., 1.): " << averaged_sum_pdf(MSqPlus(1.), MSqMinus(1.)) << std::endl ; // for debug
-	// for debugging
-	// typename decltype(averaged_sum_pdf)::argument_type  test{};
-	// std::cout << test.dummy << '\n';
+		std::cout << "normalized_model(1., 1.): ";
+		std::cout << normalized_model(1., 1.) << std::endl ;
+
+		std::cout << "(1-f_cmb) * normalized_model(1., 1.) + f_cmb * combinatorial_background_pdf(1., 1.): ";
+		std::cout << (1-f_cmb.GetValue()) * normalized_model(MSqPlus(1.), MSqMinus(1.)) 
+					 + f_cmb.GetValue() * combinatorial_background_pdf(MSqPlus(1.), MSqMinus(1.)) << std::endl;
+
+		std::cout << "averaged_sum_pdf(1., 1.): ";
+		std::cout << averaged_sum_pdf(MSqPlus(1.), MSqMinus(1.)) << std::endl ;
+	}
 
 
 	//---------------------------------------------------------------------------------------
@@ -190,28 +184,31 @@ int main( int argc, char** argv  )
 
 	hydra::multivector<hydra::tuple<MSqPlus,MSqMinus,MSqZero>, hydra::device::sys_t> data;
 
+	// define the expected average combinatorial fraction
+	double f_cmb_expected = 0.15;
+
 	std::cout << "Generating signal ... ... " << std::endl;
 	auto start = std::chrono::high_resolution_clock::now();
 
-	auto data_sig = phsp.GenerateData<MSqPlus,MSqMinus,MSqZero>(model,(1-f_cmb.GetValue())*args.nevents,args.seed);
+	auto data_sig = phsp.GenerateData<MSqPlus,MSqMinus,MSqZero>(model, (1-f_cmb_expected)*args.nevents, args.seed);
 	auto ngenerated = data_sig.size();
 	
 	auto end = std::chrono::high_resolution_clock::now();
 	std::chrono::duration<double, std::milli> elapsed = end - start;
 	std::cout << "Generated " << ngenerated << " signal events." << std::endl;
-	std::cout << "Time elapsed (ms):"<< elapsed.count() << std::endl;
+	std::cout << "Time elapsed (ms): "<< elapsed.count() << std::endl;
 
 
 	std::cout << "Generating combinatorial background ... ... " << std::endl;
 	start = std::chrono::high_resolution_clock::now();
 
-	auto data_cmb = phsp.GenerateData<MSqPlus,MSqMinus,MSqZero>(combinatorial_background,f_cmb.GetValue()*args.nevents,args.seed);
+	auto data_cmb = phsp.GenerateData<MSqPlus,MSqMinus,MSqZero>(combinatorial_background, f_cmb_expected*args.nevents, args.seed);
 	ngenerated = data_cmb.size();
 	
 	end = std::chrono::high_resolution_clock::now();
 	elapsed = end - start;
 	std::cout << "Generated " << ngenerated << " combinatorial background events." << std::endl;
-	std::cout << "Time elapsed (ms):"<< elapsed.count() << std::endl;
+	std::cout << "Time elapsed (ms): "<< elapsed.count() << std::endl;
 
 	// merge and shuffle
 	data.insert( data.end(), data_sig.begin(), data_sig.end());
@@ -219,12 +216,38 @@ int main( int argc, char** argv  )
 	std::random_shuffle(data.begin(), data.end());
 	ngenerated = data.size();
 
-	// add event by event fraction input
-	hydra::multivector< hydra::tuple<SignalFaction,CombinatorialBackfroundFaction>, hydra::device::sys_t> fraction(ngenerated);
-	hydra_thrust::fill(fraction.begin(), fraction.end(), hydra::make_tuple(SignalFaction(0.5),CombinatorialBackfroundFaction(0.5)));
-	auto data_with_fraction = data.meld(fraction);
-
 	std::cout << "Generated " << ngenerated << " events in total." << std::endl;
+
+
+	// events by events signal and background fractions
+	double f_sig_expected = 1.0 - f_cmb_expected;
+	double N_gaussian = 2*f_sig_expected/erf(1./sqrt(2.)); // suppose the fractions are from a gaussian distribution with
+	                                                   // x in [-1sigma, 1sigma]
+	auto gaussian_for_f_cmb = hydra::wrap_lambda( [N_gaussian] __hydra_dual__ (double _x)
+	{
+			double sigma = 1;
+			double mean = 0;
+			double x = (_x-mean)/sigma;
+			double x2 = x*x;
+
+			const double one_div_sqrt_2_pi = 0.39894228;
+
+			double _f_sig = N_gaussian * one_div_sqrt_2_pi * std::exp(-x2/2.);
+			double _f_cmb = 1.0 - _f_sig;
+
+			SignalFaction _f_sig_output = _f_sig;
+			CombinatorialBackgroundFaction _f_cmb_output = _f_cmb;
+
+			return hydra::make_tuple(_f_sig, _f_cmb);
+	});
+
+	auto uniform = hydra::UniformShape<double>(-1, 1);
+	hydra::device::vector<double> xs_for_fractions(ngenerated);
+	hydra::fill_random(xs_for_fractions, uniform, args.seed);
+	hydra::multivector< hydra::tuple<SignalFaction,CombinatorialBackgroundFaction>, hydra::device::sys_t> fractions = xs_for_fractions | gaussian_for_f_cmb;
+
+	auto data_with_fraction = data.meld(fractions);
+
 
 
 
@@ -258,15 +281,12 @@ int main( int argc, char** argv  )
 		ntp->Branch("HelicityZ_S",&helicity_z_s);
 		ntp->Branch("flavor",&flavor);
 
-		// add event by event fraction
+		// branches for event by event fractions
 		double f_sig, f_cmb;
 		ntp->Branch("f_sig",&f_sig);
 		ntp->Branch("f_cmb",&f_cmb);		
-		
-		// with uniform fraction
-		// for( auto event : data )
 
-		// with event by event fraction
+		// save to file
 		for( auto event : data_with_fraction )
 		{
 			MSqPlus  a = hydra::get<0>(event);
@@ -291,7 +311,7 @@ int main( int argc, char** argv  )
 
 			// add event by event fraction
 			SignalFaction e = hydra::get<3>(event);
-			CombinatorialBackfroundFaction f = hydra::get<4>(event);
+			CombinatorialBackgroundFaction f = hydra::get<4>(event);
 			f_sig = e.Value();
 			f_cmb = f.Value();	
 
@@ -308,23 +328,32 @@ int main( int argc, char** argv  )
 	if (args.plot) {
 		std::cout << "***** Plot data and model" << std::endl;
 
-		// plotting procedure
 		TApplication* myapp = NULL;
 		if (args.interactive) myapp = new TApplication("myapp",0,0);
 		
-		
+		// calculate the f_cmb for the event by event case
+		double f_cmb_plotting = 0;
+		for( auto event : data_with_fraction ) {
+			CombinatorialBackgroundFaction a = hydra::get<4>(event);
+			f_cmb_plotting += a;
+		}		
+		f_cmb_plotting = f_cmb_plotting / data.size();
+		std::cout << "The calculated f_cmb_plotting = " << f_cmb_plotting << std::endl;
+		averaged_sum_pdf.SetParameter("f_cmb", f_cmb_plotting);
+
+		// plot the Dalitz-plot distributions		
 		auto plotter = DalitzPlotter<MSqPlus, MSqMinus, MSqZero>(phsp,"#it{K}^{0}_{S}","#it{#pi}^{+}","#it{#pi}^{#minus}",(args.prlevel>3));
 		
-		std::string outfilename = args.outdir + outprefix + "-HIST.root";
 		plotter.FillDataHistogram(data);
 		plotter.FillModelHistogram(averaged_sum_pdf);
-		plotter.FillOtherHistogram("cmb_bkg", "background", combinatorial_background_pdf, f_cmb(), 16, 7, 38);
+		plotter.FillHistogram("cmb_bkg", "background", combinatorial_background_pdf, f_cmb(), 16, 7, 38);
 		plotter.FillComponentHistograms(amp, efficiency, 1. - f_cmb());
 		plotter.SetCustomAxesTitles("#it{m}^{2}_{+} [GeV^{2}/#it{c}^{4}]","#it{m}^{2}_{#minus} [GeV^{2}/#it{c}^{4}]","#it{m}^{2}_{#it{#pi#pi}} [GeV^{2}/#it{c}^{4}]");
-		if (outfilename != "") plotter.SaveHistograms(outfilename);
-		
 
-		// 1D Projection
+		std::string outfilename = args.outdir + outprefix + "-HIST.root";
+		plotter.SaveHistograms(outfilename);
+
+		// 1D projections
 		TCanvas c1("c1","c1",1800,700);
 		TPad *pad1 = new TPad("pad1","pad1",0.01,0.25,0.33,0.99);
 		TPad *pad2 = new TPad("pad2","pad2",0.01,0.01,0.33,0.25);
@@ -366,7 +395,7 @@ int main( int argc, char** argv  )
 		outfilename = args.outdir + outprefix + "-1d-projection";
 		Print::Canvas(c1, outfilename);
 
-		// 2D Projection
+		// 2D projections
 		TCanvas c2("c2","c2",1500,1000);
 		c2.Divide(3,2);
 
@@ -391,7 +420,7 @@ int main( int argc, char** argv  )
 		outfilename = args.outdir + outprefix + "-2d-projection";
 		Print::Canvas(c2,outfilename);
 
-		// 2D Projection
+		// phase difference 
 		TCanvas c3("c3","c3",600,500);
 		c3.SetRightMargin(.14);
 		

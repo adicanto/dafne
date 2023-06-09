@@ -31,11 +31,10 @@
 #include <tools/ArbitraryBinningHistogram2D.h>
 using namespace dafne;
 
-// Configuration parameters
 const unsigned nevents(100000);
 std::string outprefix("fit-KSpipi-time-dependent-time-resolution-with-background");
 
-// Define the arguments of the amplitude
+// define the arguments of the amplitude
 declarg(MSqZero  , double)
 declarg(MSqPlus  , double)
 declarg(MSqMinus , double)
@@ -70,6 +69,13 @@ int main(int argc, char** argv)
 	// config the model according to configuration file
 	ConfigFile config(args.config_file.c_str(), (args.prlevel>3) );
 	config.ConfigureModel(Adir);
+
+	auto Abar = hydra::wrap_lambda( [&Adir] __hydra_dual__ (MSqPlus a, MSqMinus b) {
+		MSqPlus switched_a = b;
+		MSqMinus switched_b = a;
+		return Adir(switched_a,switched_b);
+	});
+
 	
 	// Time-dependent parameters
 	auto tau = hydra::Parameter::Create("tau").Value(Tau::D0).Error(0.0001);
@@ -79,12 +85,6 @@ int main(int argc, char** argv)
 	auto phi = hydra::Parameter::Create("phi").Value(0.0).Error(0.0001).Limits(-1.,1.);
 	config.ConfigureMixingParameters(tau, x, y, qop, phi);
 	
-	// Total amplitude for the decay that undergoes mixing
-	auto Abar = hydra::wrap_lambda( [&Adir] __hydra_dual__ (MSqPlus a, MSqMinus b) {
-		MSqPlus switched_a = b;
-		MSqMinus switched_b = a;
-		return Adir(switched_a,switched_b);
-	});
 
 	// efficiency plane described by irregular binning 2D histogram
 	ArbitraryBinningHistogram2D efficiency_hist = config.ConfigureEfficiencyHistogram();
@@ -99,7 +99,7 @@ int main(int argc, char** argv)
 	Print::Canvas(cefficiency,  args.outdir + outprefix + "_efficiency_hist");
 	gStyle->SetOptStat(1);
 
-	// time dependent efficiency is ignored for the moment
+	// the time dependence of the efficiency is ignored 
 	auto efficiency = hydra::wrap_lambda(
 		[phsp, efficiency_hist] __hydra_dual__ (MSqPlus m2p, MSqMinus m2m) {
 
@@ -115,7 +115,7 @@ int main(int argc, char** argv)
 
 	}); 
 
-	// handle time resolution
+	// time resolution
 	auto b   = hydra::Parameter::Create("b").Value(0.0).Error(0.0001).Limits(-1.,1.);
 	auto s   = hydra::Parameter::Create("s").Value(1.0).Error(0.0001).Limits(0.5,1.5);
 
@@ -126,14 +126,6 @@ int main(int argc, char** argv)
 
 	config.ConfigureTimeResolutionParameters({&b, &s, &johnson_delta, &johnson_lambda, &johnson_gamma, &johnson_xi});
 
-	// auto johnson_su = hydra::JohnsonSU<DecayTimeError>(johnson_gamma, johnson_delta, johnson_xi, johnson_lambda);
-	// auto johnson_su = hydra::make_pdf(
-	// 					hydra::JohnsonSU<DecayTimeError>(johnson_gamma, johnson_delta, johnson_xi, johnson_lambda), 
-	// 					hydra::AnalyticalIntegral<hydra::JohnsonSU<DecayTimeError>>(phsp.TimeErrorMin(), phsp.TimeErrorMax()) 
-	// 					);
-
-	// hydra::pdf seems could not be the sub-functor of a functor. Therefore, we use normalized JohnsonSU functor to build the pdf(sigma_t) part
-	// of the final time-dependent amplitude
 	auto johnson_su = NormalizedJohnsonSU<DecayTimeError>(johnson_gamma, johnson_delta, johnson_xi, johnson_lambda, phsp.TimeErrorMin(), phsp.TimeErrorMax());
 	
 	auto model_dz = time_dependent_rate_with_time_resolution_pdf<Flavor::Positive,MSqPlus,MSqMinus,DecayTime,DecayTimeError>(
@@ -141,13 +133,13 @@ int main(int argc, char** argv)
 						{phsp.MSqMin<1,2>(),phsp.MSqMax<1,2>()},
 						{phsp.MSqMin<1,3>(),phsp.MSqMax<1,3>()},
 						phsp.TimeRange(),
-						phsp.TimeErrorRange()); 
+						phsp.TimeErrorRange(), 100*args.nevents); 
 	auto model_db = time_dependent_rate_with_time_resolution_pdf<Flavor::Negative,MSqPlus,MSqMinus,DecayTime,DecayTimeError>(
 						tau,x,y,qop,phi,b,s,efficiency,Adir,Abar,johnson_su,
 						{phsp.MSqMin<1,2>(),phsp.MSqMax<1,2>()},
 						{phsp.MSqMin<1,3>(),phsp.MSqMax<1,3>()},
 						phsp.TimeRange(),
-						phsp.TimeErrorRange()); 
+						phsp.TimeErrorRange(), 100*args.nevents); 
 
 
 	// add background
@@ -160,7 +152,7 @@ int main(int argc, char** argv)
 	config.ConfigureBackgroundParameters({&f_rnd, &f_cmb, &tau_cmb, &b_cmb, &s_cmb});
 
 	auto f_rnd_functor = PassParameter(f_rnd);
-	auto random_background_pdf = hydra::wrap_lambda( // ignore CPV
+	auto random_background_pdf = hydra::wrap_lambda( 
 		[&model_dz, model_db] __hydra_dual__ (MSqPlus a, MSqMinus b, DecayTime t, DecayTimeError sigma_t) {
 			MSqPlus switched_a = b;
 			MSqMinus switched_b = a;
@@ -170,11 +162,16 @@ int main(int argc, char** argv)
 	
 	auto f_cmb_functor = PassParameter(f_cmb);
 
-	// load belle's combinatorial background
-	TFile* file_cmb = TFile::Open("BelleCombinatorialBackground.root");
-	TTree* tree_cmb = (TTree*)file_cmb->Get("tree");
-	TH2D* th2_input_cmb = new TH2D("th2_input_cmb", "th2_input_cmb", 64, 0, 3.2, 64, 0, 3.2);
-	tree_cmb->Project("th2_input_cmb", "mSqP:mSqM");
+	// load combinatorial background from a histrogram
+	TH2D* th2_input_cmb = new TH2D("th2_input_cmb", "th2_input_cmb", 200, 0, 3.2, 200, 0, 3.2);
+	for (int i_x = 0; i_x < th2_input_cmb->GetXaxis()->GetNbins(); ++i_x)
+	for (int i_y = 0; i_y < th2_input_cmb->GetYaxis()->GetNbins(); ++i_y) {
+		double m2m = th2_input_cmb->GetXaxis()->GetBinCenter(i_x);
+		double m2p = th2_input_cmb->GetYaxis()->GetBinCenter(i_y);
+		if (phsp.Contains<2,3>(m2p, m2m)) th2_input_cmb->SetBinContent(i_x, i_y, 1.0);
+		else th2_input_cmb->SetBinContent(i_x, i_y, 0.0);
+	}
+	
 	ArbitraryBinningHistogram2D hist_input_cmb(*th2_input_cmb);
 	th2_input_cmb->Draw("COLZ");
 	Print::Canvas(cefficiency,  args.outdir + outprefix + "_cmb_input_th2");
@@ -199,7 +196,7 @@ int main(int argc, char** argv)
 		}
 	);
 
-	auto plainIntegrator = phsp.Integrator(10*args.nevents);
+	auto plainIntegrator = phsp.Integrator(100*args.nevents);
 	auto combinatorial_background_without_time_norm = plainIntegrator(combinatorial_background_without_time).first;
 
 	double Gamma_cmb = 1 / tau_cmb();
@@ -230,9 +227,6 @@ int main(int argc, char** argv)
 											f_cmb_functor, combinatorial_background_pdf);
 
 
-	// for checking the parameters order when debugging
-	// typename decltype(model_dz)::argument_type  test{};
-	// std::cout << test.dummy << '\n';
 
 	// build pdf
 	
@@ -247,7 +241,7 @@ int main(int argc, char** argv)
 
 
 	//---------------------------------------------------------------------------------------
-	// get input data from ROOT file
+	// Get input data from the ROOT file
 	//---------------------------------------------------------------------------------------
 	std::cout << "***** Input data" << std::endl;
 	std::cout << "Creating data containers ... ...  " << std::endl;
@@ -281,7 +275,7 @@ int main(int argc, char** argv)
 	for (auto i=0; i<nentries; ++i) {
 		ntp->GetEntry(i);
 
-		if (i % 100000 == 0) std::cout << "Reading " << i << "events" << std::endl;
+		if (i % 100000 == 0) std::cout << "Reading " << i << " events" << std::endl;
 
 		if (flavor > 0) {
 			data_dz.push_back(hydra::make_tuple(MSqPlus(m2p),MSqMinus(m2m),MSqZero(m2z),DecayTime(t),DecayTimeError(sigmat)));
@@ -303,14 +297,16 @@ int main(int argc, char** argv)
 	}
 	std::cout << "Read " << ncands_dz << " D0 data candidates and " << ncands_db << " D0-bar events " << std::endl;
 
-	std::cout << "D0 dataset test: " << std::endl;
-	std::cout << data_dz[0] << std::endl;
-	std::cout << data_dz[1] << std::endl;
-	std::cout << data_dz[2] << std::endl;
-	std::cout << "D0-bar data test: " << std::endl;
-	std::cout << data_db[0] << std::endl;
-	std::cout << data_db[1] << std::endl;
-	std::cout << data_db[2] << std::endl;
+	if (args.prlevel > 3) {
+		std::cout << "D0 dataset test: " << std::endl;
+		std::cout << data_dz[0] << std::endl;
+		std::cout << data_dz[1] << std::endl;
+		std::cout << data_dz[2] << std::endl;
+		std::cout << "D0-bar data test: " << std::endl;
+		std::cout << data_db[0] << std::endl;
+		std::cout << data_db[1] << std::endl;
+		std::cout << data_db[2] << std::endl;
+	}
 
 
 	//---------------------------------------------------------------------------------------
@@ -356,9 +352,6 @@ int main(int argc, char** argv)
 		return -2;
 	}
 
-	// auto parameters = minimum.UserParameters();
-	// auto covariance = minimum.UserCovariance();
-	// std::cout << "***** Fit results:\n" << parameters << covariance << std::endl;
 	std::cout << "***** Fit results:\n" << minimum.UserState() << std::endl;
 	MinuitTools::CovarianceMatrixStatus(minimum);
 
@@ -368,54 +361,48 @@ int main(int argc, char** argv)
 	if (args.plot) {
 		std::cout << "***** Plot data and fit result" << std::endl;
 
-		// get the fitted model_dz
-		fcn_dz.GetParameters().UpdateParameters(minimum);
-		auto model_dz_fitted = fcn_dz.GetPDF().GetFunctor();
-		auto fitted_parameters = fcn_dz.GetParameters().GetVariables();
-		// model_dz_fitted.PrintRegisteredParameters();
+		// plotting procedure
+		TApplication* myapp = NULL;
+		if (args.interactive) myapp = new TApplication("myapp",0,0);
 
 
-		// model for ploting
-		std::cout << "building plotting functor for signal ....." << std::endl;
+		// data_dz + data_db will be plotted together with model_dz ignoring the CPV
+		auto data = data_dz;
+		data.insert(data.end(), data_db.begin(), data_db.end());
+
+
+		// model for plotting
+		std::cout << "build a plotting model for signal ....." << std::endl;
+
+		// synchronize the paramters from the fitter to the plotting model
 		auto model_truth_dz = time_dependent_rate<Flavor::Positive,DecayTime>(tau,x,y,qop,phi,Adir,Abar); 
-		auto model_truth_db = time_dependent_rate<Flavor::Negative,DecayTime>(tau,x,y,qop,phi,Adir,Abar);
+		auto phsp_for_plotting = D0ToKsPiPi_FVECTOR_BABAR::PhaseSpaceWithTime();
+		auto model_truth_dz_fitted = dafne::MinuitTools::UpdateParameters<MSqPlus, MSqMinus, MSqZero, DecayTime>(phsp_for_plotting, model_truth_dz, minimum);
 
-		// build a dummy fcn to easily synchronize the plotting model and fitting model
-		hydra::multivector<hydra::tuple<MSqPlus,MSqMinus,DecayTime>, hydra::device::sys_t> data_dummy;
-		data_dummy.push_back(hydra::make_tuple(MSqPlus(1.0),MSqMinus(1.0), DecayTime(0.2)));
-		auto model_truth_dz_fitted = dafne::MinuitTools::UpdateParametersByBuildingDummyFCN(data_dummy, model_truth_dz, minimum);
 
-		std::cout << "building plotting functor for random background ....." << std::endl;
-		auto random_background_t_truth = hydra::wrap_lambda( 
+		std::cout << "build a plotting model for random background ....." << std::endl;
+		auto model_truth_db =  time_dependent_rate<Flavor::Negative,DecayTime>(tau,x,y,qop,phi,Adir,Abar);
+		auto random_background_truth = hydra::wrap_lambda( 
 		[&model_truth_dz, &model_truth_db] __hydra_dual__ (MSqPlus a, MSqMinus b, DecayTime t) {
 			MSqPlus switched_a = b;
 			MSqMinus switched_b = a;
 			return 0.5*model_truth_dz(a,b,t) + 0.5*model_truth_db(switched_a,switched_b,t);
 		});
-		auto random_background_t_truth_fitted = dafne::MinuitTools::UpdateParametersByBuildingDummyFCN(data_dummy, random_background_t_truth, minimum);
+		auto random_background_truth_fitted = dafne::MinuitTools::UpdateParameters<MSqPlus, MSqMinus, MSqZero, DecayTime>(phsp_for_plotting, random_background_truth, minimum);
 
-		std::cout << "building plotting functor for combinatorial background ....." << std::endl;
+		std::cout << "build a plotting model for combinatorial background ....." << std::endl;
+		// get the fitted parameters
+		fcn_dz.GetParameters().UpdateParameters(minimum);
+		auto fitted_parameters = fcn_dz.GetParameters().GetVariables();
 		double Gamma_cmb_fitted = 1. / MinuitTools::GetParameterPointer(fitted_parameters, "tau_cmb")->GetValue();
 		auto exp_cmb_fitted = hydra::wrap_lambda( [Gamma_cmb_fitted] __hydra_dual__ (DecayTime t)
 		{
 			return std::exp(-Gamma_cmb_fitted * t)  ;
 		});
-		auto combinatorial_background_t_truth_fitted = combinatorial_background_without_time * exp_cmb_fitted;
+		auto combinatorial_background_truth_fitted = combinatorial_background_without_time * exp_cmb_fitted;
 
-		auto dummy_efficiency = ConstantFunctor(1);
 
-		// "turth level" model without sigma_t, but ... ... includes efficiency plane
-
-		std::cout << "merging data_dz and data_db ....." << std::endl;
-		auto data = data_dz;
-		// uncomment the line below, then data_dz + data_db will be plotted together with model_dz ignoring the CPV
-		data.insert(data.end(), data_db.begin(), data_db.end());
-
-		// plotting procedure
-		TApplication* myapp = NULL;
-		if (args.interactive) myapp = new TApplication("myapp",0,0);
-
-		// plot dalitz distribution 
+		// plot Dalitz-plot distributions 
 		auto plotter = DalitzPlotterWithTimeAndTimeError<MSqPlus, MSqMinus, MSqZero, DecayTime, DecayTimeError>(phsp,"#it{K}^{0}_{S}","#it{#pi}^{+}","#it{#pi}^{#minus}",(args.prlevel>3));
 
 		std::string outfilename = args.outdir + outprefix + "-HIST.root";
@@ -431,25 +418,27 @@ int main(int argc, char** argv)
 		double s_cmb_for_plot = MinuitTools::GetParameterPointer(fitted_parameters, "s_cmb")->GetValue();
 
 		THnSparseD* h_data =  plotter.FillDataHistogram(data);
-		THnSparseD* h_sig = plotter.FillOtherHistogram("signal", "Signal", model_truth_dz_fitted, efficiency, 
+		THnSparseD* h_sig = plotter.FillHistogram("signal", "Signal", model_truth_dz_fitted, efficiency, 
 			tau_for_plot, y_for_plot, b_for_plot, s_for_plot, 
 			johnson_su, 1-f_rnd_for_plot-f_cmb_for_plot,
 			2, 1, 0);
-		THnSparseD* h_rnd = plotter.FillOtherHistogram("rnd_bkg", "Random #pi^{s}", random_background_t_truth_fitted, efficiency, 
+		THnSparseD* h_rnd = plotter.FillHistogram("rnd_bkg", "Random #pi^{s}", random_background_truth_fitted, efficiency, 
 			tau_for_plot, y_for_plot, b_for_plot, s_for_plot, 
 			johnson_su, f_rnd_for_plot,
 			28, 3, 6);
-		THnSparseD* h_cmb = plotter.FillOtherHistogram("cmb_bkg", "Combinatorial", combinatorial_background_t_truth_fitted, dummy_efficiency, 
+
+		auto dummy_efficiency = ConstantFunctor(1);
+		THnSparseD* h_cmb = plotter.FillHistogram("cmb_bkg", "Combinatorial", combinatorial_background_truth_fitted, dummy_efficiency, 
 			tau_cmb_for_plot, 0, b_cmb_for_plot, s_cmb_for_plot,  
 			johnson_su, f_cmb_for_plot,  
 			16, 7, 41);
-		plotter.FillModelHistogramFromOtherHistograms({"signal", "rnd_bkg", "cmb_bkg"});
+		plotter.FillModelHistogramFromExternalHistograms({"signal", "rnd_bkg", "cmb_bkg"});
 		plotter.SetCustomAxesTitles("#it{m}^{2}_{+} [GeV^{2}/#it{c}^{4}]","#it{m}^{2}_{#minus} [GeV^{2}/#it{c}^{4}]","#it{m}^{2}_{#it{#pi#pi}} [GeV^{2}/#it{c}^{4}]");
 		if (outfilename != "") plotter.SaveHistograms(outfilename);
 		
 
 
-		// 1D Projection for dalitz distribution
+		// 1D projections
 		TCanvas c1("c1","c1",1800,700);
 		TPad *pad1 = new TPad("pad1","pad1",0.01,0.25,0.33,0.99);
 		TPad *pad2 = new TPad("pad2","pad2",0.01,0.01,0.33,0.25);
@@ -471,10 +460,10 @@ int main(int argc, char** argv)
 		pad6->SetLeftMargin(0.15);
 
 		pad1->cd();
-		TH1D * h1_sig = plotter.Plot1DProjectionOther("signal", 0, "histo");
+		TH1D * h1_sig = plotter.Plot1DProjection("signal", 0, "histo");
 		h1_sig->SetLineWidth(1);
-		TH1D * h1_cmb = plotter.Plot1DProjectionOther("cmb_bkg", 0, "histo same");
-		TH1D * h1_rnd = plotter.Plot1DProjectionOther("rnd_bkg", 0, "histo same");
+		TH1D * h1_cmb = plotter.Plot1DProjection("cmb_bkg", 0, "histo same");
+		TH1D * h1_rnd = plotter.Plot1DProjection("rnd_bkg", 0, "histo same");
 
 		THStack * h1_all = new THStack("h1_all", "h1_all");
 		h1_all->Add(h1_cmb);
@@ -492,10 +481,10 @@ int main(int argc, char** argv)
 
 
 		pad3->cd();
-		h1_sig = plotter.Plot1DProjectionOther("signal", 1, "histo");
+		h1_sig = plotter.Plot1DProjection("signal", 1, "histo");
 		h1_sig->SetLineWidth(1);
-		h1_cmb = plotter.Plot1DProjectionOther("cmb_bkg", 1, "histo same");
-		h1_rnd = plotter.Plot1DProjectionOther("rnd_bkg", 1, "histo same");
+		h1_cmb = plotter.Plot1DProjection("cmb_bkg", 1, "histo same");
+		h1_rnd = plotter.Plot1DProjection("rnd_bkg", 1, "histo same");
 
 		h1_all = new THStack("h1_all", "h1_all");
 		h1_all->Add(h1_cmb);
@@ -513,10 +502,10 @@ int main(int argc, char** argv)
 
 
 		pad5->cd();
-		h1_sig = plotter.Plot1DProjectionOther("signal", 2, "histo");
+		h1_sig = plotter.Plot1DProjection("signal", 2, "histo");
 		h1_sig->SetLineWidth(1);
-		h1_cmb = plotter.Plot1DProjectionOther("cmb_bkg", 2, "histo same");
-		h1_rnd = plotter.Plot1DProjectionOther("rnd_bkg", 2, "histo same");
+		h1_cmb = plotter.Plot1DProjection("cmb_bkg", 2, "histo same");
+		h1_rnd = plotter.Plot1DProjection("rnd_bkg", 2, "histo same");
 
 		h1_all = new THStack("h1_all", "h1_all");
 		h1_all->Add(h1_cmb);
@@ -544,7 +533,7 @@ int main(int argc, char** argv)
 		outfilename = args.outdir + outprefix + "-1d-projection";
 		Print::Canvas(c1,outfilename);
 
-		// 2D Projection for dalitz distribution
+		// 2D projections
 		TCanvas c2("c2","c2",1500,500);
 		c2.Divide(3,1);
 
@@ -588,10 +577,10 @@ int main(int argc, char** argv)
 		pad10->SetLeftMargin(0.15);
 
 		pad7->cd();
-		h1_sig = plotter.Plot1DProjectionOther("signal", 3, "histo");
+		h1_sig = plotter.Plot1DProjection("signal", 3, "histo");
 		h1_sig->SetLineWidth(1);
-		h1_cmb = plotter.Plot1DProjectionOther("cmb_bkg", 3, "histo same");
-		h1_rnd = plotter.Plot1DProjectionOther("rnd_bkg", 3, "histo same");
+		h1_cmb = plotter.Plot1DProjection("cmb_bkg", 3, "histo same");
+		h1_rnd = plotter.Plot1DProjection("rnd_bkg", 3, "histo same");
 
 		h1_all = new THStack("h1_all", "h1_all");
 		h1_all->Add(h1_cmb);
@@ -649,10 +638,10 @@ int main(int argc, char** argv)
 
 
 		pad7->cd();
-		h1_sig = plotter.Plot1DProjectionOther("signal", 4, "histo");
+		h1_sig = plotter.Plot1DProjection("signal", 4, "histo");
 		h1_sig->SetLineWidth(1);
-		h1_cmb = plotter.Plot1DProjectionOther("cmb_bkg", 4, "histo same");
-		h1_rnd = plotter.Plot1DProjectionOther("rnd_bkg", 4, "histo same");
+		h1_cmb = plotter.Plot1DProjection("cmb_bkg", 4, "histo same");
+		h1_rnd = plotter.Plot1DProjection("rnd_bkg", 4, "histo same");
 
 		h1_all = new THStack("h1_all", "h1_all");
 		h1_all->Add(h1_cmb);

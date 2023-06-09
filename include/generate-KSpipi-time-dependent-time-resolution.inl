@@ -128,17 +128,10 @@ int main( int argc, char** argv  )
 
 	auto johnson_su = hydra::JohnsonSU<DecayTimeError>(johnson_gamma, johnson_delta, johnson_xi, johnson_lambda);
 
-
-	// auto model_dz = time_dependent_rate_with_time_resolution<Flavor::Positive,MSqPlus,MSqMinus,DecayTime,DecayTimeError>(tau,x,y,qop,phi,b,s,Adir,Abar,johnson_su)*efficiency; 
-	// auto model_db = time_dependent_rate_with_time_resolution<Flavor::Negative,MSqPlus,MSqMinus,DecayTime,DecayTimeError>(tau,x,y,qop,phi,b,s,Adir,Abar,johnson_su)*efficiency;
-
-	// "turth level" model without sigma_t, but ... ... includes efficiency plane
+	// turth level model 
 	auto model_truth_dz = time_dependent_rate<Flavor::Positive,DecayTime>(tau,x,y,qop,phi,Adir,Abar); 
 	auto model_truth_db = time_dependent_rate<Flavor::Negative,DecayTime>(tau,x,y,qop,phi,Adir,Abar);
 
-	// for checking the parameters order when debugging
-	// typename decltype(model_dz)::argument_type  test{};
-	// std::cout << test.dummy << '\n';
 
 	//---------------------------------------------------------------------------------------
 	// Generate data
@@ -147,16 +140,14 @@ int main( int argc, char** argv  )
 
 	auto start = std::chrono::high_resolution_clock::now();	
 
-	// auto data_dz = phsp.GenerateDataWithTimeAndTimeError<MSqPlus,MSqMinus,MSqZero,DecayTime,DecayTimeError>(model_dz,args.nevents,args.seed,0.,0.5,0.06,0.09,(args.prlevel>3));
-	auto data_dz = phsp.GenerateDataWithTimeAndTimeError<MSqPlus,MSqMinus,MSqZero,DecayTime,DecayTimeError>(model_truth_dz,efficiency,tau(),y(),b(),s(),johnson_su,args.nevents,args.seed,(args.prlevel>3));
+	auto data_dz = phsp.GenerateDataWithTimeAndTimeError<MSqPlus,MSqMinus,MSqZero,DecayTime,DecayTimeError>(model_truth_dz,efficiency,tau(),y(),b(),s(),johnson_su,args.nevents/2,args.seed,(args.prlevel>3));
 	std::cout << "Generated " << data_dz.size() << " D0 candidates." << std::endl;
-	// auto data_db = phsp.GenerateDataWithTimeAndTimeError<MSqPlus,MSqMinus,MSqZero,DecayTime,DecayTimeError>(model_db,args.nevents,args.seed+1,0.,0.5,0.06,0.09,(args.prlevel>3));
-	auto data_db = phsp.GenerateDataWithTimeAndTimeError<MSqPlus,MSqMinus,MSqZero,DecayTime,DecayTimeError>(model_truth_db,efficiency,tau(),y(),b(),s(),johnson_su,args.nevents,args.seed+1,(args.prlevel>3));
+	auto data_db = phsp.GenerateDataWithTimeAndTimeError<MSqPlus,MSqMinus,MSqZero,DecayTime,DecayTimeError>(model_truth_db,efficiency,tau(),y(),b(),s(),johnson_su,args.nevents/2,args.seed+1,(args.prlevel>3));
 	std::cout << "Generated " << data_db.size() << " D0bar candidates." << std::endl;
 
 	auto end = std::chrono::high_resolution_clock::now();
 	std::chrono::duration<double, std::milli> elapsed = end - start;
-	std::cout << "Time elapsed (ms):"<< elapsed.count() << std::endl;
+	std::cout << "Time elapsed (ms): "<< elapsed.count() << std::endl;
 	
 	//---------------------------------------------------------------------------------------
 	// Save to ROOT file
@@ -272,26 +263,25 @@ int main( int argc, char** argv  )
 	if (args.plot) {
 		std::cout << "***** Plot data and model" << std::endl;
 
+		TApplication* myapp = NULL;
+		if (args.interactive) myapp = new TApplication("myapp",0,0);
+		
 		// data_dz + data_db are plotted with model_dz ignoring the CPV
 		auto data = data_dz;
 		data.insert(data.end(), data_db.begin(), data_db.end());
 
-		// plot dalitz distribution 
+		// plot Dalitz-plot distributions
 		auto plotter = DalitzPlotterWithTimeAndTimeError<MSqPlus, MSqMinus, MSqZero, DecayTime, DecayTimeError>(phsp,"#it{K}^{0}_{S}","#it{#pi}^{+}","#it{#pi}^{#minus}",(args.prlevel>3));
 
-		std::string outfilename = args.outdir + outprefix + "-HIST.root";
-		// plotter.FillHistograms(data, model_dz, tau, y, b, s, outfilename, args.plotnbins); 
-		plotter.FillDataHistogram(data, args.plotnbins);
-		plotter.FillModelHistogram(model_truth_dz, efficiency, tau(), y(), b(), s(), johnson_su, args.plotnbins);
-		if (outfilename != "") plotter.SaveHistograms(outfilename);
+		plotter.FillDataHistogram(data, args.plotnbins, args.plotnbins, args.plotnbins);
+		plotter.FillModelHistogram(model_truth_dz, efficiency, tau(), y(), b(), s(), johnson_su, 
+								   args.plotnbins, args.plotnbins, args.plotnbins);
 		plotter.SetCustomAxesTitles("#it{m}^{2}_{+} [GeV^{2}/#it{c}^{4}]","#it{m}^{2}_{#minus} [GeV^{2}/#it{c}^{4}]","#it{m}^{2}_{#it{#pi#pi}} [GeV^{2}/#it{c}^{4}]");
 
-		// plotting procedure
-		TApplication* myapp = NULL;
-		if (args.interactive) myapp = new TApplication("myapp",0,0);
-		
+		std::string outfilename = args.outdir + outprefix + "-HIST.root";
+		if (outfilename != "") plotter.SaveHistograms(outfilename);
 
-		// 1D Projection for dalitz distribution
+		// 1D projections
 		TCanvas c1("c1","c1",1800,700);
 		TPad *pad1 = new TPad("pad1","pad1",0.01,0.25,0.33,0.99);
 		TPad *pad2 = new TPad("pad2","pad2",0.01,0.01,0.33,0.25);
@@ -344,7 +334,7 @@ int main( int argc, char** argv  )
 		outfilename = args.outdir + outprefix + "-1d-projection";
 		Print::Canvas(c1,outfilename);
 
-		// 2D Projection for dalitz distribution
+		// 2D projections
 		TCanvas c2("c2","c2",1500,500);
 		c2.Divide(3,1);
 
@@ -400,7 +390,7 @@ int main( int argc, char** argv  )
 
 		}
 
-		// time distribution
+		// decay time distribution
 		TCanvas c4("c4","c4",1200,500);
 		TPad *pad7 = new TPad("pad7","pad7",0.01,0.25,0.49,0.99);
 		TPad *pad8 = new TPad("pad8","pad8",0.01,0.01,0.49,0.25);

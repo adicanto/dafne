@@ -14,15 +14,15 @@ namespace dafne {
 //   M -> R ( -> A B) C
 //
 // The formalism follows CLEO (e.g., https://arxiv.org/abs/hep-ex/0011065) or,
-// if Jordi==true, BaBar's D0->KSpipi analysis (https://inspirehep.net/literature/925859)
+// if BaBarKSpipi==true, BaBar's D0->KSpipi analysis (https://inspirehep.net/literature/925859)
 //
 // If Helicity==true the resonance pole mass is used at the denominator of the Zemach
 // function in place of the two-body running mass
 //
-template<hydra::Wave L, unsigned A, unsigned B, bool Jordi=false, bool Helicity=false, unsigned C=6-A-B, typename Signature=void(void)>
-class Resonance: public hydra::BaseFunctor<Resonance<L,A,B,Jordi,Helicity>, Signature, 4>
+template<hydra::Wave L, unsigned A, unsigned B, bool BaBarKSpipi=false, bool Helicity=false, unsigned C=6-A-B, typename Signature=void(void)>
+class Resonance: public hydra::BaseFunctor<Resonance<L,A,B,BaBarKSpipi,Helicity>, Signature, 4>
 {
-	typedef hydra::BaseFunctor<Resonance<L,A,B,Jordi,Helicity>, Signature, 4> super_type;
+	typedef hydra::BaseFunctor<Resonance<L,A,B,BaBarKSpipi,Helicity>, Signature, 4> super_type;
 	using super_type::_par;
 
 private:
@@ -44,11 +44,11 @@ public:
 	}
 	
 	__hydra_dual__
-	Resonance(Resonance<L,A,B,Jordi,Helicity> const& other) : super_type(other), _phsp(other.PhaseSpace())
+	Resonance(Resonance<L,A,B,BaBarKSpipi,Helicity> const& other) : super_type(other), _phsp(other.PhaseSpace())
 	{}
 	
 	__hydra_dual__ inline
-	Resonance<L,A,B,Jordi,Helicity>& operator=(Resonance<L,A,B,Jordi,Helicity> const& other)
+	Resonance<L,A,B,BaBarKSpipi,Helicity>& operator=(Resonance<L,A,B,BaBarKSpipi,Helicity> const& other)
 	{
 		if(this==&other) return *this;
 		super_type::operator=(other);
@@ -96,7 +96,7 @@ public:
 	__hydra_dual__ inline
 	double Centrifugal(double const &mSqAB)
 	{
-		return (Jordi) ? BarrierFactor(mSqAB) : BarrierFactor(mSqAB)*BarrierFactorMother(mSqAB);
+		return (BaBarKSpipi) ? BarrierFactor(mSqAB) : BarrierFactor(mSqAB)*BarrierFactorMother(mSqAB);
 	}
 	
 	__hydra_dual__ inline
@@ -169,7 +169,7 @@ public:
 	__hydra_dual__ inline
 	double P(const double &mSqAB) const
 	{
-		return (Jordi) ? p_mother_frame( mSqAB, MSqMother(), MSqC() ) : p_mother_frame( MSqMother(), mSqAB, MSqC() );
+		return (BaBarKSpipi) ? p_mother_frame( mSqAB, MSqMother(), MSqC() ) : p_mother_frame( MSqMother(), mSqAB, MSqC() );
 	}
 	
 	__hydra_dual__ inline

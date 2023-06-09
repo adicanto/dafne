@@ -10,7 +10,8 @@ private:
 	// Fill amplitude histogram
 
 	template<typename ModelTruth, typename EFFICIENCY, typename PDFSIGMAT>
-	THnSparseD *fill_histogram(ModelTruth const &modelTruth, EFFICIENCY & efficiency, double tau, double y, double b, double s, PDFSIGMAT const& pdf_sigma_t, size_t n, size_t nbins12=200, size_t nbins13=200, size_t nbins23=200, size_t nbinst=200,
+	THnSparseD *fill_histogram(ModelTruth const &modelTruth, EFFICIENCY & efficiency, double tau, double y, double b, double s, double ftail, double btail, double stail, PDFSIGMAT const& pdf_sigma_t, 
+		size_t n, size_t nbins12=200, size_t nbins13=200, size_t nbins23=200, size_t nbinst=200,
 		size_t nbinssigmat=200) 
 	{
 		double msq12_min=_phsp.MSqMin<1,2>(); 
@@ -20,7 +21,7 @@ private:
 		double msq23_min=_phsp.MSqMin<2,3>(); 
 		double msq23_max=_phsp.MSqMax<2,3>(); 
 
-		return fill_histogram(modelTruth, efficiency, tau, y, b, s, pdf_sigma_t, n, 
+		return fill_histogram(modelTruth, efficiency, tau, y, b, s, ftail, btail, stail, pdf_sigma_t, n, 
 							  nbins12, nbins13, nbins23, nbinst, nbinssigmat, 
 							  msq12_min, msq12_max,
 							  msq13_min, msq13_max,
@@ -29,13 +30,14 @@ private:
 
 
 	template<typename ModelTruth, typename EFFICIENCY, typename PDFSIGMAT>
-	THnSparseD *fill_histogram(ModelTruth const &modelTruth, EFFICIENCY & efficiency, double tau, double y, double b, double s, PDFSIGMAT const& pdf_sigma_t, size_t n, size_t nbins12, size_t nbins13, size_t nbins23, size_t nbinst, size_t nbinssigmat, 
+	THnSparseD *fill_histogram(ModelTruth const &modelTruth, EFFICIENCY & efficiency, double tau, double y, double b, double s, double ftail, double btail, double stail, PDFSIGMAT const& pdf_sigma_t, 
+		size_t n, size_t nbins12, size_t nbins13, size_t nbins23, size_t nbinst, size_t nbinssigmat, 
 		double msq12_min, double msq12_max,
 		double msq13_min, double msq13_max,
 		double msq23_min, double msq23_max, 
 		size_t rndseed=0)
 	{
-		auto histo = _phsp.GenerateSparseHistogramWithTimeAndTimeError<MSq12, MSq13, MSq23, Time, TimeError>(modelTruth, efficiency, tau, y, b, s, pdf_sigma_t, n, 
+		auto histo = _phsp.GenerateSparseHistogramWithTimeAndTimeError<MSq12, MSq13, MSq23, Time, TimeError>(modelTruth, efficiency, tau, y, b, s, ftail, btail, stail, pdf_sigma_t, n, 
 							 nbins12, nbins13, nbins23, nbinst, nbinssigmat, 
 							 msq12_min, msq12_max,
 							 msq13_min, msq13_max,
@@ -121,6 +123,17 @@ public:
 		size_t nbins12=200, size_t nbins13=200, size_t nbins23=200, 
 		size_t nbinst=200, size_t nbinssigmat=200)
 	{
+
+		return FillModelHistogram(modelTruth, efficiency, tau, y, b, s, 0, 0, 1, pdf_sigma_t, 
+									nbins12, nbins13, nbins23, 
+									nbinst, nbinssigmat);
+	}
+
+	template<typename ModelTruth, typename EFFICIENCY, typename PDFSIGMAT>
+	THnSparseD* FillModelHistogram(ModelTruth & modelTruth, EFFICIENCY & efficiency, double tau, double y, double b, double s, double ftail, double btail, double stail, PDFSIGMAT const& pdf_sigma_t, 
+		size_t nbins12=200, size_t nbins13=200, size_t nbins23=200, 
+		size_t nbinst=200, size_t nbinssigmat=200)
+	{
 		double msq12_min=_phsp.MSqMin<1,2>(); 
 		double msq12_max=_phsp.MSqMax<1,2>();
 		double msq13_min=_phsp.MSqMin<1,3>(); 
@@ -129,7 +142,7 @@ public:
 		double msq23_max=_phsp.MSqMax<2,3>(); 
 
 
-		return FillModelHistogram(modelTruth, efficiency, tau, y, b, s, pdf_sigma_t, 
+		return FillModelHistogram(modelTruth, efficiency, tau, y, b, s, ftail, btail, stail, pdf_sigma_t, 
 									nbins12, nbins13, nbins23, 
 									nbinst, nbinssigmat,
 									msq12_min, msq12_max,
@@ -138,8 +151,30 @@ public:
 	}
 
 
+
 	template<typename ModelTruth, typename EFFICIENCY, typename PDFSIGMAT>
 	THnSparseD* FillModelHistogram(ModelTruth & modelTruth, EFFICIENCY & efficiency, double tau, double y, double b, double s, PDFSIGMAT const& pdf_sigma_t, 
+		size_t nbins12, size_t nbins13, size_t nbins23, 
+		size_t nbinst, size_t nbinssigmat,
+		double msq12_min, double msq12_max,
+		double msq13_min, double msq13_max,
+		double msq23_min, double msq23_max, 
+		Int_t lineColor=kRed, Int_t lineStyle=kSolid, size_t rndseed=0) 
+	{
+		return FillModelHistogram(modelTruth, efficiency, tau, y, b, s, 0, 0, 1, 
+								  pdf_sigma_t, 
+								  nbins12, nbins13, nbins23, 
+								  nbinst, nbinssigmat,
+								  msq12_min, msq12_max,
+								  msq13_min, msq13_max,
+								  msq23_min, msq23_max, 
+								  lineColor, lineStyle, rndseed);
+	}
+
+
+
+	template<typename ModelTruth, typename EFFICIENCY, typename PDFSIGMAT>
+	THnSparseD* FillModelHistogram(ModelTruth & modelTruth, EFFICIENCY & efficiency, double tau, double y, double b, double s, double ftail, double btail, double stail, PDFSIGMAT const& pdf_sigma_t, 
 		size_t nbins12, size_t nbins13, size_t nbins23, 
 		size_t nbinst, size_t nbinssigmat,
 		double msq12_min, double msq12_max,
@@ -151,7 +186,7 @@ public:
 
 		if (!_h_data) {
 			std::cout << "WARNING: data histograms has not been filled, the model histogram cannot be correctly normalized." << std::endl;
-			_h_model = fill_histogram(modelTruth, efficiency, tau, y, b, s, pdf_sigma_t, 
+			_h_model = fill_histogram(modelTruth, efficiency, tau, y, b, s, ftail, btail, stail, pdf_sigma_t, 
 						500000, nbins12, nbins13, nbins23, nbinst, nbinssigmat, 
 						msq12_min, msq12_max,
 						msq13_min, msq13_max,
@@ -159,7 +194,7 @@ public:
 		} else {
 			double ndata = get_integral(_h_data);
 			double nevents = (ndata<5e5) ? 1e7 : 20.*ndata;
-			_h_model = fill_histogram(modelTruth, efficiency, tau, y, b, s, pdf_sigma_t, 
+			_h_model = fill_histogram(modelTruth, efficiency, tau, y, b, s, ftail, btail, stail, pdf_sigma_t, 
 						nevents, nbins12, nbins13, nbins23, nbinst, nbinssigmat, 
 						msq12_min, msq12_max,
 						msq13_min, msq13_max,
@@ -177,7 +212,7 @@ public:
 		return _h_model;
 	}
 
-	THnSparseD* FillModelHistogramFromOtherHistograms(std::vector<std::string> names, 
+	THnSparseD* FillModelHistogramFromExternalHistograms(std::vector<std::string> names, 
 		size_t nbins12=200, size_t nbins13=200, size_t nbins23=200, 
 		size_t nbinst=200, size_t nbinssigmat=200)
 	{
@@ -189,7 +224,7 @@ public:
 		double msq23_max=_phsp.MSqMax<2,3>();  
 
 
-		return  FillModelHistogramFromOtherHistograms(names, 
+		return  FillModelHistogramFromExternalHistograms(names, 
 														nbins12, nbins13, nbins23, 
 														nbinst, nbinssigmat,
 														msq12_min, msq12_max,
@@ -197,7 +232,7 @@ public:
 														msq23_min, msq23_max);
 	}
 
-	THnSparseD* FillModelHistogramFromOtherHistograms(std::vector<std::string> names, 
+	THnSparseD* FillModelHistogramFromExternalHistograms(std::vector<std::string> names, 
 		size_t nbins12, size_t nbins13, size_t nbins23, 
 		size_t nbinst, size_t nbinssigmat,
 		double msq12_min, double msq12_max,
@@ -217,7 +252,7 @@ public:
 		for (auto name : names) {
 			auto it = _h_others.find(name);
 			if (it == _h_others.end()) {
-				std::cout << "FillModelHistogramFromOtherHistograms: Cannot find other histogram: " << name << std::endl;
+				std::cout << "FillModelHistogramFromExternalHistograms: Cannot find other histogram: " << name << std::endl;
 				return nullptr;
 			} else {
 				_h_model->Add(it->second);
@@ -230,8 +265,23 @@ public:
 
 
 	template<typename FUNCTOR, typename EFFICIENCY, typename PDFSIGMAT>
-	THnSparseD* FillOtherHistogram(const std::string name, const std::string title, FUNCTOR & functor, EFFICIENCY & efficiency, double tau, double y, double b, double s, PDFSIGMAT const& pdf_sigma_t,  const double fraction, Int_t lineColor, Int_t lineStyle, Int_t fillColor, size_t nbins12=200, size_t nbins13=200, size_t nbins23=200, 
-		size_t nbinst=200, size_t nbinssigmat=200) 
+	THnSparseD* FillHistogram(const std::string name, const std::string title, FUNCTOR & functor, EFFICIENCY & efficiency, double tau, double y, double b, double s, 
+		 PDFSIGMAT const& pdf_sigma_t,  const double fraction, Int_t lineColor, Int_t lineStyle, 
+		 Int_t fillColor, size_t nbins12=200, size_t nbins13=200, size_t nbins23=200, 
+		 size_t nbinst=200, size_t nbinssigmat=200) 
+	{
+		return FillHistogram(name, title, functor, efficiency, tau, y, b, s, 0, 0, 1, 
+									pdf_sigma_t, fraction, lineColor, lineStyle, fillColor, 
+									nbins12, nbins13, nbins23, 
+									nbinst, nbinssigmat);
+	}
+
+
+	template<typename FUNCTOR, typename EFFICIENCY, typename PDFSIGMAT>
+	THnSparseD* FillHistogram(const std::string name, const std::string title, FUNCTOR & functor, EFFICIENCY & efficiency, double tau, double y, double b, double s, double ftail, double btail, double stail, 
+		 PDFSIGMAT const& pdf_sigma_t,  const double fraction, Int_t lineColor, Int_t lineStyle, 
+		 Int_t fillColor, size_t nbins12=200, size_t nbins13=200, size_t nbins23=200, 
+		 size_t nbinst=200, size_t nbinssigmat=200) 
 	{
 		double msq12_min=_phsp.MSqMin<1,2>(); 
 		double msq12_max=_phsp.MSqMax<1,2>();
@@ -240,7 +290,7 @@ public:
 		double msq23_min=_phsp.MSqMin<2,3>(); 
 		double msq23_max=_phsp.MSqMax<2,3>(); 
 
-		return FillOtherHistogram(name, title, functor, efficiency, tau, y, b, s, 
+		return FillHistogram(name, title, functor, efficiency, tau, y, b, s, ftail, btail, stail, 
 									pdf_sigma_t, fraction, lineColor, lineStyle, fillColor, 
 									nbins12, nbins13, nbins23, 
 									nbinst, nbinssigmat,
@@ -249,22 +299,42 @@ public:
 									msq23_min, msq23_max);
 	}
 
-
 	template<typename FUNCTOR, typename EFFICIENCY, typename PDFSIGMAT>
-	THnSparseD* FillOtherHistogram(const std::string name, const std::string title, FUNCTOR & functor, EFFICIENCY & efficiency, double tau, double y, double b, double s, PDFSIGMAT const& pdf_sigma_t,  const double fraction, Int_t lineColor, Int_t lineStyle, Int_t fillColor, 
+	THnSparseD* FillHistogram(const std::string name, const std::string title, FUNCTOR & functor, EFFICIENCY & efficiency, double tau, double y, double b, double s, 
+		PDFSIGMAT const& pdf_sigma_t,  const double fraction, 
+		Int_t lineColor, Int_t lineStyle, Int_t fillColor, 
 		size_t nbins12, size_t nbins13, size_t nbins23, size_t nbinst, size_t nbinssigmat,
 		double msq12_min, double msq12_max,
 		double msq13_min, double msq13_max,
 		double msq23_min, double msq23_max, size_t rndseed=0)
 	{
-		std::cout << "Filling histogram for other histogram: " << name << "..." << std::flush;
+		return FillHistogram(name, title, functor, efficiency, tau, y, b, s, 0, 0, 0,
+							 pdf_sigma_t, fraction, 
+							 lineColor, lineStyle, fillColor, 
+							 nbins12, nbins13, nbins23, nbinst, nbinssigmat,
+							 msq12_min, msq12_max,
+							 msq13_min, msq13_max,
+							 msq23_min, msq23_max, rndseed);
+	}
+
+	template<typename FUNCTOR, typename EFFICIENCY, typename PDFSIGMAT>
+	THnSparseD* FillHistogram(const std::string name, const std::string title, FUNCTOR & functor, EFFICIENCY & efficiency, double tau, double y, double b, double s, double ftail, double btail, double stail,
+		PDFSIGMAT const& pdf_sigma_t,  const double fraction, 
+		Int_t lineColor, Int_t lineStyle, Int_t fillColor, 
+		size_t nbins12, size_t nbins13, size_t nbins23, size_t nbinst, size_t nbinssigmat,
+		double msq12_min, double msq12_max,
+		double msq13_min, double msq13_max,
+		double msq23_min, double msq23_max, size_t rndseed=0)
+	{
+		std::cout << "Filling histogram for " << name << "..." << std::flush;
 
 		_h_others[name] = nullptr;
 
 
 		if (!_h_data) {
 			std::cout << "WARNING: data histograms has not been filled, the model histogram cannot be correctly normalized." << std::endl;
-			_h_model = fill_histogram(functor, efficiency, tau, y, b, s, pdf_sigma_t, 500000, 
+			_h_model = fill_histogram(functor, efficiency, tau, y, b, s, ftail, btail, stail, 
+										pdf_sigma_t, 500000, 
 										nbins12, nbins13, nbins23, nbinst, nbinssigmat, 
 										msq12_min, msq12_max,
 										msq13_min, msq13_max,
@@ -272,8 +342,9 @@ public:
 		} else {
 			double ndata = get_integral(_h_data);
 			double nevents = (ndata<5e5) ? 1e7 : 20.*ndata;
-			_h_others[name] = fill_histogram(functor, efficiency, tau, y, b, s, pdf_sigma_t, 
-									nevents, nbins12, nbins13, nbins23, nbinst, nbinssigmat, 
+			_h_others[name] = fill_histogram(functor, efficiency, tau, y, b, s, ftail, btail, stail,
+									pdf_sigma_t, nevents, 
+									nbins12, nbins13, nbins23, nbinst, nbinssigmat, 
 									msq12_min, msq12_max,
 									msq13_min, msq13_max,
 									msq23_min, msq23_max, rndseed);

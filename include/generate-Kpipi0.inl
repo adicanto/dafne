@@ -104,7 +104,7 @@ int main( int argc, char** argv  )
 
 	auto end = std::chrono::high_resolution_clock::now();
 	std::chrono::duration<double, std::milli> elapsed = end - start;
-	std::cout << "Time elapsed (ms):"<< elapsed.count() << std::endl;
+	std::cout << "Time elapsed (ms): "<< elapsed.count() << std::endl;
 
 	
 	//---------------------------------------------------------------------------------------
@@ -147,6 +147,9 @@ int main( int argc, char** argv  )
 		if (args.interactive) myapp = new TApplication("myapp",0,0);
 
 		auto plotter = DalitzPlotter<MSqZero,MSqMinus,MSqPlus>(phsp,"#it{K}^{#minus}","#it{#pi}^{+}","#it{#pi}^{0}",(args.prlevel>3));
+
+		// plotter.FillDataHistogram(<data>, <nbin12>, <nbin13>, <nbin23>, 
+		// 							 <min12>, <min13>, <min23>, <max12>, <max13>, <max23>);
 		plotter.FillDataHistogram(data, 140, 140, 100, 0.3, 3.1, 0.3, 3.1, 0.0, 1.9);
 		plotter.FillModelHistogram(model, 140, 140, 100, 0.3, 3.1, 0.3, 3.1, 0.0, 1.9);
 		auto efficiency = ConstantFunctor(1);

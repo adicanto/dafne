@@ -76,7 +76,7 @@ int main(int argc, char** argv)
 	efficiency_hist.GetTH2D((outprefix + "_efficiency_hist").c_str(), 
 		                    (outprefix + "_efficiency_hist").c_str(),
 		                    "m^{2}_{#it{#pi#pi}} [GeV^{2}/#it{c}^{4}]", "cos(#theta_{#it{#pi#pi}})")->Draw("COLZ");
-	Print::Canvas(cefficiency,  args.outdir + outprefix + "efficiency_hist");
+	Print::Canvas(cefficiency,  args.outdir + outprefix + "_efficiency_hist");
 	gStyle->SetOptStat(1);
 
 	auto efficiency = hydra::wrap_lambda(
@@ -131,7 +131,7 @@ int main(int argc, char** argv)
 	auto model = rate(amp)*efficiency;
 
 	//---------------------------------------------------------------------------------------
-	// get input data from ROOT file
+	// Get input data from the ROOT file
 	//---------------------------------------------------------------------------------------
 	std::cout << "***** Input data" << std::endl;
 	std::cout << "Creating data containers ... ...  " << std::endl;
@@ -160,7 +160,7 @@ int main(int argc, char** argv)
 	for (auto i=0; i<nentries; ++i) {
 		ntp->GetEntry(i);
 
-		if (i % 100000 == 0) std::cout << "Reading " << i << "events" << std::endl;
+		if (i % 100000 == 0) std::cout << "Reading " << i << " events" << std::endl;
 		data.push_back(hydra::make_tuple(MSqPlus(m2p),MSqMinus(m2m),MSqZero(m2z)));
 	}
 	
@@ -174,10 +174,12 @@ int main(int argc, char** argv)
 	}
 	std::cout << "Read " << ncands << " data candidates ... ... " << std::endl;
 
-	std::cout << "Dataset test: " << std::endl;
-	std::cout << data[0] << std::endl;
-	std::cout << data[1] << std::endl;
-	std::cout << data[2] << std::endl;
+	if (args.prlevel > 3) {
+		std::cout << "Dataset test: " << std::endl;
+		std::cout << data[0] << std::endl;
+		std::cout << data[1] << std::endl;
+		std::cout << data[2] << std::endl;
+	}
 
 	//---------------------------------------------------------------------------------------
 	// Build pdf and log-likelihood function from model
@@ -221,9 +223,7 @@ int main(int argc, char** argv)
 		return -2;
 	}
 
-	// auto parameters = minimum.UserParameters();
-	// auto covariance = minimum.UserCovariance();
-	// std::cout << "***** Fit results:\n" << parameters << covariance << std::endl;
+
 	std::cout << "***** Fit results:\n" << minimum.UserState() << std::endl;
 	MinuitTools::CovarianceMatrixStatus(minimum);
 
@@ -231,24 +231,32 @@ int main(int argc, char** argv)
 	// Plot fit result
 	//---------------------------------------------------------------------------------------
 	if (args.plot) {
-		// set and check the parameters
-		std::cout << "***** Set model according to fit result" << std::endl;
-		fcn.GetParameters().UpdateParameters(minimum);
-		auto amp = fcn.GetPDF().GetFunctor().GetFunctor(hydra::placeholders::_0).GetFunctor(hydra::placeholders::_1); // get the result model from FCN // currently, the efficiency plane is not included in the plotting, and it would be included after the new plotting funtion is ready
-		amp.PrintRegisteredParameters();
-
 		// plot the model and its components
 		std::cout << "***** Plot data and model" << std::endl;
 
 		TApplication* myapp = NULL;
 		if (args.interactive) myapp = new TApplication("myapp",0,0);
-		
-		auto plotter = DalitzPlotter<MSqPlus, MSqMinus, MSqZero>(phsp,"#it{K}^{0}_{S}","#it{#pi}^{+}","#it{#pi}^{#minus}",(args.prlevel>3));
-		
-		std::string outfilename = args.outdir + outprefix + "-HIST.root";
-		plotter.FillHistograms(data, rate(amp), outfilename);
 
-		// 1D Projection
+		// get the fitted model
+		std::cout << "***** Set model according to fit result" << std::endl;
+		auto model_fitted = dafne::MinuitTools::UpdateParameters<MSqPlus, MSqMinus, MSqZero>(phsp, model, minimum);
+
+		// preparing a fitted sum amplitude, in order to plot the component
+		auto amp_rate_fitted = dafne::MinuitTools::UpdateParameters<MSqPlus, MSqMinus, MSqZero>(phsp, rate(amp), minimum);
+		auto amp_fitted = amp_rate_fitted.GetFunctor(hydra::placeholders::_1);
+
+
+		auto plotter = DalitzPlotter<MSqPlus, MSqMinus, MSqZero>(phsp,"#it{K}^{0}_{S}","#it{#pi}^{+}","#it{#pi}^{#minus}",(args.prlevel>3));
+		plotter.FillDataHistogram(data);
+		plotter.FillModelHistogram(model_fitted);
+		plotter.FillComponentHistograms(amp_fitted, efficiency, 1.0);
+		plotter.SetCustomAxesTitles("#it{m}^{2}_{+} [GeV^{2}/#it{c}^{4}]","#it{m}^{2}_{#minus} [GeV^{2}/#it{c}^{4}]","#it{m}^{2}_{#it{#pi#pi}} [GeV^{2}/#it{c}^{4}]");
+
+
+		std::string outfilename = args.outdir + outprefix + "-HIST.root";
+		plotter.SaveHistograms(outfilename);
+
+		// 1D projections
 		TCanvas c1("c1","c1",1800,700);
 		TPad *pad1 = new TPad("pad1","pad1",0.01,0.25,0.33,0.99);
 		TPad *pad2 = new TPad("pad2","pad2",0.01,0.01,0.33,0.25);
@@ -287,7 +295,7 @@ int main(int argc, char** argv)
 		outfilename = args.outdir + outprefix + "-1d-projection";
 		Print::Canvas(c1, outfilename);
 
-		// 2D Projection
+		// 2D projections
 		TCanvas c2("c2","c2",1500,500);
 		c2.Divide(3,1);
 

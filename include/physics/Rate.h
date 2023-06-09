@@ -86,7 +86,7 @@ auto time_dependent_rate_with_time_resolution_pdf(hydra::Parameter const& tau, h
 	// check if pdf(sigma_t) is normalized
 	std::cout << "Checking if pdf(sigma_t) is normalized ... ..." << std::endl;
 
-	hydra::Plain<1,  hydra::device::sys_t > PlainSigmatMC({timeErrorRange[0]}, {timeErrorRange[1]}, 5000000);
+	hydra::Plain<1,  hydra::device::sys_t > PlainSigmatMC({timeErrorRange[0]}, {timeErrorRange[1]}, n_calls);
 	double int_pdf_sigma_t = PlainSigmatMC.Integrate(pdf_sigma_t).first;
 	std::cout << "Integrate(pdf(sigma_t)) on (timeErrorRange[0], timeErrorRange[1]) = " << int_pdf_sigma_t << std::endl;
 	// double int_pdf_sigma_t = pdf_sigma_t.GetNorm();

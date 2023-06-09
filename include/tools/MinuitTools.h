@@ -21,6 +21,9 @@
 
 
 #include <tools/FunctorTools.h>
+#include <physics/ThreeBodyPhaseSpace.h>
+
+
 
 namespace dafne {
 
@@ -75,11 +78,12 @@ void CheckFCN(T & fcn)
     auto parameters = fcn.GetParameters().GetVariables();
 
     // check number of free parameters
-    int n_free = 0;
+    std::map<std::string, int> free_parameters;
     for (size_t i = 0; i < parameters.size(); ++i) {
-        if (!(parameters[i]->IsFixed())) n_free++;
+        if (!(parameters[i]->IsFixed())) free_parameters[parameters[i]->GetName()] = 1;
     }
 
+    int n_free = free_parameters.size();
     std::cout << "Number of floating parameters in FCN: " << n_free << std::endl;
     if (n_free == 0) {
         std::cout << "All parameters in FCN are fixed. Exit!" << std::endl;
@@ -119,19 +123,95 @@ hydra::Parameter * GetParameterPointer(std::vector<hydra::Parameter*> & paramete
     return NULL;
 }
 
+
+template<typename FUNCTOR, typename MINIMUM>
+void CheckMinimizerParameters(FUNCTOR functor, MINIMUM & minimum)
+{
+    // check if some plotting model parameters are not in the fitting result from the fitter (minimum)
+    auto fitter_parameters = minimum.UserParameters().Parameters();
+    std::vector<std::string> fitter_parameter_names;
+    for (auto param : fitter_parameters) fitter_parameter_names.push_back(std::string(param.Name()));
+
+    size_t n_pars_functor = functor.GetNumberOfParameters();
+    for (size_t i = 0; i < n_pars_functor; ++i ) {
+        if (find(fitter_parameter_names.begin(), fitter_parameter_names.end(), functor.GetParameter(i).GetName()) == fitter_parameter_names.end()) {
+            std::cout << "The parameter \""<< functor.GetParameter(i) << "\" is not found in the ";
+            std::cout << "fit result. Please have a check. Exit." << std::endl;
+        }
+    } 
+}
+
 // build a dummy fcn to easily synchronize the paramters in plotting functor and fitting functor, according
 // to the parameter names. 
 template<typename DUMMYDATA, typename FUNCTOR, typename MINIMUM>
-auto UpdateParametersByBuildingDummyFCN(DUMMYDATA data_dummy, FUNCTOR functor, MINIMUM minimum)
+auto UpdateParametersByBuildingDummyFCN(DUMMYDATA & data_dummy, FUNCTOR functor, MINIMUM & minimum)
 {
     auto dummy_fcn_for_plotting = hydra::make_loglikehood_fcn( 
-                                    hydra::make_pdf( functor, ConstantIntegrator<hydra::device::sys_t>(1.0)) ,
+                                    hydra::make_pdf( functor, ConstantIntegrator<hydra::host::sys_t>(1.0)) ,
                                     data_dummy.begin(),
                                     data_dummy.end()
                                   );
 
-    dummy_fcn_for_plotting.GetParameters().UpdateParameters(minimum);
+    hydra::UserParameters& parameters = dummy_fcn_for_plotting.GetParameters();
+    parameters.UpdateParameters(minimum);
     return dummy_fcn_for_plotting.GetPDF().GetFunctor();
+}
+
+template<typename MSq12, typename MSq13, typename MSq23, typename FUNCTOR, typename MINIMUM>
+auto UpdateParameters(ThreeBodyPhaseSpace phsp, FUNCTOR functor, MINIMUM & minimum)
+{
+    // When calling, please make sure all parameters in the model (functor) are included in the 
+    // fitting result from the fitter (minimum), otherwise this function will go into
+    // segmentfault.
+
+
+    // check if some plotting model parameters are not in the fitting result from the 
+    // fitter (minimum). Under test.
+    // CheckMinimizerParameters(functor, minimum);
+
+    // build a dummy fcn(likelihood) to easily synchronize the paramters from the fitter to 
+    // the plotting model
+    // The building a likelihood needs data points, so build a dummy dataset and add an 
+    // event inside the phase space
+    auto data_dummy = phsp.GeneratePlainData<MSq12, MSq13, MSq23>(10); 
+    auto normalized_model_for_plotting = UpdateParametersByBuildingDummyFCN(data_dummy, functor, minimum);
+
+    return normalized_model_for_plotting;
+}
+
+template<typename MSq12, typename MSq13, typename MSq23, typename Time, typename FUNCTOR, typename MINIMUM>
+auto UpdateParameters(ThreeBodyPhaseSpaceWithTime phsp, FUNCTOR functor, MINIMUM & minimum)
+{
+    // When calling, please make sure all parameters in the model (functor) are included in the 
+    // fitting result from the fitter (minimum), otherwise this function will go into
+    // segmentfault.
+
+    // build a dummy fcn(likelihood) to easily synchronize the paramters from the fitter to 
+    // the plotting model
+    // The building a likelihood needs data points, so build a dummy dataset and add an 
+    // event inside the phase space
+    auto data_dummy = phsp.GeneratePlainDataWithTime<MSq12, MSq13, MSq23, Time>(10); 
+    auto normalized_model_for_plotting = UpdateParametersByBuildingDummyFCN(data_dummy, functor, minimum);
+
+    return normalized_model_for_plotting;
+}
+
+
+template<typename MSq12, typename MSq13, typename MSq23, typename Time, typename TimeError, typename FUNCTOR, typename MINIMUM>
+auto UpdateParameters(ThreeBodyPhaseSpaceWithTimeAndTimeError phsp, FUNCTOR functor, MINIMUM & minimum)
+{
+    // When calling, please make sure all parameters in the model (functor) are included in the 
+    // fitting result from the fitter (minimum), otherwise this function will go into
+    // segmentfault.
+
+    // build a dummy fcn(likelihood) to easily synchronize the paramters from the fitter to 
+    // the plotting model
+    // The building a likelihood needs data points, so build a dummy dataset and add an 
+    // event inside the phase space
+    auto data_dummy = phsp.GeneratePlainDataWithTimeAndTimeError<MSq12, MSq13, MSq23, Time, TimeError>(10); 
+    auto normalized_model_for_plotting = UpdateParametersByBuildingDummyFCN(data_dummy, functor, minimum);
+
+    return normalized_model_for_plotting;
 }
 
 

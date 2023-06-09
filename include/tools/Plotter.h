@@ -286,7 +286,7 @@ public:
 		return h1d_model;
 	}
 
-	TH1D* Plot1DProjectionOther(const std::string name, const int xdim, const char *goption="histo")
+	TH1D* Plot1DProjection(const std::string name, const int xdim, const char *goption="histo")
 	{
 		if (_debug) {
 			std::cout << "--- Plotting 1D projection of other histogram: " << name << " on " << xdim << " axes..." << std::endl;

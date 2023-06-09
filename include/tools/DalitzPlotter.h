@@ -330,7 +330,7 @@ public:
 
 
 	template<typename T>
-	THnSparseD* FillOtherHistogram(const std::string name, const std::string title, T & functor, const double fraction, Int_t lineColor, Int_t lineStyle, Int_t fillColor, size_t nbins12=200, size_t nbins13=200, size_t nbins23=200) 
+	THnSparseD* FillHistogram(const std::string name, const std::string title, T & functor, const double fraction, Int_t lineColor, Int_t lineStyle, Int_t fillColor, size_t nbins12=200, size_t nbins13=200, size_t nbins23=200) 
 	{
 
 		double msq12_min=_phsp.MSqMin<1,2>(); 
@@ -340,7 +340,7 @@ public:
 		double msq23_min=_phsp.MSqMin<2,3>(); 
 		double msq23_max=_phsp.MSqMax<2,3>();
 
-		return FillOtherHistogram(name, title, functor, fraction, lineColor, lineStyle, fillColor, 
+		return FillHistogram(name, title, functor, fraction, lineColor, lineStyle, fillColor, 
 									nbins12, nbins13, nbins23,
 									msq12_min, msq12_max,
 									msq13_min, msq13_max,
@@ -349,7 +349,7 @@ public:
 
 
 	template<typename T>
-	THnSparseD* FillOtherHistogram(const std::string name, const std::string title, T & functor, const double fraction, Int_t lineColor, Int_t lineStyle, Int_t fillColor, size_t nbins12, size_t nbins13, size_t nbins23,
+	THnSparseD* FillHistogram(const std::string name, const std::string title, T & functor, const double fraction, Int_t lineColor, Int_t lineStyle, Int_t fillColor, size_t nbins12, size_t nbins13, size_t nbins23,
 		double msq12_min, double msq12_max,
 		double msq13_min, double msq13_max,
 		double msq23_min, double msq23_max,

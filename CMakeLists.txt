@@ -57,31 +57,6 @@ if(EIGEN3_FOUND)
 	include_directories(${EIGEN3_INCLUDE_DIR})
 endif(EIGEN3_FOUND)
 
-# CUDA is not supported for the moment
-#
-# #-----------------------
-# #get CUDA
-# find_package(CUDA 8.0)
-# if(CUDA_FOUND)
-# 	link_directories( ${CUDA_TOOLKIT_ROOT_DIR}/lib64/)
-# 
-# 	#set cuda flags
-# 	set(CUDA_NVCC_FLAGS ${CUDA_NVCC_FLAGS}  -ftemplate-backtrace-limit=0; --cudart; static;  -O4 ; --expt-relaxed-constexpr; -fmad=true; --expt-extended-lambda;--relocatable-device-code=false; -Xptxas -dlcm=ca;-Xptxas --opt-level=4 )
-# 
-# 	set(CUDA_PROPAGATE_HOST_FLAGS ON)
-# 	set(CUDA_SEPARABLE_COMPILATION OFF)
-# 	set(CUDA_VERBOSE_BUILD OFF)
-# 
-# 	if(CMAKE_CXX_COMPILER_VERSION VERSION_GREATER 5.4)
-# 		list(APPEND CUDA_NVCC_FLAGS " -Xcompiler -D__CORRECT_ISO_CPP11_MATH_H_PROTO ")
-# 	endif()
-# 
-# 	# Detect CUDA architecture and get best NVCC flags
-# 	include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/FindCudaArch.cmake)
-# 	select_nvcc_arch_flags(NVCC_FLAGS_EXTRA)
-# 	list(APPEND CUDA_NVCC_FLAGS ${NVCC_FLAGS_EXTRA})
-# endif(CUDA_FOUND)
-
 #-----------------------
 #get TBB
 find_package(TBB )
@@ -110,14 +85,6 @@ else()
 	set(BUILD_OMP_TARGETS  OFF)
 endif()
 
-# CUDA is not supported for the moment
-#
-# #not every computer has a GPU and/or cuda installed or 
-# if( CUDA_FOUND )
-# 	set(BUILD_CUDA_TARGETS  ON)
-# else()
-# 	set(BUILD_CUDA_TARGETS  OFF)
-# endif()
 
 # to enable tbb builds
 if(TBB_FOUND)
@@ -133,10 +100,6 @@ message(STATUS "ROOT include path: ${ROOT_INCLUDE_DIR}")
 message(STATUS "ROOT library path: ${ROOT_LIBRARY_DIR}" )
 message(STATUS "ROOT libraries: ${ROOT_LIBRARIES}")
 message(STATUS "ROOT::Minuit2 library: ${ROOT_Minuit2_LIBRARY}")
-message(STATUS "Build CUDA/NVCC-based targets: ${BUILD_CUDA_TARGETS}")
-message(STATUS "CUDA include: ${CUDA_INCLUDE_DIRS}" )
-message(STATUS "CUDA libraries: ${CUDA_LIBRARIES}"  )
-message(STATUS "NVCC flags: ${CUDA_NVCC_FLAGS}" )
 message(STATUS "Build TBB targets: ${BUILD_TBB_TARGETS}")
 message(STATUS "TBB include: ${TBB_INCLUDE_DIRS}" )
 message(STATUS "TBB libraries: ${TBB_LIBRARIES}" )
@@ -154,14 +117,17 @@ message(STATUS "Dafne binary dir: ${EXECUTABLE_OUTPUT_PATH}" )
 #+++++++++++++++++++++++++++
 include(${Project_CMAKE_DIR}/AddAnalysisTarget.cmake)
 
-ADD_ANALYSIS(dalitz-fit)
-ADD_ANALYSIS(time-dependent-dalitz-fit)
-ADD_ANALYSIS(generate-Kpipi0)
-ADD_ANALYSIS(generate-KSpipi-time-dependent)
-ADD_ANALYSIS(generate-KSpipi-time-dependent-time-resolution)
-ADD_ANALYSIS(generate-KSpipi-time-independent)
-ADD_ANALYSIS(generate-KSpipi-time-independent-with-background)
-ADD_ANALYSIS(fit-KSpipi-time-independent)
-ADD_ANALYSIS(fit-KSpipi-time-independent-with-background)
-ADD_ANALYSIS(fit-KSpipi-time-dependent)
-ADD_ANALYSIS(fit-KSpipi-time-dependent-time-resolution)
+# ADD_ANALYSIS(dalitz-fit)
+# ADD_ANALYSIS(time-dependent-dalitz-fit)
+# ADD_ANALYSIS(generate-Kpipi0)
+# ADD_ANALYSIS(generate-KSpipi-time-dependent)
+# ADD_ANALYSIS(generate-KSpipi-time-dependent-time-resolution)
+# ADD_ANALYSIS(generate-KSpipi-time-dependent-double-gaussian-time-resolution)
+# ADD_ANALYSIS(generate-KSpipi-time-dependent-time-resolution-with-background)
+# ADD_ANALYSIS(generate-KSpipi-time-independent)
+# ADD_ANALYSIS(generate-KSpipi-time-independent-with-background)
+# ADD_ANALYSIS(fit-KSpipi-time-independent)
+# ADD_ANALYSIS(fit-KSpipi-time-independent-with-background)
+# ADD_ANALYSIS(fit-KSpipi-time-dependent)
+# ADD_ANALYSIS(fit-KSpipi-time-dependent-time-resolution)
+# ADD_ANALYSIS(fit-KSpipi-time-dependent-time-resolution-with-background)

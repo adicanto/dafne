@@ -31,7 +31,6 @@
 #include <tools/ArbitraryBinningHistogram2D.h>
 using namespace dafne;
 
-// Configuration parameters
 const unsigned nevents(100000);
 std::string outprefix("fit-KSpipi-time-dependent-time-resolution");
 
@@ -70,6 +69,12 @@ int main(int argc, char** argv)
 	// config the model according to configuration file
 	ConfigFile config(args.config_file.c_str(), (args.prlevel>3) );
 	config.ConfigureModel(Adir);
+
+	auto Abar = hydra::wrap_lambda( [&Adir] __hydra_dual__ (MSqPlus a, MSqMinus b) {
+		MSqPlus switched_a = b;
+		MSqMinus switched_b = a;
+		return Adir(switched_a,switched_b);
+	});
 	
 	// Time-dependent parameters
 	auto tau = hydra::Parameter::Create("tau").Value(Tau::D0).Error(0.0001);
@@ -79,12 +84,7 @@ int main(int argc, char** argv)
 	auto phi = hydra::Parameter::Create("phi").Value(0.0).Error(0.0001).Limits(-1.,1.);
 	config.ConfigureMixingParameters(tau, x, y, qop, phi);
 	
-	// Total amplitude for the decay that undergoes mixing
-	auto Abar = hydra::wrap_lambda( [&Adir] __hydra_dual__ (MSqPlus a, MSqMinus b) {
-		MSqPlus switched_a = b;
-		MSqMinus switched_b = a;
-		return Adir(switched_a,switched_b);
-	});
+
 
 	// efficiency plane described by irregular binning 2D histogram
 	ArbitraryBinningHistogram2D efficiency_hist = config.ConfigureEfficiencyHistogram();
@@ -126,16 +126,10 @@ int main(int argc, char** argv)
 
 	config.ConfigureTimeResolutionParameters({&b, &s, &johnson_delta, &johnson_lambda, &johnson_gamma, &johnson_xi});
 
-	// auto johnson_su = hydra::JohnsonSU<DecayTimeError>(johnson_gamma, johnson_delta, johnson_xi, johnson_lambda);
-	// auto johnson_su = hydra::make_pdf(
-	// 					hydra::JohnsonSU<DecayTimeError>(johnson_gamma, johnson_delta, johnson_xi, johnson_lambda), 
-	// 					hydra::AnalyticalIntegral<hydra::JohnsonSU<DecayTimeError>>(phsp.TimeErrorMin(), phsp.TimeErrorMax()) 
-	// 					);
 
-	// hydra::pdf seems could not be the sub-functor of a functor. Therefore, we use normalized JohnsonSU functor to build the pdf(sigma_t) part
-	// of the final time-dependent amplitude
 	auto johnson_su = NormalizedJohnsonSU<DecayTimeError>(johnson_gamma, johnson_delta, johnson_xi, johnson_lambda, phsp.TimeErrorMin(), phsp.TimeErrorMax());
-	
+
+	// the time dependent decay rates
 	auto model_dz = time_dependent_rate_with_time_resolution_pdf<Flavor::Positive,MSqPlus,MSqMinus,DecayTime,DecayTimeError>(
 						tau,x,y,qop,phi,b,s,efficiency,Adir,Abar,johnson_su,
 						{phsp.MSqMin<1,2>(),phsp.MSqMax<1,2>()},
@@ -152,10 +146,6 @@ int main(int argc, char** argv)
 
 
 
-	// for checking the parameters order when debugging
-	// typename decltype(model_dz)::argument_type  test{};
-	// std::cout << test.dummy << '\n';
-
 	// build pdf
 	
 	// the time_dependent_rate_with_time_resolution_pdf_type1 functor is a pdf itself, but the FCN needs 
@@ -169,7 +159,7 @@ int main(int argc, char** argv)
 
 
 	//---------------------------------------------------------------------------------------
-	// get input data from ROOT file
+	// Get input data from the ROOT file
 	//---------------------------------------------------------------------------------------
 	std::cout << "***** Input data" << std::endl;
 	std::cout << "Creating data containers ... ...  " << std::endl;
@@ -203,7 +193,7 @@ int main(int argc, char** argv)
 	for (auto i=0; i<nentries; ++i) {
 		ntp->GetEntry(i);
 
-		if (i % 100000 == 0) std::cout << "Reading " << i << "events" << std::endl;
+		if (i % 100000 == 0) std::cout << "Reading " << i << " events" << std::endl;
 
 		if (flavor > 0) {
 			data_dz.push_back(hydra::make_tuple(MSqPlus(m2p),MSqMinus(m2m),MSqZero(m2z),DecayTime(t),DecayTimeError(sigmat)));
@@ -225,14 +215,16 @@ int main(int argc, char** argv)
 	}
 	std::cout << "Read " << ncands_dz << " D0 data candidates and " << ncands_db << " D0-bar events " << std::endl;
 
-	std::cout << "D0 dataset test: " << std::endl;
-	std::cout << data_dz[0] << std::endl;
-	std::cout << data_dz[1] << std::endl;
-	std::cout << data_dz[2] << std::endl;
-	std::cout << "D0-bar data test: " << std::endl;
-	std::cout << data_db[0] << std::endl;
-	std::cout << data_db[1] << std::endl;
-	std::cout << data_db[2] << std::endl;
+	if (args.prlevel > 3) {
+		std::cout << "D0 dataset test: " << std::endl;
+		std::cout << data_dz[0] << std::endl;
+		std::cout << data_dz[1] << std::endl;
+		std::cout << data_dz[2] << std::endl;
+		std::cout << "D0-bar data test: " << std::endl;
+		std::cout << data_db[0] << std::endl;
+		std::cout << data_db[1] << std::endl;
+		std::cout << data_db[2] << std::endl;
+	}
 
 
 	//---------------------------------------------------------------------------------------
@@ -278,9 +270,6 @@ int main(int argc, char** argv)
 		return -2;
 	}
 
-	// auto parameters = minimum.UserParameters();
-	// auto covariance = minimum.UserCovariance();
-	// std::cout << "***** Fit results:\n" << parameters << covariance << std::endl;
 	std::cout << "***** Fit results:\n" << minimum.UserState() << std::endl;
 	MinuitTools::CovarianceMatrixStatus(minimum);
 
@@ -288,64 +277,48 @@ int main(int argc, char** argv)
 	// Plot fit result
 	//---------------------------------------------------------------------------------------
 	if (args.plot) {
-		std::cout << "***** Plot data and fit result" << std::endl;
-
-		// get the fitted model_dz
-		fcn_dz.GetParameters().UpdateParameters(minimum);
-		auto model_dz_fitted = fcn_dz.GetPDF().GetFunctor();
-		auto fitted_parameters = fcn_dz.GetParameters().GetVariables();
-		// model_dz_fitted.PrintRegisteredParameters();
-
-
-		// model for ploting
-
-		auto model_truth_dz = time_dependent_rate<Flavor::Positive,DecayTime>(tau,x,y,qop,phi,Adir,Abar); 
-		// auto model_truth_db = time_dependent_rate<Flavor::Negative,DecayTime>(tau,x,y,qop,phi,Adir,Abar)*efficiency;
-
-		// build a dummy fcn to easily synchronize the plotting model and fitting model
-		hydra::multivector<hydra::tuple<MSqPlus,MSqMinus,DecayTime>, hydra::device::sys_t> data_dummy;
-		data_dummy.push_back(hydra::make_tuple(MSqPlus(1.0),MSqMinus(1.0), DecayTime(0.2)));
-		auto dummy_fcn_for_plotting = hydra::make_loglikehood_fcn( hydra::make_pdf( model_truth_dz, ConstantIntegrator<hydra::device::sys_t>(1.0)) ,
-													 data_dummy.begin(),
-													 data_dummy.end());
-		dummy_fcn_for_plotting.GetParameters().UpdateParameters(minimum);
-		auto model_truth_dz_fitted = dummy_fcn_for_plotting.GetPDF().GetFunctor();
-
-		auto johnson_su_for_plot = hydra::JohnsonSU<DecayTimeError>(MinuitTools::GetParameterPointer(fitted_parameters, "johnson_gamma")->GetValue(), 
-																	MinuitTools::GetParameterPointer(fitted_parameters, "johnson_delta")->GetValue(), 
-																	MinuitTools::GetParameterPointer(fitted_parameters, "johnson_xi")->GetValue(), 
-																	MinuitTools::GetParameterPointer(fitted_parameters, "johnson_lambda")->GetValue());
-
-		// "turth level" model without sigma_t, but ... ... includes efficiency plane
-
-		auto data = data_dz;
-		// uncomment the line below, then data_dz + data_db will be plotted together with model_dz ignoring the CPV
-		data.insert(data.end(), data_db.begin(), data_db.end());
-
-		// plotting procedure
 		TApplication* myapp = NULL;
 		if (args.interactive) myapp = new TApplication("myapp",0,0);
 
-		// plot dalitz distribution 
+		std::string outfilename = args.outdir + outprefix + "-HIST.root";	
 
-		std::string outfilename = args.outdir + outprefix + "-HIST.root";
+		std::cout << "***** Plot fit result" << std::endl;
+
+		// synchronize the paramters from the fitter to the plotting model
+		auto phsp_for_plotting = D0ToKsPiPi_FVECTOR_BABAR::PhaseSpaceWithTime();
+		auto model_truth_dz = time_dependent_rate<Flavor::Positive,DecayTime>(tau,x,y,qop,phi,Adir,Abar); 
+		auto model_truth_dz_fitted = dafne::MinuitTools::UpdateParameters<MSqPlus, MSqMinus, MSqZero, DecayTime>(phsp_for_plotting, model_truth_dz, minimum);
+
+		// here we assume the johnson function is fixed during the fit
+		auto johnson_su_for_plot = hydra::JohnsonSU<DecayTimeError>(
+			                           johnson_gamma, johnson_delta, johnson_xi, johnson_lambda);
+
+		auto data = data_dz;
+		data.insert(data.end(), data_db.begin(), data_db.end());
+
+		// plot Dalitz-plot distributions 
+
 		auto plotter = DalitzPlotterWithTimeAndTimeError<MSqPlus, MSqMinus, MSqZero, DecayTime, DecayTimeError>(phsp,"#it{K}^{0}_{S}","#it{#pi}^{+}","#it{#pi}^{#minus}",(args.prlevel>3));
-		// plotter.FillHistograms(data, model_dz_fitted, outfilename, args.plotnbins); 
-		size_t nbins = 50;
-		plotter.FillDataHistogram(data, args.plotnbins);
+
+		plotter.FillDataHistogram(data, args.plotnbins, args.plotnbins, args.plotnbins);
+
+		// We accelerate the sampling for the histogram by using the infromation in the 
+		// tau, y, b and s. Here we need to provide the fitted values of these parameters.
+		auto fitted_parameters = fcn_dz.GetParameters().GetVariables();
 		plotter.FillModelHistogram(model_truth_dz_fitted, efficiency,
 								   MinuitTools::GetParameterPointer(fitted_parameters, "tau")->GetValue(), 
 								   MinuitTools::GetParameterPointer(fitted_parameters, "y")->GetValue(), 
 								   MinuitTools::GetParameterPointer(fitted_parameters, "b")->GetValue(), 
 								   MinuitTools::GetParameterPointer(fitted_parameters, "s")->GetValue(), 
 								   johnson_su, // the pdf(sigma_t) is assumed to be fixed, so we just use the initial johnson_su
-								   args.plotnbins);
-		if (outfilename != "") plotter.SaveHistograms(outfilename);
+								   args.plotnbins, args.plotnbins, args.plotnbins);
 
-		if (outfilename != "") plotter.SaveHistograms(outfilename);
 		plotter.SetCustomAxesTitles("#it{m}^{2}_{+} [GeV^{2}/#it{c}^{4}]","#it{m}^{2}_{#minus} [GeV^{2}/#it{c}^{4}]","#it{m}^{2}_{#it{#pi#pi}} [GeV^{2}/#it{c}^{4}]");
 
-		// 1D Projection for dalitz distribution
+		plotter.SaveHistograms(outfilename);
+
+
+		// 1D projections
 		TCanvas c1("c1","c1",1800,700);
 		TPad *pad1 = new TPad("pad1","pad1",0.01,0.25,0.33,0.99);
 		TPad *pad2 = new TPad("pad2","pad2",0.01,0.01,0.33,0.25);
@@ -398,7 +371,7 @@ int main(int argc, char** argv)
 		outfilename = args.outdir + outprefix + "-1d-projection";
 		Print::Canvas(c1,outfilename);
 
-		// 2D Projection for dalitz distribution
+		// 2D projections
 		TCanvas c2("c2","c2",1500,500);
 		c2.Divide(3,1);
 
@@ -419,7 +392,6 @@ int main(int argc, char** argv)
 		TCanvas c3("c3","c3",600,500);
 		c3.SetRightMargin(.14);
 
-		auto phspWithoutTime = D0ToKsPiPi_FVECTOR_BABAR::PhaseSpace();
 		auto plotterWithoutTime = DalitzPlotter<MSqPlus, MSqMinus, MSqZero>(phsp,"#it{K}^{0}_{S}","#it{#pi}^{+}","#it{#pi}^{#minus}",(args.prlevel>3));
 		plotterWithoutTime.PlotPhaseDifference(Adir,Abar);
 		
