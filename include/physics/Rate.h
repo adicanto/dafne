@@ -99,7 +99,7 @@ auto time_dependent_rate_with_time_resolution_pdf(hydra::Parameter const& tau, h
 
 	std::cout << "Pass." << std::endl;
 
-	// integrate on dalitz plane and decay-time axis
+	// integrate on dalitz plane
 	hydra::Plain<2,  hydra::device::sys_t > PlainDalitzMC({dalitzRangePlus[0], dalitzRangeMinus[0]}, 
 														  {dalitzRangePlus[1], dalitzRangeMinus[1]}, 
 														  n_calls);

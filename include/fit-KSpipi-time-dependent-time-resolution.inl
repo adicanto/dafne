@@ -31,7 +31,6 @@
 #include <tools/ArbitraryBinningHistogram2D.h>
 using namespace dafne;
 
-const unsigned nevents(100000);
 std::string outprefix("fit-KSpipi-time-dependent-time-resolution");
 
 // Define the arguments of the amplitude
@@ -57,6 +56,78 @@ int main(int argc, char** argv)
 		return -1;
 	}
 	args.Print();
+
+
+	//---------------------------------------------------------------------------------------
+	// Get input data from the ROOT file
+	//---------------------------------------------------------------------------------------
+	std::cout << "***** Input data" << std::endl;
+	std::cout << "Creating data containers ... ...  " << std::endl;
+	hydra::multivector<hydra::tuple<MSqPlus,MSqMinus,MSqZero,DecayTime,DecayTimeError>, hydra::device::sys_t> data_dz; // create data container for D0 events
+	hydra::multivector<hydra::tuple<MSqPlus,MSqMinus,MSqZero,DecayTime,DecayTimeError>, hydra::device::sys_t> data_db; // create data container for D0-bar events
+	auto file = TFile::Open(args.input.c_str());
+
+	if (!file) {
+		std::cout << "Failed to open input file: " << args.input << std::endl;
+		return -1;
+	}
+
+	std::cout << "Reading data from input file: " << args.input << std::endl;
+	auto ntp = (TTree*) file->Get("ntp");
+
+	auto nentries = ntp->GetEntries();
+	if (nentries<1) {
+		std::cout << "Empty input file!" << std::endl; 
+		return -1;
+	}
+
+	double m2p, m2m, m2z, t, sigmat;
+	int flavor;
+	ntp->SetBranchAddress("mSqP",&m2p);
+	ntp->SetBranchAddress("mSqM",&m2m);
+	ntp->SetBranchAddress("mSqZ",&m2z);
+	ntp->SetBranchAddress("t",&t);
+	ntp->SetBranchAddress("sigmat",&sigmat);
+	ntp->SetBranchAddress("flavor",&flavor);
+
+	for (auto i=0; i<nentries; ++i) {
+		ntp->GetEntry(i);
+
+		if (i % 100000 == 0) std::cout << "Reading " << i << " events" << std::endl;
+
+		if (flavor > 0) {
+			data_dz.push_back(hydra::make_tuple(MSqPlus(m2p),MSqMinus(m2m),MSqZero(m2z),DecayTime(t),DecayTimeError(sigmat)));
+		} else if (flavor < 0) {
+			data_db.push_back(hydra::make_tuple(MSqPlus(m2p),MSqMinus(m2m),MSqZero(m2z),DecayTime(t),DecayTimeError(sigmat)));
+		} else {
+			std::cout << "entry " << i << " : wrong flavor value!" << std::endl; 
+		}
+
+	}
+	
+	file->Close();
+
+	auto ncands_dz = data_dz.size();
+	auto ncands_db = data_db.size();
+	if (ncands_dz + ncands_db < 1) {
+		std::cout << "The events number in hydra container is less than 1, some thing must be wrong!" << std::endl;
+		return -1;
+	}
+	std::cout << "Read " << ncands_dz << " D0 data candidates and " << ncands_db << " D0-bar events " << std::endl;
+
+	if (args.prlevel > 3) {
+		std::cout << "D0 dataset test: " << std::endl;
+		std::cout << data_dz[0] << std::endl;
+		std::cout << data_dz[1] << std::endl;
+		std::cout << data_dz[2] << std::endl;
+		std::cout << "D0-bar data test: " << std::endl;
+		std::cout << data_db[0] << std::endl;
+		std::cout << data_db[1] << std::endl;
+		std::cout << data_db[2] << std::endl;
+	}
+
+
+
 
 	//---------------------------------------------------------------------------------------
 	// Build model for D0->KS pi+ pi- decays
@@ -156,75 +227,6 @@ int main(int argc, char** argv)
 
 	auto pdf_db = hydra::make_pdf( model_db, ConstantIntegrator<hydra::device::sys_t>(1.0) );
 	std::cout << "Initial normalization for D0bar PDF: "<< pdf_db.GetNorm() << " +/- " << pdf_db.GetNormError() << std::endl;
-
-
-	//---------------------------------------------------------------------------------------
-	// Get input data from the ROOT file
-	//---------------------------------------------------------------------------------------
-	std::cout << "***** Input data" << std::endl;
-	std::cout << "Creating data containers ... ...  " << std::endl;
-	hydra::multivector<hydra::tuple<MSqPlus,MSqMinus,MSqZero,DecayTime,DecayTimeError>, hydra::device::sys_t> data_dz; // create data container for D0 events
-	hydra::multivector<hydra::tuple<MSqPlus,MSqMinus,MSqZero,DecayTime,DecayTimeError>, hydra::device::sys_t> data_db; // create data container for D0-bar events
-	auto file = TFile::Open(args.input.c_str());
-
-	if (!file) {
-		std::cout << "Failed to open input file: " << args.input << std::endl;
-		return -1;
-	}
-
-	std::cout << "Reading data from input file: " << args.input << std::endl;
-	auto ntp = (TTree*) file->Get("ntp");
-
-	auto nentries = ntp->GetEntries();
-	if (nentries<1) {
-		std::cout << "Empty input file!" << std::endl; 
-		return -1;
-	}
-
-	double m2p, m2m, m2z, t, sigmat;
-	int flavor;
-	ntp->SetBranchAddress("mSqP",&m2p);
-	ntp->SetBranchAddress("mSqM",&m2m);
-	ntp->SetBranchAddress("mSqZ",&m2z);
-	ntp->SetBranchAddress("t",&t);
-	ntp->SetBranchAddress("sigmat",&sigmat);
-	ntp->SetBranchAddress("flavor",&flavor);
-
-	for (auto i=0; i<nentries; ++i) {
-		ntp->GetEntry(i);
-
-		if (i % 100000 == 0) std::cout << "Reading " << i << " events" << std::endl;
-
-		if (flavor > 0) {
-			data_dz.push_back(hydra::make_tuple(MSqPlus(m2p),MSqMinus(m2m),MSqZero(m2z),DecayTime(t),DecayTimeError(sigmat)));
-		} else if (flavor < 0) {
-			data_db.push_back(hydra::make_tuple(MSqPlus(m2p),MSqMinus(m2m),MSqZero(m2z),DecayTime(t),DecayTimeError(sigmat)));
-		} else {
-			std::cout << "entry " << i << " : wrong flavor value!" << std::endl; 
-		}
-
-	}
-	
-	file->Close();
-
-	auto ncands_dz = data_dz.size();
-	auto ncands_db = data_db.size();
-	if (ncands_dz + ncands_db < 1) {
-		std::cout << "The events number in hydra container is less than 1, some thing must be wrong!" << std::endl;
-		return -1;
-	}
-	std::cout << "Read " << ncands_dz << " D0 data candidates and " << ncands_db << " D0-bar events " << std::endl;
-
-	if (args.prlevel > 3) {
-		std::cout << "D0 dataset test: " << std::endl;
-		std::cout << data_dz[0] << std::endl;
-		std::cout << data_dz[1] << std::endl;
-		std::cout << data_dz[2] << std::endl;
-		std::cout << "D0-bar data test: " << std::endl;
-		std::cout << data_db[0] << std::endl;
-		std::cout << data_db[1] << std::endl;
-		std::cout << data_db[2] << std::endl;
-	}
 
 
 	//---------------------------------------------------------------------------------------

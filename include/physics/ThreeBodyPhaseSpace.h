@@ -259,13 +259,11 @@ public:
 
 	template<typename MSq12, typename MSq13, typename MSq23>
 	__hydra_dual__ inline
-	auto GeneratePlainData(size_t nevents, size_t rndseed=0) {
-		// Create PhaseSpace object
+	auto GenerateDummyData(size_t nevents, size_t rndseed=0) {
 		auto phsp_generator = Generator();
+		hydra::Vector4R parent(MMother(), 0., 0., 0.);
 
-		// sample phase space events
 		static std::mt19937_64 random_mt(rndseed);
-		auto phsp_events = Decays<hydra::Vector4R,hydra::Vector4R,hydra::Vector4R>(nevents*5);
 
 		// convert the 4-momenta to Dalitz-plot variables
 		auto dalitz_calculator = hydra::wrap_lambda( [] __hydra_dual__ (hydra::Vector4R a, hydra::Vector4R b, hydra::Vector4R c)
@@ -282,8 +280,9 @@ public:
 			return 0.9;
 		});
 		
-
-		if (phsp_events.Unweight(plain_model, -1, rndseed).size() < nevents) {rndseed++; }
+		auto phsp_events = Decays<hydra::Vector4R,hydra::Vector4R,hydra::Vector4R>(nevents*5);
+		phsp_generator.Generate(parent, phsp_events);
+		while (phsp_events.Unweight(plain_model, -1, rndseed).size() < nevents) {rndseed++; }
 		auto dalitz_variables = phsp_events.Unweight(plain_model, -1, rndseed) | dalitz_calculator;
 			
 		// copy into a container
@@ -545,14 +544,12 @@ public:
 
 	template<typename MSq12, typename MSq13, typename MSq23, typename Time>
 	__hydra_dual__ inline
-	auto GeneratePlainDataWithTime(size_t nevents, size_t rndseed=0) {
-		// Create PhaseSpace object
+	auto GenerateDummyDataWithTime(size_t nevents, size_t rndseed=0) {
 		auto phsp_generator = Generator();
+		hydra::Vector4R parent(MMother(), 0., 0., 0.);
 
-		// sample phase space events
 		static std::mt19937_64 random_mt(rndseed);
-		hydra::device::vector<Time> time_data(nevents*5);
-		auto phsp_events = Decays<hydra::Vector4R,hydra::Vector4R,hydra::Vector4R>(time_data.size());
+		
 
 		// convert the 4-momenta to Dalitz-plot variables
 		auto dalitz_calculator = hydra::wrap_lambda( [] __hydra_dual__ (hydra::Vector4R a, hydra::Vector4R b, hydra::Vector4R c, Time t)
@@ -570,13 +567,17 @@ public:
 		});
 		
 		auto uniform = hydra::UniformShape<Time>(TimeMin(),TimeMax());
-		hydra::fill_random(time_data, uniform, rndseed);
-
-		auto events_with_time = phsp_events.Meld(time_data);
+		
 
 
 		hydra::multivector<hydra::tuple<MSq12,MSq13,MSq23,Time>, hydra::device::sys_t> data;
-		if (data.size() < nevents) {
+		hydra::device::vector<Time> time_data(nevents*5);
+		auto phsp_events = Decays<hydra::Vector4R,hydra::Vector4R,hydra::Vector4R>(time_data.size());
+		while (data.size() < nevents) {
+			hydra::fill_random(time_data, uniform, rndseed);
+			phsp_generator.Generate(parent, phsp_events);
+			auto events_with_time = phsp_events.Meld(time_data);
+
 			auto dalitz_variables_with_time = hydra::unweight(hydra::device::sys, events_with_time, plain_model, 1.0, rndseed) | dalitz_calculator;
 
 			hydra::multivector<hydra::tuple<MSq12,MSq13,MSq23,Time>, hydra::device::sys_t> bunch(dalitz_variables_with_time.size());
@@ -883,16 +884,11 @@ public:
 
 	template<typename MSq12, typename MSq13, typename MSq23, typename Time, typename TimeError>
 	__hydra_dual__ inline
-	auto GeneratePlainDataWithTimeAndTimeError(size_t nevents, size_t rndseed=0) {
-		// Create PhaseSpace object
+	auto GenerateDummyDataWithTimeAndTimeError(size_t nevents, size_t rndseed=0) {
 		auto phsp_generator = Generator();
-
-		// sample phase space events
+		hydra::Vector4R parent(MMother(), 0., 0., 0.);
+		
 		static std::mt19937_64 random_mt(rndseed);
-
-		hydra::device::vector<std::tuple<Time, TimeError>> time_data(nevents*5);
-		auto phsp_events = Decays<hydra::Vector4R,hydra::Vector4R,hydra::Vector4R>(time_data.size());
-
 
 		// convert the 4-momenta to Dalitz-plot variables
 		auto dalitz_calculator = hydra::wrap_lambda( [] __hydra_dual__ (hydra::Vector4R a, hydra::Vector4R b, hydra::Vector4R c, Time t, TimeError sigma_t)
@@ -913,15 +909,16 @@ public:
 		auto uniform_for_time = hydra::UniformShape<Time>(TimeMin(),TimeMax());
 		auto uniform_for_time_error = hydra::UniformShape<Time>(TimeErrorMin(),TimeErrorMax());
 
-
-		hydra::fill_random(time_data.begin(hydra::placeholders::_0), time_data.end(hydra::placeholders::_0), uniform_for_time, rndseed);
-		hydra::fill_random(time_data.begin(hydra::placeholders::_1), time_data.end(hydra::placeholders::_1), uniform_for_time_error, rndseed);
-
-		auto events_with_time = phsp_events.Meld(time_data);
-
-
 		hydra::multivector<hydra::tuple<MSq12,MSq13,MSq23,Time,TimeError>, hydra::device::sys_t> data;
-		if (data.size() < nevents) {
+		hydra::device::vector<std::tuple<Time, TimeError>> time_data(nevents*5);
+		auto phsp_events = Decays<hydra::Vector4R,hydra::Vector4R,hydra::Vector4R>(time_data.size());
+		while (data.size() < nevents) {
+			hydra::fill_random(time_data.begin(hydra::placeholders::_0), time_data.end(hydra::placeholders::_0), uniform_for_time, rndseed);
+			hydra::fill_random(time_data.begin(hydra::placeholders::_1), time_data.end(hydra::placeholders::_1), uniform_for_time_error, rndseed);
+			phsp_generator.Generate(parent, phsp_events);
+			auto events_with_time = phsp_events.Meld(time_data);
+
+
 			auto dalitz_variables_with_time = hydra::unweight(hydra::device::sys, events_with_time, plain_model, 1.0, rndseed) | dalitz_calculator;
 
 			hydra::multivector<hydra::tuple<MSq12,MSq13,MSq23,Time,TimeError>, hydra::device::sys_t> bunch(dalitz_variables_with_time.size());

@@ -52,6 +52,61 @@ int main(int argc, char** argv)
 	}
 	args.Print();
 
+
+	//---------------------------------------------------------------------------------------
+	// Get input data from the ROOT file
+	//---------------------------------------------------------------------------------------
+	std::cout << "***** Input data" << std::endl;
+	std::cout << "Creating data containers ... ...  " << std::endl;
+	hydra::multivector<hydra::tuple<MSqPlus,MSqMinus,MSqZero>, hydra::device::sys_t> data; // create data container for D0 events
+
+	auto file = TFile::Open(args.input.c_str());
+	if (!file) {
+		std::cout << "Failed to open input file: " << args.input << std::endl;
+		return -1;
+	}
+
+	std::cout << "Reading data from input file: " << args.input << std::endl;
+	auto ntp = (TTree*) file->Get("ntp");
+
+	auto nentries = ntp->GetEntriesFast();
+	if (nentries<1) {
+		std::cout << "Empty input file!" << std::endl;
+		return -1;
+	}
+
+	double m2p, m2m, m2z;
+	ntp->SetBranchAddress("mSqP",&m2p);
+	ntp->SetBranchAddress("mSqM",&m2m);
+	ntp->SetBranchAddress("mSqZ",&m2z);
+
+	for (auto i=0; i<nentries; ++i) {
+		ntp->GetEntry(i);
+
+		if (i % 100000 == 0) std::cout << "Reading " << i << " events" << std::endl;
+		data.push_back(hydra::make_tuple(MSqPlus(m2p),MSqMinus(m2m),MSqZero(m2z)));
+	}
+	
+	file->Close();
+
+	auto ncands = data.size();
+
+	if (ncands < 1) {
+		std::cout << "The events number in hydra container is less than 1, something must be wrong!" << std::endl;
+		return -1;
+	}
+	std::cout << "Read " << ncands << " data candidates ... ... " << std::endl;
+
+	if (args.prlevel > 3) {
+		std::cout << "Dataset test: " << std::endl;
+		std::cout << data[0] << std::endl;
+		std::cout << data[1] << std::endl;
+		std::cout << data[2] << std::endl;
+	}
+
+
+
+
 	//---------------------------------------------------------------------------------------
 	// Build model for D0->KS pi+ pi- decays
 	//---------------------------------------------------------------------------------------
@@ -130,56 +185,7 @@ int main(int argc, char** argv)
 	// compute the decay rate
 	auto model = rate(amp)*efficiency;
 
-	//---------------------------------------------------------------------------------------
-	// Get input data from the ROOT file
-	//---------------------------------------------------------------------------------------
-	std::cout << "***** Input data" << std::endl;
-	std::cout << "Creating data containers ... ...  " << std::endl;
-	hydra::multivector<hydra::tuple<MSqPlus,MSqMinus,MSqZero>, hydra::device::sys_t> data; // create data container for D0 events
 
-	auto file = TFile::Open(args.input.c_str());
-	if (!file) {
-		std::cout << "Failed to open input file: " << args.input << std::endl;
-		return -1;
-	}
-
-	std::cout << "Reading data from input file: " << args.input << std::endl;
-	auto ntp = (TTree*) file->Get("ntp");
-
-	auto nentries = ntp->GetEntriesFast();
-	if (nentries<1) {
-		std::cout << "Empty input file!" << std::endl;
-		return -1;
-	}
-
-	double m2p, m2m, m2z;
-	ntp->SetBranchAddress("mSqP",&m2p);
-	ntp->SetBranchAddress("mSqM",&m2m);
-	ntp->SetBranchAddress("mSqZ",&m2z);
-
-	for (auto i=0; i<nentries; ++i) {
-		ntp->GetEntry(i);
-
-		if (i % 100000 == 0) std::cout << "Reading " << i << " events" << std::endl;
-		data.push_back(hydra::make_tuple(MSqPlus(m2p),MSqMinus(m2m),MSqZero(m2z)));
-	}
-	
-	file->Close();
-
-	auto ncands = data.size();
-
-	if (ncands < 1) {
-		std::cout << "The events number in hydra container is less than 1, something must be wrong!" << std::endl;
-		return -1;
-	}
-	std::cout << "Read " << ncands << " data candidates ... ... " << std::endl;
-
-	if (args.prlevel > 3) {
-		std::cout << "Dataset test: " << std::endl;
-		std::cout << data[0] << std::endl;
-		std::cout << data[1] << std::endl;
-		std::cout << data[2] << std::endl;
-	}
 
 	//---------------------------------------------------------------------------------------
 	// Build pdf and log-likelihood function from model

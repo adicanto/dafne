@@ -31,7 +31,6 @@
 using namespace dafne;
 
 // Configuration parameters
-const unsigned nevents(100000);
 std::string outprefix("fit-KSpipi-time-dependent");
 
 // Define the arguments of the amplitude
@@ -57,67 +56,6 @@ int main(int argc, char** argv)
 	}
 	args.Print();
 
-	//---------------------------------------------------------------------------------------
-	// Build model for D0->KS pi+ pi- decays
-	//---------------------------------------------------------------------------------------
-	auto phsp = D0ToKsPiPi_FVECTOR_BABAR::PhaseSpaceWithTime();
-
-	// build baseline amplitudes model
-	auto Adir = D0ToKsPiPi_FVECTOR_BABAR::Amplitude<MSqPlus,MSqMinus>(phsp);
-	
-	// config the model according to configuration file
-	ConfigFile config(args.config_file.c_str(), (args.prlevel>3) );
-	config.ConfigureModel(Adir);
-
-	auto Abar = hydra::wrap_lambda( [&Adir] __hydra_dual__ (MSqPlus a, MSqMinus b) {
-		MSqPlus switched_a = b;
-		MSqMinus switched_b = a;
-		return Adir(switched_a,switched_b);
-	});
-
-	
-	// time-dependent parameters
-	auto tau = hydra::Parameter::Create("tau").Value(Tau::D0).Fixed();
-	auto x   = hydra::Parameter::Create("x").Value(0.003).Error(0.0001).Limits(-1.,1.);
-	auto y   = hydra::Parameter::Create("y").Value(0.006).Error(0.0001).Limits(-1.,1.);
-	auto qop = hydra::Parameter::Create("qop").Value(1.0).Error(0.0001).Limits(0.,10.);
-	auto phi = hydra::Parameter::Create("phi").Value(0.0).Error(0.0001).Limits(-1.,1.);
-	config.ConfigureMixingParameters(tau, x, y, qop, phi);
-	
-	// efficiency plane described by irregular binning 2D histogram
-	ArbitraryBinningHistogram2D efficiency_hist = config.ConfigureEfficiencyHistogram();
-
-	// build and check the efficiency plane
-	TCanvas cefficiency("cefficiency", "cefficiency", 800, 600);
-	gStyle->SetOptStat(0);
-	gPad->SetRightMargin(0.15);
-	efficiency_hist.GetTH2D((outprefix + "_efficiency_hist").c_str(), 
-		                    (outprefix + "_efficiency_hist").c_str(),
-		                    "m^{2}_{#it{#pi#pi}} [GeV^{2}/#it{c}^{4}]", "cos(#theta_{#it{#pi#pi}})")->Draw("COLZ");
-	Print::Canvas(cefficiency,  args.outdir + outprefix + "_efficiency_hist");
-	gStyle->SetOptStat(1);
-
-	// the time dependence of the efficiency is ignored
-	auto efficiency = hydra::wrap_lambda(
-		[phsp, efficiency_hist] __hydra_dual__ (DecayTime tau, MSqPlus m2p, MSqMinus m2m) {
-
-		// judge whether in phase space or not
-		if (!phsp.Contains<2,3>(m2p, m2m)) return 0.0;
-
-		double m2z = phsp.MSqJK(m2p, m2m);
-		double helicity_z = phsp.HelicityJK<2,3>(m2p, m2m);
-
-		double x = m2z;
-		double y = helicity_z;
-		return efficiency_hist.GetValue(x, y);
-
-	}); 
-
-	// D0 rate
-	auto model_dz = time_dependent_rate<Flavor::Positive,DecayTime>(tau,x,y,qop,phi,Adir,Abar)*efficiency;
-	
-	// D0bar rate
-	auto model_db = time_dependent_rate<Flavor::Negative,DecayTime>(tau,x,y,qop,phi,Adir,Abar)*efficiency;
 
 	//---------------------------------------------------------------------------------------
 	// Get input data from the ROOT file
@@ -185,6 +123,70 @@ int main(int argc, char** argv)
 		std::cout << data_db[1] << std::endl;
 		std::cout << data_db[2] << std::endl;
 	}
+
+
+	//---------------------------------------------------------------------------------------
+	// Build model for D0->KS pi+ pi- decays
+	//---------------------------------------------------------------------------------------
+	auto phsp = D0ToKsPiPi_FVECTOR_BABAR::PhaseSpaceWithTime();
+
+	// build baseline amplitudes model
+	auto Adir = D0ToKsPiPi_FVECTOR_BABAR::Amplitude<MSqPlus,MSqMinus>(phsp);
+	
+	// config the model according to configuration file
+	ConfigFile config(args.config_file.c_str(), (args.prlevel>3) );
+	config.ConfigureModel(Adir);
+
+	auto Abar = hydra::wrap_lambda( [&Adir] __hydra_dual__ (MSqPlus a, MSqMinus b) {
+		MSqPlus switched_a = b;
+		MSqMinus switched_b = a;
+		return Adir(switched_a,switched_b);
+	});
+
+	
+	// time-dependent parameters
+	auto tau = hydra::Parameter::Create("tau").Value(Tau::D0).Fixed();
+	auto x   = hydra::Parameter::Create("x").Value(0.003).Error(0.0001).Limits(-1.,1.);
+	auto y   = hydra::Parameter::Create("y").Value(0.006).Error(0.0001).Limits(-1.,1.);
+	auto qop = hydra::Parameter::Create("qop").Value(1.0).Error(0.0001).Limits(0.,10.);
+	auto phi = hydra::Parameter::Create("phi").Value(0.0).Error(0.0001).Limits(-1.,1.);
+	config.ConfigureMixingParameters(tau, x, y, qop, phi);
+	
+	// efficiency plane described by irregular binning 2D histogram
+	ArbitraryBinningHistogram2D efficiency_hist = config.ConfigureEfficiencyHistogram();
+
+	// build and check the efficiency plane
+	TCanvas cefficiency("cefficiency", "cefficiency", 800, 600);
+	gStyle->SetOptStat(0);
+	gPad->SetRightMargin(0.15);
+	efficiency_hist.GetTH2D((outprefix + "_efficiency_hist").c_str(), 
+		                    (outprefix + "_efficiency_hist").c_str(),
+		                    "m^{2}_{#it{#pi#pi}} [GeV^{2}/#it{c}^{4}]", "cos(#theta_{#it{#pi#pi}})")->Draw("COLZ");
+	Print::Canvas(cefficiency,  args.outdir + outprefix + "_efficiency_hist");
+	gStyle->SetOptStat(1);
+
+	// the time dependence of the efficiency is ignored
+	auto efficiency = hydra::wrap_lambda(
+		[phsp, efficiency_hist] __hydra_dual__ (DecayTime tau, MSqPlus m2p, MSqMinus m2m) {
+
+		// judge whether in phase space or not
+		if (!phsp.Contains<2,3>(m2p, m2m)) return 0.0;
+
+		double m2z = phsp.MSqJK(m2p, m2m);
+		double helicity_z = phsp.HelicityJK<2,3>(m2p, m2m);
+
+		double x = m2z;
+		double y = helicity_z;
+		return efficiency_hist.GetValue(x, y);
+
+	}); 
+
+	// D0 rate
+	auto model_dz = time_dependent_rate<Flavor::Positive,DecayTime>(tau,x,y,qop,phi,Adir,Abar)*efficiency;
+	
+	// D0bar rate
+	auto model_db = time_dependent_rate<Flavor::Negative,DecayTime>(tau,x,y,qop,phi,Adir,Abar)*efficiency;
+
 
 
 	//---------------------------------------------------------------------------------------

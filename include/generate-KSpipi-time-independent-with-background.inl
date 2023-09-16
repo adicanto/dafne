@@ -221,30 +221,41 @@ int main( int argc, char** argv  )
 
 	// events by events signal and background fractions
 	double f_sig_expected = 1.0 - f_cmb_expected;
-	double N_gaussian = 2*f_sig_expected/erf(1./sqrt(2.)); // suppose the fractions are from a gaussian distribution with
-	                                                   // x in [-1sigma, 1sigma]
-	auto gaussian_for_f_cmb = hydra::wrap_lambda( [N_gaussian] __hydra_dual__ (double _x)
-	{
-			double sigma = 1;
-			double mean = 0;
-			double x = (_x-mean)/sigma;
-			double x2 = x*x;
+	hydra::multivector< hydra::tuple<SignalFaction,CombinatorialBackgroundFaction>, hydra::device::sys_t> fractions;
+	for (int i = 0; i < ngenerated; ++i) {
+		SignalFaction _f_sig = f_sig_expected;
+		CombinatorialBackgroundFaction _f_cmb = f_cmb_expected;
+		fractions.push_back(hydra::make_tuple(_f_sig, _f_cmb));
+	}
 
-			const double one_div_sqrt_2_pi = 0.39894228;
+	// The following code samples background fraction from a Gaussian distribution
+	// double N_gaussian = 2*f_sig_expected/erf(1./sqrt(2.)); // suppose the fractions are from a gaussian distribution with
+	//                                                    // x in [-1sigma, 1sigma]
+	// auto gaussian_for_f_cmb = hydra::wrap_lambda( [N_gaussian] __hydra_dual__ (double _x)
+	// {
+	// 		double sigma = 1;
+	// 		double mean = 0;
+	// 		double x = (_x-mean)/sigma;
+	// 		double x2 = x*x;
 
-			double _f_sig = N_gaussian * one_div_sqrt_2_pi * std::exp(-x2/2.);
-			double _f_cmb = 1.0 - _f_sig;
+	// 		const double one_div_sqrt_2_pi = 0.39894228;
 
-			SignalFaction _f_sig_output = _f_sig;
-			CombinatorialBackgroundFaction _f_cmb_output = _f_cmb;
+	// 		double _f_sig = N_gaussian * one_div_sqrt_2_pi * std::exp(-x2/2.);
+	// 		double _f_cmb = 1.0 - _f_sig;
 
-			return hydra::make_tuple(_f_sig, _f_cmb);
-	});
+	// 		SignalFaction _f_sig_output = _f_sig;
+	// 		CombinatorialBackgroundFaction _f_cmb_output = _f_cmb;
 
-	auto uniform = hydra::UniformShape<double>(-1, 1);
-	hydra::device::vector<double> xs_for_fractions(ngenerated);
-	hydra::fill_random(xs_for_fractions, uniform, args.seed);
-	hydra::multivector< hydra::tuple<SignalFaction,CombinatorialBackgroundFaction>, hydra::device::sys_t> fractions = xs_for_fractions | gaussian_for_f_cmb;
+	// 		return hydra::make_tuple(_f_sig, _f_cmb);
+	// });
+	// 
+	// auto uniform = hydra::UniformShape<double>(-1, 1);
+	// hydra::device::vector<double> xs_for_fractions(ngenerated);
+	// hydra::fill_random(xs_for_fractions, uniform, args.seed);
+	// hydra::multivector< hydra::tuple<SignalFaction,CombinatorialBackgroundFaction>, hydra::device::sys_t> fractions = xs_for_fractions | gaussian_for_f_cmb;
+	// 
+	// some sampling process to match the background fraction value and the background population
+	// under this value ... ... 
 
 	auto data_with_fraction = data.meld(fractions);
 

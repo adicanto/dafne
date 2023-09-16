@@ -173,7 +173,7 @@ auto UpdateParameters(ThreeBodyPhaseSpace phsp, FUNCTOR functor, MINIMUM & minim
     // the plotting model
     // The building a likelihood needs data points, so build a dummy dataset and add an 
     // event inside the phase space
-    auto data_dummy = phsp.GeneratePlainData<MSq12, MSq13, MSq23>(10); 
+    auto data_dummy = phsp.GenerateDummyData<MSq12, MSq13, MSq23>(10); 
     auto normalized_model_for_plotting = UpdateParametersByBuildingDummyFCN(data_dummy, functor, minimum);
 
     return normalized_model_for_plotting;
@@ -190,7 +190,7 @@ auto UpdateParameters(ThreeBodyPhaseSpaceWithTime phsp, FUNCTOR functor, MINIMUM
     // the plotting model
     // The building a likelihood needs data points, so build a dummy dataset and add an 
     // event inside the phase space
-    auto data_dummy = phsp.GeneratePlainDataWithTime<MSq12, MSq13, MSq23, Time>(10); 
+    auto data_dummy = phsp.GenerateDummyDataWithTime<MSq12, MSq13, MSq23, Time>(10); 
     auto normalized_model_for_plotting = UpdateParametersByBuildingDummyFCN(data_dummy, functor, minimum);
 
     return normalized_model_for_plotting;
@@ -208,7 +208,7 @@ auto UpdateParameters(ThreeBodyPhaseSpaceWithTimeAndTimeError phsp, FUNCTOR func
     // the plotting model
     // The building a likelihood needs data points, so build a dummy dataset and add an 
     // event inside the phase space
-    auto data_dummy = phsp.GeneratePlainDataWithTimeAndTimeError<MSq12, MSq13, MSq23, Time, TimeError>(10); 
+    auto data_dummy = phsp.GenerateDummyDataWithTimeAndTimeError<MSq12, MSq13, MSq23, Time, TimeError>(10); 
     auto normalized_model_for_plotting = UpdateParametersByBuildingDummyFCN(data_dummy, functor, minimum);
 
     return normalized_model_for_plotting;
