@@ -43,7 +43,7 @@ class ArbitraryBinningHistogram2D {
 public:
 	ArbitraryBinningHistogram2D() = delete;
 
-	ArbitraryBinningHistogram2D(const TH2D& th2):fXTicks(th2.GetXaxis()->GetNbins(), 0), fYTicks(th2.GetYaxis()->GetNbins()+1, 0) {
+	ArbitraryBinningHistogram2D(const TH2D& th2):fXTicks(th2.GetXaxis()->GetNbins(), 0), fYTicks(th2.GetYaxis()->GetNbins(), 0) {
 
 		const double * XTicks = th2.GetXaxis()->GetXbins()->GetArray();
 		if (XTicks != nullptr) { // irregular binning case
@@ -206,13 +206,13 @@ public:
 	}
 
 	__hydra_dual__ inline
-	int GetBinValue(const int ix, const int iy) 
+	double GetBinValue(const int ix, const int iy) 
 	{
 		return fZs[ix][iy];
 	}
 
 	__hydra_dual__ inline
-	int GetBinError(const int ix, const int iy) 
+	double GetBinError(const int ix, const int iy) 
 	{
 		if (fZs[ix][iy] != 0 && fZErrors[ix][iy] == 0) // if error is not set, then return sqrt(z);
 			return sqrt(fZs[ix][iy]);
@@ -244,6 +244,19 @@ public:
 
 	__hydra_dual__ inline
 	double YMax() const {return fYTicks[fYTicks.size()-1];}
+
+	__hydra_dual__ inline
+	std::vector<double> GetXTicks() const { return fXTicks;}
+
+	__hydra_dual__ inline
+	std::vector<double> GetYTicks() const { return fYTicks;}
+
+
+	__hydra_dual__ inline
+	double GetXTick(const int i) const { return fXTicks[i];}
+
+	__hydra_dual__ inline
+	double GetYTick(const int i) const { return fYTicks[i];}
 
 	__hydra_dual__ inline
 	double Sum() const
@@ -306,6 +319,8 @@ public:
 
 		return th2;
 	}
+
+
 
 
 private:
