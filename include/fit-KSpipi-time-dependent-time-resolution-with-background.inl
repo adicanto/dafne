@@ -205,13 +205,13 @@ int main(int argc, char** argv)
 						{phsp.MSqMin<1,2>(),phsp.MSqMax<1,2>()},
 						{phsp.MSqMin<1,3>(),phsp.MSqMax<1,3>()},
 						phsp.TimeRange(),
-						phsp.TimeErrorRange(), 100*ncands); 
+						phsp.TimeErrorRange(), 10*ncands); 
 	auto model_db = time_dependent_rate_with_time_resolution_pdf<Flavor::Negative,MSqPlus,MSqMinus,DecayTime,DecayTimeError>(
 						tau,x,y,qop,phi,b,s,efficiency,Adir,Abar,johnson_su,
 						{phsp.MSqMin<1,2>(),phsp.MSqMax<1,2>()},
 						{phsp.MSqMin<1,3>(),phsp.MSqMax<1,3>()},
 						phsp.TimeRange(),
-						phsp.TimeErrorRange(), 100*ncands); 
+						phsp.TimeErrorRange(), 10*ncands); 
 
 
 	// add background
@@ -224,12 +224,13 @@ int main(int argc, char** argv)
 	config.ConfigureBackgroundParameters({&f_rnd, &f_cmb, &tau_cmb, &b_cmb, &s_cmb});
 
 	auto f_rnd_functor = PassParameter(f_rnd);
-	auto random_background_pdf = hydra::wrap_lambda( 
-		[model_dz, model_db] __hydra_dual__ (MSqPlus a, MSqMinus b, DecayTime t, DecayTimeError sigma_t) {
-			MSqPlus switched_a = b;
-			MSqMinus switched_b = a;
-			return 0.5*model_dz(a,b,t,sigma_t) + 0.5*model_db(switched_a,switched_b,t,sigma_t);
-	});
+	auto random_background_pdf = model_dz;
+	// auto random_background_pdf = hydra::wrap_lambda( 
+	// 	[model_dz, model_db] __hydra_dual__ (MSqPlus a, MSqMinus b, DecayTime t, DecayTimeError sigma_t) {
+	// 		MSqPlus switched_a = b;
+	// 		MSqMinus switched_b = a;
+	// 		return 0.5*model_dz(a,b,t,sigma_t) + 0.5*model_db(switched_a,switched_b,t,sigma_t);
+	// });
 
 	
 	auto f_cmb_functor = PassParameter(f_cmb);
@@ -527,7 +528,7 @@ int main(int argc, char** argv)
 			16, 7, 41);
 		plotter.FillModelHistogramFromExternalHistograms({"signal", "rnd_bkg", "cmb_bkg"});
 		plotter.SetCustomAxesTitles("#it{m}^{2}_{+} [GeV^{2}/#it{c}^{4}]","#it{m}^{2}_{#minus} [GeV^{2}/#it{c}^{4}]","#it{m}^{2}_{#it{#pi#pi}} [GeV^{2}/#it{c}^{4}]");
-		if (outfilename != "") plotter.SaveHistograms(outfilename);
+		// if (outfilename != "") plotter.SaveHistograms(outfilename); // large histogram, uncomment when needed
 		
 
 

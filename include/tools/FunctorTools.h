@@ -19,6 +19,39 @@
 
 namespace dafne {
 
+
+class ConstantFunctor: public hydra::BaseFunctor<ConstantFunctor, double(void), 0>
+{
+	typedef hydra::BaseFunctor<ConstantFunctor, double(void), 0> super_type;
+public:
+	ConstantFunctor()=delete;
+
+	__hydra_dual__
+	ConstantFunctor(const double Constant=0):fConstant(Constant){};
+
+	__hydra_dual__ inline
+	ConstantFunctor(ConstantFunctor const& other):fConstant(other.fConstant){};
+
+	__hydra_dual__ inline
+	ConstantFunctor& operator=(ConstantFunctor const& other) 
+	{
+		if(this==&other) return *this;
+		return *this;
+	}
+
+	__hydra_dual__ inline
+	double Evaluate(void) const
+	{
+		return fConstant;
+	}
+
+private:
+	double fConstant;
+	
+};
+
+
+
 // if hydra::Pdf<> could be used in functor arithmetic operation or be used to build Compose<>, then
 // this class would be not needed anymore.
 
@@ -160,41 +193,156 @@ private:
 
 };
 
-class ConstantFunctor: public hydra::BaseFunctor<ConstantFunctor, double(void), 0>
-{
-	typedef hydra::BaseFunctor<ConstantFunctor, double(void), 0> super_type;
-public:
-	ConstantFunctor()=delete;
 
-	__hydra_dual__
-	ConstantFunctor(const double Constant=0):fConstant(Constant){};
-
-	__hydra_dual__ inline
-	ConstantFunctor(ConstantFunctor const& other):fConstant(other.fConstant){};
-
-	__hydra_dual__ inline
-	ConstantFunctor& operator=(ConstantFunctor const& other) 
-	{
-		if(this==&other) return *this;
-		return *this;
-	}
-
-	__hydra_dual__ inline
-	double Evaluate(void) const
-	{
-		return fConstant;
-	}
-
-private:
-	double fConstant;
-	
-};
 
 template <typename FUNCTOR, typename INTEGRATOR>
 inline NumericalNormalizedFunctor<FUNCTOR, INTEGRATOR, ConstantFunctor> make_numerical_normalized_functor(FUNCTOR functor, INTEGRATOR integrator) {
 		ConstantFunctor dummy_functor(0);
 		return NumericalNormalizedFunctor(functor, integrator, dummy_functor);
 }
+
+
+
+template<typename FUNCTOR, typename INTEGRATOR, typename DUMMYFUNCTOR>
+class NumericalNormalizationFunctor: public hydra::BaseCompositeFunctor<
+							NumericalNormalizationFunctor<FUNCTOR, INTEGRATOR, DUMMYFUNCTOR>, // typename Composite
+
+							hydra_thrust::tuple<FUNCTOR, DUMMYFUNCTOR>, // typename FunctorList
+
+							typename hydra::detail::merged_tuple<  // typename Signature, this part could be simplified  
+								hydra_thrust::tuple<typename FUNCTOR::return_type>,  // return value
+
+								typename hydra::detail::stripped_tuple<  // input value
+								typename hydra::detail::merged_tuple<
+									typename FUNCTOR::argument_type
+								>::type
+								>::type
+							>::type
+					     >
+
+{
+
+	typedef hydra::BaseCompositeFunctor<
+				NumericalNormalizationFunctor<FUNCTOR, INTEGRATOR, DUMMYFUNCTOR>, // typename Composite
+
+				hydra_thrust::tuple<FUNCTOR, DUMMYFUNCTOR>, // typename FunctorList
+
+				typename hydra::detail::merged_tuple<  // typename Signature  
+					hydra_thrust::tuple<typename FUNCTOR::return_type>,  // return value
+
+					typename hydra::detail::stripped_tuple<  // input value
+					typename hydra::detail::merged_tuple<
+						typename FUNCTOR::argument_type
+					>::type
+					>::type
+				>::type
+		     > super_type;
+
+public:
+
+	NumericalNormalizationFunctor()=delete;
+
+	NumericalNormalizationFunctor(FUNCTOR const& functor, INTEGRATOR const& integrator, DUMMYFUNCTOR const& dummy_functor): 
+	super_type(functor, dummy_functor),
+	fIntegrator(integrator),
+	fNormCache(std::unordered_map<size_t, std::pair<double, double>>() )
+	{Normalize();}
+
+	__hydra_host__ __hydra_device__
+	inline NumericalNormalizationFunctor(NumericalNormalizationFunctor<FUNCTOR,INTEGRATOR,DUMMYFUNCTOR> const& other):
+    super_type(other),
+    fIntegrator(other.fIntegrator),
+    fNormCache(other.fNormCache)
+	{Normalize();}
+
+	__hydra_host__ __hydra_device__
+	inline NumericalNormalizationFunctor<FUNCTOR,INTEGRATOR,DUMMYFUNCTOR>& operator=(NumericalNormalizationFunctor<FUNCTOR,INTEGRATOR,DUMMYFUNCTOR> const& other)
+	{
+		if(this==&other) return *this;
+		super_type::operator=(other);
+		fIntegrator=other.fIntegrator;
+		fNormCache=other.fNormCache;
+		return *this;
+	}
+
+	inline size_t  GetParametersKeyC() const { // a const version of GetParametersKeyC to be called in Normalize() const
+
+		std::vector<hydra::Parameter*> _parameters;
+		auto functors = this->GetFunctors();
+		hydra::detail::add_parameters_in_tuple(_parameters, functors);
+
+		std::vector<double> _temp(_parameters.size());
+
+		for(size_t i=0; i< _parameters.size(); i++)
+			_temp[i]= *(_parameters[i]);
+
+		size_t key = hydra::detail::hash_range(_temp.begin(), _temp.end() );
+
+		return key;
+	}
+
+	// I guess that the result of normalization could not be shared between threads, therefore 
+	// maybe the functor needs to normalize inside each thread. If the Evaluate() of the functor
+	// could be called from the host right before getting into device, in each loop, then, this
+	// problem could be solved (the host would normalize it, then store some information in
+	// fNormCache).
+	inline	void Normalize( ) const
+	{
+		double Norm;
+		double NormError;
+
+		auto functor =  hydra::get<0>(this->GetFunctors());
+
+		size_t key = GetParametersKeyC();
+
+		auto search = fNormCache.find(key);
+		if (search != fNormCache.end() && fNormCache.size()>0) {
+
+			//std::cout << "found in cache "<< key << std::endl;
+			std::tie(Norm, NormError) = search->second;
+
+		}
+		else {
+
+			std::tie(Norm, NormError) =  fIntegrator(functor) ;
+			fNormCache[key] = std::make_pair(Norm, NormError);
+
+		}
+
+		fNormThis = Norm;
+		fNormErrorThis = NormError;
+
+	}
+
+
+	 template<typename ...T>
+  	__hydra_host__ __hydra_device__
+  	inline typename  super_type::return_type Evaluate(T... x ) const
+  	{
+  		Normalize();
+
+  		auto functor =  hydra::get<0>(this->GetFunctors());
+
+  		return fNormThis;
+  	}
+
+
+private:
+	mutable INTEGRATOR fIntegrator;
+	// double fNorm; // fNorm is a father class member
+	mutable double fNormThis;  // define as mutable to be changed in the Evaluate
+	mutable double fNormErrorThis;
+	mutable std::unordered_map<size_t, std::pair<double, double>> fNormCache;
+
+};
+
+
+template <typename FUNCTOR, typename INTEGRATOR>
+inline NumericalNormalizationFunctor<FUNCTOR, INTEGRATOR, ConstantFunctor> make_numerical_normalization_functor(FUNCTOR functor, INTEGRATOR integrator) {
+		ConstantFunctor dummy_functor(0);
+		return NumericalNormalizationFunctor(functor, integrator, dummy_functor);
+}
+
 
 
 class PassParameter: public hydra::BaseFunctor<PassParameter, double(void), 1>

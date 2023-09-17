@@ -317,7 +317,7 @@ int main(int argc, char** argv)
 
 		plotter.SetCustomAxesTitles("#it{m}^{2}_{+} [GeV^{2}/#it{c}^{4}]","#it{m}^{2}_{#minus} [GeV^{2}/#it{c}^{4}]","#it{m}^{2}_{#it{#pi#pi}} [GeV^{2}/#it{c}^{4}]");
 
-		plotter.SaveHistograms(outfilename);
+		// plotter.SaveHistograms(outfilename); // large histogram, uncomment when needed
 
 
 		// 1D projections
