@@ -199,24 +199,12 @@ int main(int argc, char** argv)
 	config.ConfigureTimeResolutionParameters({&b, &s, &johnson_delta, &johnson_lambda, &johnson_gamma, &johnson_xi});
 
 	auto johnson_su = NormalizedJohnsonSU<DecayTimeError>(johnson_gamma, johnson_delta, johnson_xi, johnson_lambda, phsp.TimeErrorMin(), phsp.TimeErrorMax());
-	
-	auto model_dz = time_dependent_rate_with_time_resolution_pdf<Flavor::Positive,MSqPlus,MSqMinus,DecayTime,DecayTimeError>(
-						tau,x,y,qop,phi,b,s,efficiency,Adir,Abar,johnson_su,
-						{phsp.MSqMin<1,2>(),phsp.MSqMax<1,2>()},
-						{phsp.MSqMin<1,3>(),phsp.MSqMax<1,3>()},
-						phsp.TimeRange(),
-						phsp.TimeErrorRange(), 10*ncands); 
-	auto model_db = time_dependent_rate_with_time_resolution_pdf<Flavor::Negative,MSqPlus,MSqMinus,DecayTime,DecayTimeError>(
-						tau,x,y,qop,phi,b,s,efficiency,Adir,Abar,johnson_su,
-						{phsp.MSqMin<1,2>(),phsp.MSqMax<1,2>()},
-						{phsp.MSqMin<1,3>(),phsp.MSqMax<1,3>()},
-						phsp.TimeRange(),
-						phsp.TimeErrorRange(), 10*ncands); 
 
 
 	// add background
 
 	auto f_rnd = hydra::Parameter::Create("f_rnd").Value(0.0035).Fixed();
+	auto f_mistag = hydra::Parameter::Create("f_mistag").Value(0.5).Fixed();
 	auto f_cmb = hydra::Parameter::Create("f_cmb").Value(0.0117).Fixed();
 	auto tau_cmb = hydra::Parameter::Create("tau_cmb").Value(Tau::D0*0.9).Fixed();
 	auto b_cmb   = hydra::Parameter::Create("b_cmb").Value(0.0).Fixed();
@@ -224,13 +212,7 @@ int main(int argc, char** argv)
 	config.ConfigureBackgroundParameters({&f_rnd, &f_cmb, &tau_cmb, &b_cmb, &s_cmb});
 
 	auto f_rnd_functor = PassParameter(f_rnd);
-	auto random_background_pdf = model_dz;
-	// auto random_background_pdf = hydra::wrap_lambda( 
-	// 	[model_dz, model_db] __hydra_dual__ (MSqPlus a, MSqMinus b, DecayTime t, DecayTimeError sigma_t) {
-	// 		MSqPlus switched_a = b;
-	// 		MSqMinus switched_b = a;
-	// 		return 0.5*model_dz(a,b,t,sigma_t) + 0.5*model_db(switched_a,switched_b,t,sigma_t);
-	// });
+	auto f_mistag_functor = PassParameter(f_mistag);
 
 	
 	auto f_cmb_functor = PassParameter(f_cmb);
@@ -271,16 +253,7 @@ int main(int argc, char** argv)
 	Print::Canvas(chist_input_cmb,  args.outdir + outprefix + "_cmb_input_hist");
 	gStyle->SetOptStat(1);
 
-	// auto combinatorial_background_without_time = hydra::wrap_lambda( 
-	// 	[phsp, hist_input_cmb] __hydra_dual__ (MSqPlus m2p, MSqMinus m2m) {
-	// 		// judge whether in phase space or not
-	// 		if (!phsp.Contains<2,3>(m2p, m2m)) return 0.0;
 
-	// 		double x = m2m;
-	// 		double y = m2p;
-	// 		return hist_input_cmb.GetValue(x, y);
-	// 	}
-	// );
 
 	hydra::device::vector<double> combinatorial_background_device_buffer_xs;
 	hydra::device::vector<double> combinatorial_background_device_buffer_ys;
@@ -317,74 +290,24 @@ int main(int argc, char** argv)
 
 
 	auto combinatorial_background_pdf = combinatorial_background_without_time * combinatorial_psi * johnson_su;
-	// auto combinatorial_background_pdf = hydra::wrap_lambda( 
-	// 	[phsp, hist_input_cmb] __hydra_dual__ (unsigned int npar, const hydra::Parameter* params, MSqPlus m2p, MSqMinus m2m, DecayTime t, DecayTimeError sigmat) {
-	// 		if (!phsp.Contains<2,3>(m2p, m2m)) return 0.0;
 
-	// 		double x = m2m;
-	// 		double y = m2p;
-	// 		double time_independent_component = hist_input_cmb.GetValue(x, y);
-
-	// 		double _tau_cmb = params[0];
-	// 		double _s_cmb = params[1];
-	// 		double _b_cmb = params[2];
-
-	// 		double _t = t;
-	// 		double _sigmat = sigmat;
-	// 		double _sigma = _s_cmb*_sigmat;
-	// 		double chi = (_t-_b_cmb) / _sigma;
-	// 		double kappa_0 = _sigma / _tau_cmb;
-	// 		double chi0 = (phsp.TimeMin()-_b_cmb) / _sigma;
-	// 		double chi1 = (phsp.TimeMax()-_b_cmb) / _sigma;
-	// 		double time_dependent_component = _psi(chi, kappa_0); 
-	// 		double time_dependent_component_norm = _int_psi_dt(_sigma, chi1, kappa_0) - _int_psi_dt(_sigma, chi0, kappa_0);
-	// 		time_dependent_component = time_dependent_component / time_dependent_component_norm;
-
-	// 		// JohnsonSU
-	// 		double _johnson_delta  = 1.65335e+00;
-	// 		double _johnson_lambda = 1.87922e-02;
-	// 		double _johnson_gamma  = -2.57429e+00;
-	// 		double _johnson_xi     = 4.27580e-02;
-	// 		double inverse_lambda = 1.0/_johnson_lambda;
-	// 		double z0 = (phsp.TimeMin()-_johnson_xi)*inverse_lambda;
-	// 		double C0 = _johnson_gamma + _johnson_delta*::asinh(z0);
-	// 		double johnson_su_int_0 = 0.5*(1.0 + ::erf(C0*hydra::math_constants::inverse_sqrt2));
-	// 		double z1 = (phsp.TimeMax()-_johnson_xi)*inverse_lambda;
-	// 		double C1 = _johnson_gamma + _johnson_delta*::asinh(z1);
-	// 		double johnson_su_int_1 = 0.5*(1.0 + ::erf(C1*hydra::math_constants::inverse_sqrt2));
-	// 		double r = johnson_su_int_1 - johnson_su_int_0;
-
-	// 		double z = (t-_johnson_xi)*inverse_lambda;
-	// 		double A = inverse_lambda*_johnson_delta*hydra::math_constants::inverse_sqrt2Pi;
-	// 		double B = 1.0/::sqrt( 1 + z*z);
-	// 		double C = _johnson_gamma + _johnson_delta*::asinh(z); C *=C;
-
-	// 		double sigmat_component = A*B*::exp(-0.5*C) / r;
-	// 		return time_independent_component * time_dependent_component * sigmat_component;
-
-
-	// }, tau_cmb, s_cmb, b_cmb);
-
-	auto _build_averaged_sum_pdf = hydra::wrap_lambda(
-			  [] __hydra_dual__ (hydra::tuple< double, double, double, double, double> input_functors){
-			  		auto _pdf_sig = hydra::get<0>(input_functors);
-			  		auto _f_rnd = hydra::get<1>(input_functors);
-			  		auto _pdf_rnd = hydra::get<2>(input_functors);
-			  		auto _f_cmb = hydra::get<3>(input_functors);
-			  		auto _pdf_cmb = hydra::get<4>(input_functors);
-
-
-			  		return  (1-_f_rnd-_f_cmb)*_pdf_sig + _f_rnd*_pdf_rnd + _f_cmb*_pdf_cmb;
-			  }
-	);
-
-	auto averaged_sum_pdf_dz = hydra::compose(_build_averaged_sum_pdf, model_dz, 
-											f_rnd_functor, random_background_pdf,
-											f_cmb_functor, combinatorial_background_pdf);
-
-	auto averaged_sum_pdf_db = hydra::compose(_build_averaged_sum_pdf, model_db, 
-											f_rnd_functor, random_background_pdf,
-											f_cmb_functor, combinatorial_background_pdf);
+	auto averaged_sum_pdf_dz = time_dependent_rate_with_time_resolution_with_background_pdf<Flavor::Positive,MSqPlus,MSqMinus,DecayTime,DecayTimeError>(
+						tau,x,y,qop,phi,b,s,efficiency,Adir,Abar,johnson_su,
+						{phsp.MSqMin<1,2>(),phsp.MSqMax<1,2>()},
+						{phsp.MSqMin<1,3>(),phsp.MSqMax<1,3>()},
+						phsp.TimeRange(),
+						phsp.TimeErrorRange(), 10*ncands, 
+						f_rnd_functor, f_mistag_functor,
+						f_cmb_functor, combinatorial_background_pdf); 
+	auto averaged_sum_pdf_db = time_dependent_rate_with_time_resolution_with_background_pdf<Flavor::Negative,MSqPlus,MSqMinus,DecayTime,DecayTimeError>(
+						tau,x,y,qop,phi,b,s,efficiency,Adir,Abar,johnson_su,
+						{phsp.MSqMin<1,2>(),phsp.MSqMax<1,2>()},
+						{phsp.MSqMin<1,3>(),phsp.MSqMax<1,3>()},
+						phsp.TimeRange(),
+						phsp.TimeErrorRange(), 10*ncands, 
+						f_rnd_functor, f_mistag_functor,
+						f_cmb_functor, combinatorial_background_pdf
+						); 
 
 
 

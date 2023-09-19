@@ -78,6 +78,46 @@ auto time_dependent_rate_with_time_resolution_pdf(hydra::Parameter const& tau, h
 }
 
 
+template<Flavor Tag, typename MSqPlus, typename MSqMinus, typename Time, typename TimeError, typename EFFICIENCY, typename ADIR, typename ABAR, typename PDFSIGMAT, typename FRND, typename FMISTAG, typename FCMB, typename PDFCMB>
+auto time_dependent_rate_with_time_resolution_with_background_pdf(hydra::Parameter const& tau, hydra::Parameter const& x, hydra::Parameter const& y, hydra::Parameter const& qop, hydra::Parameter const& phi, hydra::Parameter const& b, hydra::Parameter const& s, EFFICIENCY const& efficiency, ADIR const& Adir, ABAR const& Abar, PDFSIGMAT const& pdf_sigma_t, std::array<double,2> dalitzRangePlus, std::array<double,2> dalitzRangeMinus, std::array<double,2> timeRange, std::array<double,2> timeErrorRange, const long n_calls, FRND const& f_rnd, FMISTAG const& f_mistag, FCMB const& f_cmb, PDFCMB const& pdf_cmb)
+{
+	// check if pdf(sigma_t) is normalized
+	std::cout << "Checking if pdf(sigma_t) is normalized ... ..." << std::endl;
+
+	hydra::Plain<1,  hydra::device::sys_t > PlainSigmatMC({timeErrorRange[0]}, {timeErrorRange[1]}, n_calls);
+	double int_pdf_sigma_t = PlainSigmatMC.Integrate(pdf_sigma_t).first;
+	std::cout << "Integrate(pdf(sigma_t)) on (timeErrorRange[0], timeErrorRange[1]) = " << int_pdf_sigma_t << std::endl;
+	// double int_pdf_sigma_t = pdf_sigma_t.GetNorm();
+	// std::cout << "pdf_sigma_t.GetNorm() = " << int_pdf_sigma_t << std::endl;
+	if (abs(int_pdf_sigma_t - 1) > 0.01) {
+		std::cout << "time_dependent_rate_with_time_resolution_pdf: ";
+		std::cout << "The input pdf(sigma_t) should be normalized, but its integration seems not close enough to 1. ";
+		std::cout << "Exit!" << std::endl; 
+	}
+
+	std::cout << "Pass." << std::endl;
+
+
+	// integrator on dalitz plane
+	hydra::Plain<2,  hydra::device::sys_t > plain_integrator({dalitzRangePlus[0], dalitzRangeMinus[0]}, 
+														  {dalitzRangePlus[1], dalitzRangeMinus[1]}, 
+														  n_calls);
+
+
+	auto psi_p = MixingPsip<Time, TimeError>(y,tau,s,b);
+	auto psi_m = MixingPsim<Time, TimeError>(y,tau,s,b);
+	auto psi_i = MixingPsii<Time, TimeError>(x,tau,s,b);
+	auto rcp = QoverP<Tag>(qop,phi);
+	return make_mixing_pdf_with_background_functor<MSqPlus, MSqMinus, Time, TimeError>(
+								efficiency, Adir, Abar, psi_p, psi_m, psi_i, rcp,
+					 			pdf_sigma_t, plain_integrator, timeRange, 
+					 			f_rnd, f_mistag, f_cmb, pdf_cmb
+					 		); 
+
+
+}
+
+
 
 // This function would build a pdf functor (the funtor is a pdf iself!) for time dependent amplitude with fixed Adir and Abar, and normalized pdf(sigma_t).
 // Currently, q/p is not considered.
