@@ -23,6 +23,7 @@
 #include <tools/ConfigFile.h>
 #include <tools/Arguments.h>
 #include <tools/ArbitraryBinningHistogram2D.h>
+#include <tools/ArbitraryBinningHistogram2DFunctor.h>
 #include <physics/Amplitudes.h>
 using namespace dafne;
 
@@ -219,26 +220,70 @@ int main(int argc, char** argv)
 	auto combinatorial_background_norm = plainIntegrator(combinatorial_background).first;
 	auto combinatorial_background_pdf = divideBy<double>(combinatorial_background, combinatorial_background_norm); 
 
-	auto _build_sum_pdf = hydra::wrap_lambda(
-			  [] __hydra_dual__ (hydra::tuple< double, double, double> input_functors){
-			  		auto _pdf_sig = hydra::get<0>(input_functors);
-			  		auto _f_cmb = hydra::get<1>(input_functors);
-			  		auto _pdf_cmb = hydra::get<2>(input_functors);
 
-			  		return  (1-_f_cmb)*_pdf_sig + _f_cmb*_pdf_cmb;
-			  }
-	);
+	// load combinatorial background from a histrogram
+	// TH2D* th2_input_cmb = new TH2D("th2_input_cmb", "th2_input_cmb", 200, 0, 3.2, 200, 0, 3.2);
+	// for (int i_x = 0; i_x < th2_input_cmb->GetXaxis()->GetNbins(); ++i_x)
+	// for (int i_y = 0; i_y < th2_input_cmb->GetYaxis()->GetNbins(); ++i_y) {
+	// 	double m2m = th2_input_cmb->GetXaxis()->GetBinCenter(i_x);
+	// 	double m2p = th2_input_cmb->GetYaxis()->GetBinCenter(i_y);
+	// 	if (phsp.Contains<2,3>(m2p, m2m)) th2_input_cmb->SetBinContent(i_x, i_y, 1.0);
+	// 	else th2_input_cmb->SetBinContent(i_x, i_y, 0.0);
+	// }
+
+	// // normalize the background
+	// double combinatorial_background_norm = 0;
+	// for (int i_x = 0; i_x < th2_input_cmb->GetXaxis()->GetNbins(); ++i_x)
+	// for (int i_y = 0; i_y < th2_input_cmb->GetYaxis()->GetNbins(); ++i_y) {
+	// 	combinatorial_background_norm += th2_input_cmb->GetBinContent(i_x, i_y);
+	// }
+
+	// for (int i_x = 0; i_x < th2_input_cmb->GetXaxis()->GetNbins(); ++i_x)
+	// for (int i_y = 0; i_y < th2_input_cmb->GetYaxis()->GetNbins(); ++i_y) {
+	// 	double value = th2_input_cmb->GetBinContent(i_x, i_y);
+	// 	double widthx = th2_input_cmb->GetXaxis()->GetBinWidth(1);
+	// 	double widthy = th2_input_cmb->GetYaxis()->GetBinWidth(1);
+	// 	th2_input_cmb->SetBinContent(i_x, i_y, value/combinatorial_background_norm/widthx/widthy);
+	// }
+	
+	// ArbitraryBinningHistogram2D hist_input_cmb(*th2_input_cmb);
+	// th2_input_cmb->Draw("COLZ");
+	// Print::Canvas(cefficiency,  args.outdir + outprefix + "_cmb_input_th2");
+
+	// TCanvas chist_input_cmb("chist_input_cmb", "chist_input_cmb", 800, 600);
+	// gStyle->SetOptStat(0);
+	// gPad->SetRightMargin(0.15);
+	// hist_input_cmb.GetTH2D((outprefix + "_cmb_input_hist").c_str(), 
+	//                     (outprefix + "_cmb_input_hist").c_str(),
+	//                     "m^{2}_{#it{-}} [GeV^{2}/#it{c}^{4}]", "m^{2}_{#it{+}} [GeV^{2}/#it{c}^{4}]")->Draw("COLZ");
+	// Print::Canvas(chist_input_cmb,  args.outdir + outprefix + "_cmb_input_hist");
+	// gStyle->SetOptStat(1);
+
+
+
+	// hydra::device::vector<double> combinatorial_background_device_buffer_xs;
+	// hydra::device::vector<double> combinatorial_background_device_buffer_ys;
+	// hydra::device::vector<double> combinatorial_background_device_buffer_zs;
+	// hydra::device::vector<double> combinatorial_background_device_buffer_zerrors;
+	// auto combinatorial_background_pdf_test = hydra::make_arbitrary_binning_histogram_2d_functor<MSqPlus, MSqMinus, double>(
+	// 	combinatorial_background_device_buffer_xs,
+	// 	combinatorial_background_device_buffer_ys,
+	// 	combinatorial_background_device_buffer_zs,
+	// 	combinatorial_background_device_buffer_zerrors,
+	// 	hist_input_cmb
+	// 	);
+
 
 
 	// build pdf with event by event fraction 
 	auto f_cmb_passor = PassVariable<CombinatorialBackgroundFraction>();
-	auto evt_frac_pdf = hydra::compose(_build_sum_pdf, normalized_model, f_cmb_passor, combinatorial_background_pdf);
+	auto evt_frac_pdf = make_pdf_with_background_functor( model, plainIntegrator,
+														  f_cmb_passor, combinatorial_background_pdf);
 
-	// add constant "1" as INTEGRATOR, to adapt to hydra framework's convention
-	auto pdf = hydra::make_pdf( evt_frac_pdf, ConstantIntegrator<hydra::device::sys_t>(1.0));
+
+
+	auto pdf = hydra::make_pdf_from_normalized_functor( evt_frac_pdf );
 	std::cout << "Initial normalization for D0 PDF: "<< pdf.GetNorm() << " +/- " << pdf.GetNormError() << std::endl;
-
-
 
 
 	//---------------------------------------------------------------------------------------
@@ -313,7 +358,9 @@ int main(int argc, char** argv)
 		auto uniform_f_cmb_functor_for_plotting = PassParameter(f_cmb_for_plotting);
 
 		// Add the background to the fitted model, the background fraction is set to the average value
-		auto averaged_sum_pdf_fitted = hydra::compose(_build_sum_pdf, normalized_model_fitted, uniform_f_cmb_functor_for_plotting, combinatorial_background_pdf);
+		// auto averaged_sum_pdf_fitted = hydra::compose(_build_sum_pdf, normalized_model_fitted, uniform_f_cmb_functor_for_plotting, combinatorial_background_pdf);
+		auto averaged_sum_pdf_fitted = make_pdf_with_background_functor( model, plainIntegrator,
+														  uniform_f_cmb_functor_for_plotting, combinatorial_background_pdf);
 
 		std::cout << "***** Plot data and the fitted model" << std::endl;	
 

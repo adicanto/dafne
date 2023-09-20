@@ -222,10 +222,10 @@ int main(int argc, char** argv)
 	// the time_dependent_rate_with_time_resolution_pdf_type1 functor is a pdf itself, but the FCN needs 
 	// Pdf<functor, integrator> as input, therefore we add a dummy constant integrator, always returning 
 	// 1.0, here
-	auto pdf_dz = hydra::make_pdf( model_dz, ConstantIntegrator<hydra::device::sys_t>(1.0) ); 
+	auto pdf_dz = hydra::make_pdf_from_normalized_functor( model_dz ); 
 	std::cout << "Initial normalization for D0 PDF: "<< pdf_dz.GetNorm() << " +/- " << pdf_dz.GetNormError() << std::endl;
 
-	auto pdf_db = hydra::make_pdf( model_db, ConstantIntegrator<hydra::device::sys_t>(1.0) );
+	auto pdf_db = hydra::make_pdf_from_normalized_functor( model_db );
 	std::cout << "Initial normalization for D0bar PDF: "<< pdf_db.GetNorm() << " +/- " << pdf_db.GetNormError() << std::endl;
 
 

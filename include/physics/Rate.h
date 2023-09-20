@@ -45,8 +45,8 @@ auto time_dependent_rate_with_time_resolution_pdf(hydra::Parameter const& tau, h
 	// check if pdf(sigma_t) is normalized
 	std::cout << "Checking if pdf(sigma_t) is normalized ... ..." << std::endl;
 
-	hydra::Plain<1,  hydra::device::sys_t > PlainSigmatMC({timeErrorRange[0]}, {timeErrorRange[1]}, n_calls);
-	double int_pdf_sigma_t = PlainSigmatMC.Integrate(pdf_sigma_t).first;
+	hydra::Plain<1,  hydra::device::sys_t > sigma_t_integrator({timeErrorRange[0]}, {timeErrorRange[1]}, n_calls);
+	double int_pdf_sigma_t = sigma_t_integrator.Integrate(pdf_sigma_t).first;
 	std::cout << "Integrate(pdf(sigma_t)) on (timeErrorRange[0], timeErrorRange[1]) = " << int_pdf_sigma_t << std::endl;
 	// double int_pdf_sigma_t = pdf_sigma_t.GetNorm();
 	// std::cout << "pdf_sigma_t.GetNorm() = " << int_pdf_sigma_t << std::endl;
@@ -58,12 +58,9 @@ auto time_dependent_rate_with_time_resolution_pdf(hydra::Parameter const& tau, h
 
 	std::cout << "Pass." << std::endl;
 
-
-	// integrator on dalitz plane
-	hydra::Plain<2,  hydra::device::sys_t > plain_integrator({dalitzRangePlus[0], dalitzRangeMinus[0]}, 
-														  {dalitzRangePlus[1], dalitzRangeMinus[1]}, 
-														  n_calls);
-
+	hydra::Plain<2,  hydra::device::sys_t > dalitz_integrator({dalitzRangePlus[0], dalitzRangeMinus[0]}, 
+													  {dalitzRangePlus[1], dalitzRangeMinus[1]}, 
+													  n_calls);
 
 	auto psi_p = MixingPsip<Time, TimeError>(y,tau,s,b);
 	auto psi_m = MixingPsim<Time, TimeError>(y,tau,s,b);
@@ -71,7 +68,7 @@ auto time_dependent_rate_with_time_resolution_pdf(hydra::Parameter const& tau, h
 	auto rcp = QoverP<Tag>(qop,phi);
 	return make_mixing_pdf_functor<MSqPlus, MSqMinus, Time, TimeError>(
 								efficiency, Adir, Abar, psi_p, psi_m, psi_i, rcp,
-					 			pdf_sigma_t, plain_integrator, timeRange
+					 			pdf_sigma_t, dalitz_integrator, timeRange
 					 		); 
 
 
@@ -84,8 +81,8 @@ auto time_dependent_rate_with_time_resolution_with_background_pdf(hydra::Paramet
 	// check if pdf(sigma_t) is normalized
 	std::cout << "Checking if pdf(sigma_t) is normalized ... ..." << std::endl;
 
-	hydra::Plain<1,  hydra::device::sys_t > PlainSigmatMC({timeErrorRange[0]}, {timeErrorRange[1]}, n_calls);
-	double int_pdf_sigma_t = PlainSigmatMC.Integrate(pdf_sigma_t).first;
+	hydra::Plain<1,  hydra::device::sys_t > sigma_t_integrator({timeErrorRange[0]}, {timeErrorRange[1]}, n_calls);
+	double int_pdf_sigma_t = sigma_t_integrator.Integrate(pdf_sigma_t).first;
 	std::cout << "Integrate(pdf(sigma_t)) on (timeErrorRange[0], timeErrorRange[1]) = " << int_pdf_sigma_t << std::endl;
 	// double int_pdf_sigma_t = pdf_sigma_t.GetNorm();
 	// std::cout << "pdf_sigma_t.GetNorm() = " << int_pdf_sigma_t << std::endl;
@@ -99,7 +96,7 @@ auto time_dependent_rate_with_time_resolution_with_background_pdf(hydra::Paramet
 
 
 	// integrator on dalitz plane
-	hydra::Plain<2,  hydra::device::sys_t > plain_integrator({dalitzRangePlus[0], dalitzRangeMinus[0]}, 
+	hydra::Plain<2,  hydra::device::sys_t > dalitz_integrator({dalitzRangePlus[0], dalitzRangeMinus[0]}, 
 														  {dalitzRangePlus[1], dalitzRangeMinus[1]}, 
 														  n_calls);
 
@@ -110,7 +107,7 @@ auto time_dependent_rate_with_time_resolution_with_background_pdf(hydra::Paramet
 	auto rcp = QoverP<Tag>(qop,phi);
 	return make_mixing_pdf_with_background_functor<MSqPlus, MSqMinus, Time, TimeError>(
 								efficiency, Adir, Abar, psi_p, psi_m, psi_i, rcp,
-					 			pdf_sigma_t, plain_integrator, timeRange, 
+					 			pdf_sigma_t, dalitz_integrator, timeRange, 
 					 			f_rnd, f_mistag, f_cmb, pdf_cmb
 					 		); 
 
@@ -168,8 +165,8 @@ auto time_dependent_rate_with_time_resolution_pdf_bak(hydra::Parameter const& ta
 	// check if pdf(sigma_t) is normalized
 	std::cout << "Checking if pdf(sigma_t) is normalized ... ..." << std::endl;
 
-	hydra::Plain<1,  hydra::device::sys_t > PlainSigmatMC({timeErrorRange[0]}, {timeErrorRange[1]}, n_calls);
-	double int_pdf_sigma_t = PlainSigmatMC.Integrate(pdf_sigma_t).first;
+	hydra::Plain<1,  hydra::device::sys_t > sigma_t_integrator({timeErrorRange[0]}, {timeErrorRange[1]}, n_calls);
+	double int_pdf_sigma_t = sigma_t_integrator.Integrate(pdf_sigma_t).first;
 	std::cout << "Integrate(pdf(sigma_t)) on (timeErrorRange[0], timeErrorRange[1]) = " << int_pdf_sigma_t << std::endl;
 	// double int_pdf_sigma_t = pdf_sigma_t.GetNorm();
 	// std::cout << "pdf_sigma_t.GetNorm() = " << int_pdf_sigma_t << std::endl;

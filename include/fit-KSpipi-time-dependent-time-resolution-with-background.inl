@@ -237,7 +237,9 @@ int main(int argc, char** argv)
 	for (int i_x = 0; i_x < th2_input_cmb->GetXaxis()->GetNbins(); ++i_x)
 	for (int i_y = 0; i_y < th2_input_cmb->GetYaxis()->GetNbins(); ++i_y) {
 		double value = th2_input_cmb->GetBinContent(i_x, i_y);
-		th2_input_cmb->SetBinContent(i_x, i_y, value/combinatorial_background_without_time_norm);
+		double widthx = th2_input_cmb->GetXaxis()->GetBinWidth(1);
+		double widthy = th2_input_cmb->GetYaxis()->GetBinWidth(1);
+		th2_input_cmb->SetBinContent(i_x, i_y, value/combinatorial_background_without_time_norm/widthx/widthy);
 	}
 	
 	ArbitraryBinningHistogram2D hist_input_cmb(*th2_input_cmb);
@@ -316,10 +318,10 @@ int main(int argc, char** argv)
 	// the time_dependent_rate_with_time_resolution_pdf_type1 functor is a pdf itself, but the FCN needs 
 	// Pdf<functor, integrator> as input, therefore we add a dummy constant integrator, always returning 
 	// 1.0, here
-	auto pdf_dz = hydra::make_pdf( averaged_sum_pdf_dz, ConstantIntegrator<hydra::device::sys_t>(1.0) ); 
+	auto pdf_dz = hydra::make_pdf_from_normalized_functor( averaged_sum_pdf_dz); 
 	std::cout << "Initial normalization for D0 PDF: "<< pdf_dz.GetNorm() << " +/- " << pdf_dz.GetNormError() << std::endl;
 
-	auto pdf_db = hydra::make_pdf( averaged_sum_pdf_db, ConstantIntegrator<hydra::device::sys_t>(1.0) );
+	auto pdf_db = hydra::make_pdf_from_normalized_functor( averaged_sum_pdf_db);
 	std::cout << "Initial normalization for D0bar PDF: "<< pdf_db.GetNorm() << " +/- " << pdf_db.GetNormError() << std::endl;
 
 

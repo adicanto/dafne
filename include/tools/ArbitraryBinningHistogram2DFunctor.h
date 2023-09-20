@@ -309,13 +309,10 @@ typedef  decltype(std::declval<Iterable4>().begin()) Iterator4;
 
 	for (int i_y = 0; i_y < input_hist.GetNYTicks()-1; ++i_y)
 	for (int i_x = 0; i_x < input_hist.GetNXTicks()-1; ++i_x) {
-//		Zs.push_back(input_hist.GetBinValue(i_x, i_y));
-//		ZErrors.push_back(input_hist.GetBinError(i_x, i_y));
+		Zs.push_back(input_hist.GetBinValue(i_x, i_y));
+		ZErrors.push_back(input_hist.GetBinError(i_x, i_y));
 		input_hist.GetBinValue(i_x, i_y);
 		input_hist.GetBinError(i_x, i_y);
-
-		Zs.push_back(1./200.);
-		ZErrors.push_back(1./200.);
 	}
 
 	std::cout << "Device iterables configuration finished. " << std::endl;
