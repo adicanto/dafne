@@ -29,7 +29,7 @@ For the decay amplitude component $P\to ar$, $r\to bc$,  $W_l(m^2_{ab},m^2_{bc})
 
 
 ### 2. The barrier factor $B_l$ <a name="thebarrierfactor"></a> 
-The barrier factors $B_l^{Pc}(|\vec{p}|,|\vec{p}_r|)$ and $B_l^{ab}(|\vec{q}|,|\vec{q}_r|)$, are related to the momentum of $c$ in the mother particle rest frame ($\vec{p}$) and the momentum of $a$ in the $ab$ system rest frame ($\vec{q}$). The $\vec{p}_r$ (<script type="math/tex">\vec{q}_r</script>) represents the $\vec{p}$ ($\vec{q}$) when $m_{ab}$ is right at the resonance mass $m_r$. The form $B_l(|\vec{k}|,|\vec{k}_r|)$ are the Blatt-Weisskopf centrifugal barrier factors[^Aston:1987ir][^VonHippel:1972fg][^Blatt:1952ije]:
+The barrier factors $B_l^{Pc}(|\vec{p}|,|\vec{p}_r|)$ and $B_l^{ab}(|\vec{q}|,|\vec{q}_r|)$, are related to the momentum of $c$ in the mother particle rest frame ($\vec{p}$) and the momentum of $a$ in the $ab$ system rest frame ($\vec{q}$). The $\vec{p}_r$ ($\vec{q}_{r}$) represents the $\vec{p}$ ($\vec{q}$) when $m_{ab}$ is right at the resonance mass $m_r$. The form $B_l(|\vec{k}|,|\vec{k}_r|)$ are the Blatt-Weisskopf centrifugal barrier factors[^Aston:1987ir][^VonHippel:1972fg][^Blatt:1952ije]:
 
 $$
 \begin{align}
@@ -74,24 +74,17 @@ $$
 where
 
 $$
-\begin{equation}
-d = \frac{3(m^2_a+m^2_b)}{2\pi|\vec{q}_r|^2}\ln(\frac{m_r+2|\vec{q}_r|}{m_a+m_b}) + \frac{m_r}{2\pi|\vec{q}_r|} - \frac{(m^2_a+m^2_b)m_r}{2\pi |\vec{q}_r|^3}
-\end{equation}
-$$
-
-    &ensp;
-
-$$
-\begin{equation}
-f = \frac{\Gamma_r^0 m_r^2}{|\vec{q}_r|}\Big\{\frac{|\vec{q}|^2}{|\vec{q}_r|^2}[h(m^2_{ab})-h(m^2_r)]+(m^2_r-m^2_{ab})h^\prime(m^2_r)\Big\} \quad ,
-\end{equation}
+\begin{align}
+d & = \frac{3(m^2_a+m^2_b)}{2\pi|\vec{q}_r|^2}\ln(\frac{m_r+2|\vec{q}_r|}{m_a+m_b}) + \frac{m_r}{2\pi|\vec{q}_r|} - \frac{(m^2_a+m^2_b)m_r}{2\pi |\vec{q}_r|^3} \quad , \\
+f & = \frac{\Gamma_r^0 m_r^2}{|\vec{q}_r|}\Big\{\frac{|\vec{q}|^2}{|\vec{q}_r|^2}[h(m^2_{ab})-h(m^2_r)]+(m^2_r-m^2_{ab})h^\prime(m^2_r)\Big\} \quad ,
+\end{align}
 $$
 
 and
 
 $$
 \begin{align}
-h(m^2) & = \frac{2|\vec{q}|}{\pi m}\ln\bigg(\frac{m_{ab}+2|\vec{q}|}{m_a + m_b}\bigg) \\ 
+h(m^2) & = \frac{2|\vec{q}|}{\pi m}\ln\bigg(\frac{m_{ab}+2|\vec{q}|}{m_a + m_b}\bigg) \quad , \\ 
 h^\prime(m_r^2) & = \frac{dh}{d(m^2)}\bigg|_{m^2=m^2_r} = \bigg(\frac{1}{8|\vec{q}_r|^2} - \frac{1}{2m^2_r}\bigg)h(m^2_r) + 	\frac{1}{2\pi m^2_r} \quad .
 \end{align}
 $$
