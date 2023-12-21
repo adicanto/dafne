@@ -1,15 +1,15 @@
 # Details of the Decay Amplitude
 
 
-[1. The angular distribution $W_l$](#theangulardistribution)
-[2. The barrier factor $B_l$](#thebarrierfactor)
-[3. The propagators](#thepropagators)
-	[3.1 Breit-Wigner](#breitwigner)
-	[3.2 Gounaris-Sakurai](#gounarissakurai)
-	[3.3 LASS](#lass)
-	[3.4 Generalized LASS](#generalizedlass)
-	[3.5 K-Matrix](#kmatrix)
-	[3.6 Flatté](#flatte)
+[1. The angular distribution $W_l$](#theangulardistribution)  
+[2. The barrier factor $B_l$](#thebarrierfactor)  
+[3. The propagators](#thepropagators)  
+	[3.1 Breit-Wigner](#breitwigner)  
+	[3.2 Gounaris-Sakurai](#gounarissakurai)  
+	[3.3 LASS](#lass)  
+	[3.4 Generalized LASS](#generalizedlass)  
+	[3.5 K-Matrix](#kmatrix)  
+	[3.6 Flatté](#flatte)  
 
 
 ### 1. The angular distribution $W_l$ <a name="theangulardistribution"></a> 
