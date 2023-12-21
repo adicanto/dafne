@@ -2,16 +2,16 @@
 
 [1. Installation](#installation)  
 [2. Work flow](#workflow)  
-	[2.1 Create a user code file](#createausercodefile)  
-	[2.2 Build an amplitude model](#buildanamplitudemodel)  
-	[2.3 Configure the detector effect](#configurethedetectoreffect)  
-		[2.3.1 Dalitz-plot efficiency](#dalitzplotefficiency)  
-		[2.3.2 Dalitz-plot resolution](#dalitzplotresolution)  
-		[2.3.3 Decay-time resolution](#decaytimeresolution)  
-	[2.4 Fitting](#fitting)  
-	[2.5 Monte Carlo samples generation](#montecarlosamplesgeneration)  
-	[2.6 Plotting](#plotting)  
-	[2.7 Configuration file](#configurationfile)  
+  [2.1 Create a user code file](#createausercodefile)  
+  [2.2 Build an amplitude model](#buildanamplitudemodel)  
+  [2.3 Configure the detector effect](#configurethedetectoreffect)  
+    [2.3.1 Dalitz-plot efficiency](#dalitzplotefficiency)  
+    [2.3.2 Dalitz-plot resolution](#dalitzplotresolution)  
+    [2.3.3 Decay-time resolution](#decaytimeresolution)  
+    [2.4 Fitting](#fitting)  
+    [2.5 Monte Carlo samples generation](#montecarlosamplesgeneration)  
+    [2.6 Plotting](#plotting)  
+    [2.7 Configuration file](#configurationfile)  
 
 
 
