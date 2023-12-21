@@ -1,8 +1,18 @@
 # Details of the Decay Amplitude
 
-[toc]
 
-### 1. The angular distribution $W_l$ 
+[1. The angular distribution $W_l$](#theangulardistribution)
+[2. The barrier factor $B_l$](#thebarrierfactor)
+[3. The propagators](#thepropagators)
+	[3.1 Breit-Wigner](#breitwigner)
+	[3.2 Gounaris-Sakurai](#gounarissakurai)
+	[3.3 LASS](#lass)
+	[3.4 Generalized LASS](#generalizedlass)
+	[3.5 K-Matrix](#kmatrix)
+	[3.6 Flatté](#flatte)
+
+
+### 1. The angular distribution $W_l$ <a name="theangulardistribution"></a> 
 
 The angular distribution $ W_l(m^2_{ab},m^2_{bc}) $ follows the Zemach formalism[^Zemach:1963bc][^Zemach:1965ycj][^Filippini:1995yc]. For the $ P\to cr $, $ r\to ab $ case, $ W_l(m^2_{ab},m^2_{bc}) = Z_l(m^2_{ab},m^2_{bc})$, and: 
 
@@ -20,7 +30,7 @@ For the decay amplitude component $ P\to ar $, $ r\to bc $,  $ W_l(m^2_{ab},m^2_
 
 
 
-### 2. The barrier factor $B_l$
+### 2. The barrier factor $B_l$ <a name="thebarrierfactor"></a> 
 The barrier factors $ B_l^{Pc}(|\vec{p}|,|\vec{p}_r|) $ and $ B_l^{ab}(|\vec{q}|,|\vec{q}_r|) $, are related to the momentum of $ c $ in the mother particle rest frame ($ \vec{p} $) and the momentum of $ a $ in the $ ab $ system rest frame ($ \vec{q} $). The $ \vec{p}_r $ ($ \vec{q}_r $) represents the $ \vec{p} $ ($ \vec{q} $) when $ m_{ab} $ is right at the resonance mass $ m_r $. The form $ B_l(|\vec{k}|,|\vec{k}_r|) $ are the Blatt-Weisskopf centrifugal barrier factors[^Aston:1987ir][^VonHippel:1972fg][^Blatt:1952ije]:
 $$
 \begin{align}
@@ -33,8 +43,8 @@ where $ z = R|\vec{k}|$ and $ z_r = R|\vec{k}_r| $, with Blatt-Weisskopf effecti
 
 
 
-### 3. The propagators
-#### 3.1 Breit-Wigner 
+### 3. The propagators <a name="thepropagators"></a> 
+#### 3.1 Breit-Wigner <a name="breitwigner"></a> 
 
 The Breit-Wigner function is an approximation for the shape of narrow resonance. In the code, we follow the relativistic Breit-Wigner: 
 $$
@@ -48,7 +58,7 @@ $$
 \Gamma_r(m_{ab})=\Gamma^0_r\bigg(\frac{|\vec{q}|}{|\vec{q_r}|}\bigg)^{2l+1}\bigg(\frac{m_r}{m_{ab}}\bigg)\big(B_l^{ab}(|\vec{q}|,|\vec{q}_r|)\big)^2 \quad .
 \end{equation}
 $$
-#### 3.2 Gounaris-Sakurai
+#### 3.2 Gounaris-Sakurai <a name="gounarissakurai"></a> 
 For the $ \pi\pi $ P-Wave, the Gounaris-Sakurai function[^Gounaris:1968mw] describes better then the Breit-Wigner function. Mathematically, Gounaris-Sakurai function has better analyticity. We follow the form: 
 $$
 \begin{equation}
@@ -74,7 +84,7 @@ h^\prime(m_r^2) & = \frac{dh}{d(m^2)}\bigg|_{m^2=m^2_r} = \bigg(\frac{1}{8|\vec{
 \end{align}
 $$
 
-#### 3.3 LASS 
+#### 3.3 LASS <a name="lass"></a> 
 For the $ K\pi $ S-Wave resonance, $ K^*(1430) $, LASS model describes the shape better then Breit-Wigner. This model is a combination of a resonance part and a non-resonance part. We follow the form[^Lupton:2016iaz]:
 $$
 \begin{equation}
@@ -95,7 +105,7 @@ $$
 \end{align}
 $$
 
-#### 3.4 Generalized LASS 
+#### 3.4 Generalized LASS <a name="generalizedlass"></a> 
 With more parameters, Generalized LASS can describe the $ K^*(1430) $ from decays better then LASS. We follow the form: 
 $$
 \begin{align}
@@ -105,7 +115,7 @@ T_{\rm GLASS} = & Re^{i\phi_R+2i\phi_B}\Big(\frac{q \cot\delta_B+iq}{q \cot\delt
 $$
 The Generalized LASS reduces to LASS when setting $ B=R=1 $ and $ \phi_B = \phi_R = 0 $.
 
-#### 3.5 K-Matrix 
+#### 3.5 K-Matrix <a name="kmatrix"></a> 
 In the case where multiple channels coupling becomes important, the K-Matrix is more effective than the sum of isolated resonances, for example, when describing the $ \pi\pi $ S-Wave. The K-Matrix $ \hat{K} $ parameterizes the scattering processes with multiple resonances that indicated with poles. The scattering process is usually parameterized as
 $$
 \begin{equation}
@@ -132,7 +142,7 @@ $$
 $$
 $ \beta^0_\alpha $ is the complex coefficient for the resonance $ \alpha $. The complex parameter $ f^{pr}_{kj} $ and the real $ s^{pr}_0 $ describe the smooth part, for the reconstructed channel $ k $. Our code sets $ k = \pi\pi $ as default. The $ g_{\alpha i} $, $ m_\alpha $, $ f^{sc}_{ij} $, $ s^{sc}_0 $, $ s^{A}_0 $ and $ s_A $ are fixed to the values from the scattering experiment[^Jordi:thesis][^Anisovich:2002ij]. Currently, only the $ i = \pi\pi $ and $ j = \pi\pi $ parts of $ f^{sc}_{ij} $ is filled, while other parts are left zero.
 
-#### 3.6 Flatté 
+#### 3.6 Flatté <a name="flatte"></a> 
 When there is only one resonance and two coupling channels, the K-Matrix reduced to the Flatté model[^Ayik:1976mqe]. We follow the form:
 $$
 \begin{equation}

@@ -1,8 +1,21 @@
 # Installation and Work Flow 
 
-[toc]
+[1. Installation](#installation)
+[2. Work flow](#workflow)
+	[2.1 Create a user code file](#createausercodefile)
+	[2.2 Build an amplitude model](#buildanamplitudemodel)
+	[2.3 Configure the detector effect](#configurethedetectoreffect)
+		[2.3.1 Dalitz-plot efficiency](#dalitzplotefficiency)
+		[2.3.2 Dalitz-plot resolution](#dalitzplotresolution)
+		[2.3.3 Decay-time resolution](#decaytimeresolution)
+	[2.4 Fitting](#fitting)
+	[2.5 Monte Carlo samples generation](#montecarlosamplesgeneration)
+	[2.6 Plotting](#plotting)
+	[2.7 Configuration file](#configurationfile)
 
-### 1. Installation
+
+
+### 1. Installation <a name="installation"></a> 
 
 The DAFNE framework itself is a header only library, and don't need to compile and install. To compile the examples, one can follow the instruction below:
 
@@ -13,11 +26,11 @@ cmake -D CMAKE_C_COMPILER=`which gcc` -D CMAKE_CXX_COMPILER=`which g++` -D HYDRA
 make -j 10 # if you have 10 cores available for compilation
 ```
 
-### 2. Work flow
+### 2. Work flow <a name="workflow"></a> 
 
 In the following, we briefly introduce the key steps of using DAFNE. If one is starting a new practical work, we suggest to start from one of the example files in `include/*.inl`, and replace the decay model related content. 
 
-#### 2.1 Create a user code file
+#### 2.1 Create a user code file <a name="createausercodefile"></a> 
 The first step is to create a file with the suffix ".inl" under the folder `include/`, say `include/test.inl`. Then copy the head files and namespace setting from one of the example `include/*.inl` files, and write a simple `main()` function, like
 ```
 // some includes
@@ -39,7 +52,7 @@ ADD_ANALYSIS(test)
 ```
 After configuring and compiling with `cmake` and `make`, one  will get a preliminary executable based on the DAFNE framework. In the following steps, user only need to edit the ".inl".
 
-#### 2.2 Build an amplitude model
+#### 2.2 Build an amplitude model <a name="buildanamplitudemodel"></a> 
 First, create the parameters:
 ```
 // K*(892)- -> KS Pi-
@@ -98,8 +111,8 @@ auto model_truth_db =
 Here the decay-time, mixing parameters, CPV parameters are also set. 
 
 
-#### 2.3 Configure the detector effect
-##### 2.3.1 Dalitz-plot efficiency
+#### 2.3 Configure the detector effect <a name="configurethedetectoreffect"></a> 
+##### 2.3.1 Dalitz-plot efficiency <a name="dalitzplotefficiency"></a> 
 To write an analytical Dalit-plot efficiency, just define following the scheme[^wrap_lambda]:
 ```
 // create parameters
@@ -162,7 +175,7 @@ Multiply on the ${\rm pdf}$:
 ```
 auto model = rate(Af)*efficiency;
 ```
-##### 2.3.2 Dalitz-plot resolution 
+##### 2.3.2 Dalitz-plot resolution <a name="dalitzplotresolution"></a> 
 The Dalitz-plot resolution can be configure with `Resolution2D`. 
 ```
 Resolution2D resolution2D;
@@ -171,7 +184,7 @@ TCanvas cresolution("cresolution", "cresolution", 800, 600);
 ```
 This class could provide convenient function for the smearing, as shown in `include/generate-KSpipi-time-independent.inl`.
 
-##### 2.3.3 Decay-time resolution 
+##### 2.3.3 Decay-time resolution <a name="decaytimeresolution"></a> 
 For the decay-time resolution, we need to set the parameters for the decay-time pull distribution and the distribution of $ \sigma_t $, which is a Johnson SU distribution. 
 ```
 auto b = hydra::Parameter::Create("b").Value(0.0).Error(0.0001);
@@ -215,7 +228,7 @@ ThreeBodyPhaseSpaceWithTimeAndTimeError phsp( 1.8645,
 ```
 Here we set the decay-time range as $ [-2, 7]~{\rm ps} $ and decay-time error range as $ [0, 0.5]~{\rm ps} $.
 
-#### 2.4 Fitting
+#### 2.4 Fitting <a name="fitting"></a> 
 Create a container for the data and fill it. For example, fill the data from a CERN ROOT TTree.
 ```
 hydra::multivector<hydra::tuple<MSq12,MSq13,MSq23>, 
@@ -256,7 +269,7 @@ std::cout << "Fit results:\n" << minimum.UserState() << std::endl;
 MinuitTools::CovarianceMatrixStatus(minimum);
 ```
 
-#### 2.5 Monte Carlo Samples Generation
+#### 2.5 Monte Carlo samples generation <a name="montecarlosamplesgeneration"></a> 
 To generate MC according to the time-integrated Dalitz-plot, just write
 ```
 auto data = phsp.GenerateData<MSq12, MSq13, MSq23>(model,
@@ -284,7 +297,7 @@ auto data_db = phsp.GenerateDataWithTimeAndTimeError<MSq12, MSq13, MSq23,
 ```
 The `phsp` here is of  `ThreeBodyPhaseSpaceWithTimeAndTimeError` class. The `model_truth_dz`  should be created from the `time_dependent_rate()` rather than `time_dependent_rate_with_time_resolution_pdf()`.
 
-#### 2.6 Plotting
+#### 2.6 Plotting <a name="plotting"></a> 
 To plot a time-integrated Daltz-plot, we firstly load the data and the decay model $ {\rm pdf} $, to a `DalitzPlotter`, setting the TLatex expression of three daughter particles. For example
 ```
 auto plotter = DalitzPlotter<MSqZero,MSqMinus,MSqPlus>(phsp,"#it{K}^{#minus}",
