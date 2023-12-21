@@ -29,7 +29,7 @@ For the decay amplitude component $P\to ar$, $r\to bc$,  $W_l(m^2_{ab},m^2_{bc})
 
 
 ### 2. The barrier factor $B_l$ <a name="thebarrierfactor"></a> 
-The barrier factors $B_l^{Pc}(|\vec{p}|,|\vec{p}_r|)$ and $B_l^{ab}(|\vec{q}|,|\vec{q}_r|)$, are related to the momentum of $c$ in the mother particle rest frame ($\vec{p}$) and the momentum of $a$ in the $ab$ system rest frame ($\vec{q}$). The $\vec{p}_r$ ($\vec{q}_r$) represents the $ \vec{p} $ ($ \vec{q} $) when $ m_{ab} $ is right at the resonance mass $ m_r $. The form $ B_l(|\vec{k}|,|\vec{k}_r|) $ are the Blatt-Weisskopf centrifugal barrier factors[^Aston:1987ir][^VonHippel:1972fg][^Blatt:1952ije]:
+The barrier factors $B_l^{Pc}(|\vec{p}|,|\vec{p}_r|)$ and $B_l^{ab}(|\vec{q}|,|\vec{q}_r|)$, are related to the momentum of $c$ in the mother particle rest frame ($\vec{p}$) and the momentum of $a$ in the $ab$ system rest frame ($\vec{q}$). The $\vec{p}_r$ ($\vec{q}_r$) represents the $\vec{p}$ ($\vec{q}$) when $m_{ab}$ is right at the resonance mass $m_r$. The form $B_l(|\vec{k}|,|\vec{k}_r|)$ are the Blatt-Weisskopf centrifugal barrier factors[^Aston:1987ir][^VonHippel:1972fg][^Blatt:1952ije]:
 
 $$
 \begin{align}
@@ -79,6 +79,7 @@ d = \frac{3(m^2_a+m^2_b)}{2\pi|\vec{q}_r|^2}\ln(\frac{m_r+2|\vec{q}_r|}{m_a+m_b}
 \end{equation}
 $$
 
+  
 
 $$
 \begin{equation}
@@ -131,6 +132,7 @@ T_{\rm GLASS} = & Re^{i\phi_R+2i\phi_B}\Big(\frac{q \cot\delta_B+iq}{q \cot\delt
 \end{align}
 $$
 
+
 The Generalized LASS reduces to LASS when setting $B=R=1$ and $\phi_B = \phi_R = 0$.
 
 #### 3.5 K-Matrix <a name="kmatrix"></a> 
@@ -150,7 +152,7 @@ T_{\rm K-Matrix}=(1-i\hat{K}\rho)^{-1}\hat{P} \quad .
 \end{equation}
 $$
 
-The production vector $\hat{P}$ parameterizes the resonances production in meson decay, while the $(1-i\hat{K}\rho)^{-1}$ part describe the decays of the resonances. For $ \hat{K} $, we follow the form 
+The production vector $\hat{P}$ parameterizes the resonances production in meson decay, while the $(1-i\hat{K}\rho)^{-1}$ part describe the decays of the resonances. For $\hat{K}$, we follow the form 
 
 $$
 \begin{align}
