@@ -1,8 +1,8 @@
 # Details of the Decay Amplitude
 
 
-[1. The angular distribution $W_l$](#theangulardistribution)  
-[2. The barrier factor $B_l$](#thebarrierfactor)  
+[1. The angular distribution $$W_l$$](#theangulardistribution)  
+[2. The barrier factor $$B_l$$](#thebarrierfactor)  
 [3. The propagators](#thepropagators)  
 &ensp;&ensp;[3.1 Breit-Wigner](#breitwigner)  
 &ensp;&ensp;[3.2 Gounaris-Sakurai](#gounarissakurai)  
@@ -12,9 +12,9 @@
 &ensp;&ensp;[3.6 Flatté](#flatte)  
 
 
-### 1. The angular distribution $W_l$ <a name="theangulardistribution"></a> 
+### 1. The angular distribution $$W_l$$ <a name="theangulardistribution"></a> 
 
-The angular distribution $ W_l(m^2_{ab},m^2_{bc}) $ follows the Zemach formalism[^Zemach:1963bc][^Zemach:1965ycj][^Filippini:1995yc]. For the $ P\to cr $, $ r\to ab $ case, $ W_l(m^2_{ab},m^2_{bc}) = Z_l(m^2_{ab},m^2_{bc})$, and: 
+The angular distribution $W_l(m^2_{ab},m^2_{bc})$ follows the Zemach formalism[^Zemach:1963bc][^Zemach:1965ycj][^Filippini:1995yc]. For the $P\to cr$, $r\to ab$ case, $$ W_l(m^2_{ab},m^2_{bc}) = Z_l(m^2_{ab},m^2_{bc})$$, and: 
 
 
 $$
