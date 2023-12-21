@@ -102,7 +102,7 @@ The empirical form factor
 
 $$
 \begin{equation}
-	f_r(x) = \exp(b_1x + b_2x^2 + b_3x^3)
+	f_r(x) = \exp(b_1x + b_2x^2 + b_3x^3) \quad .
 \end{equation}
 $$
 
@@ -121,8 +121,8 @@ With more parameters, Generalized LASS can describe the $K^*(1430)$ from decays 
 $$
 \begin{align}
 T_{\rm GLASS} = & Re^{i\phi_R+2i\phi_B}\Big(\frac{q \cot\delta_B+iq}{q \cot\delta_B-iq}\Big)\frac{m_r}{2|\vec{q}_r|}\Big(\frac{m_r\Gamma_r^0}{m^2_r - m^2_{ab} -im_r\Gamma(m_{ab})}\Big) \nonumber \\
-& + B\frac{m_{ab}}{2}e^{i\phi_B}\frac{\cos\phi_B+\sin\phi_B\cot\delta_B}{q\cot\delta_B-i|\vec{q}|}
-\end{align}
+& + B\frac{m_{ab}}{2}e^{i\phi_B}\frac{\cos\phi_B+\sin\phi_B\cot\delta_B}{q\cot\delta_B-i|\vec{q}|} \quad .
+\end{align} 
 $$
 
 The Generalized LASS reduces to LASS when setting $B=R=1$ and $\phi_B = \phi_R = 0$.
@@ -167,7 +167,7 @@ When there is only one resonance and two coupling channels, the K-Matrix reduced
 
 $$
 \begin{equation}
-T_\text{Flatté} = \frac{m_r\Gamma^0_r\gamma_{r1}^2}{m^2_r-m^2_{ab}-im_r\Gamma^0_r(\gamma_{r1}^2\rho_1+\gamma_{r2}^2\rho_2)}
+T_\text{Flatté} = \frac{m_r\Gamma^0_r\gamma_{r1}^2}{m^2_r-m^2_{ab}-im_r\Gamma^0_r(\gamma_{r1}^2\rho_1+\gamma_{r2}^2\rho_2)} \quad .
 \end{equation}
 $$
 
