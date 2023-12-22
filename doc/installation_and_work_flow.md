@@ -17,7 +17,7 @@
 
 ### 1. Installation <a name="installation"></a> 
 
-The DAFNE framework itself is a header only library, and don't need to compile and install. To compile the examples, one can follow the instruction below:
+The DAFNE framework itself is a header only library, and don't need to compile and install. To compile the examples, one can follow the instructions below:
 
 ```
 mkdir build
@@ -76,7 +76,7 @@ auto KSTM_amp = BreitWignerAmplitude<MSq12,MSq13,hydra::PWave,1,3,BaBarKSpipi,
 			    "#it{K}*(892)^{#minus}#it{#pi}^{+}");
 ```
 We define a phase space object with the masses of mother ($ D^0 $) and daughters ($ K_S^0 $, $ \pi^+ $, $ \pi^- $). This object will handle the calculations for kinematics.   
-We define the type of the two Dalitz-plot variables as `double`, and wrap them as `MSq12` and `MSq13` with `declarg()`[^declarg]. And we write `MSq12` and `MSq13` as amplitude class template parameters, indicating the type of variables to compute. By doing so, one can avoid applying a math function on wrong variables. Suppose when writing the code, one accidentally applys a function $ f(m_{12}, m_{13}) $ on a $ (m_{12},m_{23}) $ or $ (m_{12},t) $ dataset, the compiler will point out there is something wrong.   
+We define the type of the two Dalitz-plot variables as `double`, and wrap them as `MSq12` and `MSq13` with `declarg()`[^declarg]. And we write `MSq12` and `MSq13` as amplitude class template parameters, indicating the type of variables to compute. By doing so, one can avoid applying a math function on wrong variables. Suppose when writing the code, one accidentally applies a function $ f(m_{12}, m_{13}) $ on a $ (m_{12},m_{23}) $ or $ (m_{12},t) $ dataset, the compiler will point out there is something wrong.   
 The angular momentum of the resonance is 1, and this resonance decays into particle 1 and 3 ($ a $ and $ c $). The `BaBarKSpipi` and `Helicity` are switches for the amplitude definitions under different convention. The name of this amplitude is defined as `Kstm`, and this is also its name in the [configuration file](#configurationfile). The TLatex expression for the plotting, is defined. And one can also define here the color for the automatic plotting:
 
 ```
@@ -113,7 +113,7 @@ Here the decay-time, mixing parameters, CPV parameters are also set.
 
 #### 2.3 Configure the detector effect <a name="configurethedetectoreffect"></a> 
 ##### 2.3.1 Dalitz-plot efficiency <a name="dalitzplotefficiency"></a> 
-To write an analytical Dalit-plot efficiency, just define following the scheme[^wrap_lambda]:
+To write an analytical Dalitz-plot efficiency, just define following the scheme[^wrap_lambda]:
 ```
 // create parameters
 auto a0  = hydra::Parameter::Create("eff_a0").Value(0.0).Error(0.1);
@@ -182,7 +182,7 @@ Resolution2D resolution2D;
 config.ConfigureResolution2D(resolution2D);
 TCanvas cresolution("cresolution", "cresolution", 800, 600);
 ```
-This class could provide convenient function for the smearing, as shown in `include/generate-KSpipi-time-independent.inl`.
+This class can produce smearing conveniently, as shown in `include/generate-KSpipi-time-independent.inl`.
 
 ##### 2.3.3 Decay-time resolution <a name="decaytimeresolution"></a> 
 For the decay-time resolution, we need to set the parameters for the decay-time pull distribution and the distribution of $ \sigma_t $, which is a Johnson SU distribution. 
@@ -220,7 +220,7 @@ auto model_db =
 	phsp.TimeRange(),
 	phsp.TimeErrorRange()); 
 ```
-The ranges of dalitz variables and decay-time variables are also set, which are needed by the normalization factor. Another thing to notice is that the `phsp` here is an object of `ThreeBodyPhaseSpaceWithTimeAndTimeError` class, a subclass of `ThreeBodyPhaseSpace`.
+The ranges of Dalitz-plot variables and decay-time variables are also set, which are needed by the normalization factor. Another thing to notice is that the `phsp` here is an object of `ThreeBodyPhaseSpaceWithTimeAndTimeError` class, a subclass of `ThreeBodyPhaseSpace`.
 ```
 ThreeBodyPhaseSpaceWithTimeAndTimeError phsp( 1.8645, 
      {0.49767, 0.139570, 0.139570}, 
@@ -298,7 +298,7 @@ auto data_db = phsp.GenerateDataWithTimeAndTimeError<MSq12, MSq13, MSq23,
 The `phsp` here is of  `ThreeBodyPhaseSpaceWithTimeAndTimeError` class. The `model_truth_dz`  should be created from the `time_dependent_rate()` rather than `time_dependent_rate_with_time_resolution_pdf()`.
 
 #### 2.6 Plotting <a name="plotting"></a> 
-To plot a time-integrated Daltz-plot, we firstly load the data and the decay model $ {\rm pdf} $, to a `DalitzPlotter`, setting the TLatex expression of three daughter particles. For example
+To plot a time-integrated Dalitz-plot, we firstly load the data and the decay model $ {\rm pdf} $, to a `DalitzPlotter`, setting the TLatex expression of three daughter particles. For example
 ```
 auto plotter = DalitzPlotter<MSqZero,MSqMinus,MSqPlus>(phsp,"#it{K}^{#minus}",
                "#it{#pi}^{+}","#it{#pi}^{0}");
@@ -324,7 +324,7 @@ int plottedXAxis = 0;
 int plottedYAxis = 1; 
 plotter.Plot2DProjectionData(plottedXAxis, plottedYAxis);
 ```
-Two dimensional distribution of the fit model can be ploted separately:
+Two dimensional distribution of the fit model can be plotted separately:
 ```
 plotter.Plot2DProjectionModel(plottedXAxis, plottedYAxis);
 ```
