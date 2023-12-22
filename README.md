@@ -11,7 +11,7 @@ and on the [ROOT website](https://root.cern.ch) for more information.
 Dafne requires Hydra release 4.0 (or higher). Any recent version of ROOT should work with
 Dafne, we recommend to use the latest production version available.  
 
-Dafne is a header-only libraries. Not installation procedure is required.
+Dafne is a header-only library. Not installation procedure is required.
 You can compile all Dafne's examples by executing the following commands:
 			
 
