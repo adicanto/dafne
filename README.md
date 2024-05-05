@@ -1,34 +1,21 @@
-DAlitz Fitter aNd Event generator (DAFNE)
+DAlitz-plot Fitter aNd Event generator (DAFNE)
 =========================================
 
-Dafne is a C++ framework for fitting and generation of time-(in)dependent 3-body decays.
+DAFNE is a C++ framework for fitting and generation of time-(in)dependent 3-body decays.
 
-It has external dependencies on Hydra, ROOT and TCLAP. Hydra and ROOT have their own
-dependencies. Please refer to the istructions provided in the
-[Hydra GitHub repository](https://github.com/MultithreadCorner/Hydra)
-and on the [ROOT website](https://root.cern.ch) for more information.
+It has external dependencies on [Hydra](https://github.com/MultithreadCorner/Hydra), [ROOT](https://root.cern.ch), [Eigen3](https://gitlab.com/libeigen/eigen/) and  [TCLAP](http://tclap.sourceforge.net). Hydra and ROOT have their own dependencies. Please refer to the instructions provided in the [Hydra GitHub repository](https://github.com/MultithreadCorner/Hydra) and on the [ROOT website](https://root.cern.ch) for more information.  
 
-Dafne requires Hydra release 3.2.3 (or higher). Any recent version of ROOT should work with
-Dafne, we recommend to use the latest production version available. If TCLAP is not
-installed in your system, download it from [sourceforge.net](http://tclap.sourceforge.net).
+DAFNE requires Hydra release 4.0 (or higher). Any recent version of ROOT should work with DAFNE, we recommend to use the latest production version available.  
 
-While ROOT needs to be compiled, Hydra and TCLAP are header-only libraries, so downloading
-them is enough for Dafne to work.
-
-You can compile all Dafne's examples by executing the following commands:
+DAFNE is a header-only library. Not installation procedure is required. You can compile all DAFNE's examples by executing the following commands:
 			
+
 ```
 mkdir build
 cd build
-cmake -D HYDRA_INCLUDE_DIR=path_to_hydra_dir -D TCLAP_INCLUDE_DIR=path_to_tclap_dir ../
-make
+cmake -D CMAKE_C_COMPILER=`which gcc` -D CMAKE_CXX_COMPILER=`which g++` -D HYDRA_INCLUDE_DIR=<path to hydra> -D TCLAP_INCLUDE_PATH=<path to tclap>/include -D EIGEN3_INCLUDE_DIR=<path to eigen3>/include/eigen3 -D TBB_INCLUDE_DIRS=<path to tbb>/include/  -DTBB_tbb_LIBRARY_RELEASE=<path to tbb>/lib64/libtbb.so ../
+make -j 10 # if you have 10 cores available for compilation
 ```
 
-Some example programs may have a ``.cu`` and a ``.cpp`` source file in the ``src`` directory.
-These file have the same include statement of a ``.inl`` file containing the actual source
-code implementing the program. Cmake determines which backends are available and generates
-a Makefile to compile the code accordingly. The compiled executables will be in the
-``build/bin`` directory. For each example you will find different executables
-compiled against the available backends. The name convention is `example_{cpp,tbb,omp,cu}`
-for standard (single-threaded) C++, TBB (multi-threaded CPU), OpenMP (multi-threaded CPU),
-CUDA (Nvidia GPU) executables, respectively.			               
+The document for installation and work flow can be found [here](https://htmlpreview.github.io/?https://github.com/adicanto/dafne/blob/document-review/doc/installation_and_work_flow.html).  
+The details of the decay amplitude in DAFNE can be found [here](https://htmlpreview.github.io/?https://github.com/adicanto/dafne/blob/document-review/doc/details_of_the_decay_amplitude.html).
