@@ -65,7 +65,7 @@ int main( int argc, char** argv  )
 	efficiency_hist.GetTH2D((outprefix + "_efficiency_hist").c_str(), 
 		                    (outprefix + "_efficiency_hist").c_str(),
 		                    "m^{2}_{#it{#pi#pi}} [GeV^{2}/#it{c}^{4}]", "cos(#theta_{#it{#pi#pi}})")->Draw("COLZ");
-	Print::Canvas(cefficiency,  args.outdir + outprefix + "efficiency_hist");
+	Print::Canvas(cefficiency,  args.outdir + outprefix + "_efficiency_hist");
 	gStyle->SetOptStat(1);
 
 	auto efficiency = hydra::wrap_lambda(
@@ -122,6 +122,9 @@ int main( int argc, char** argv  )
 	// prepare the resolution for smearing
 	Resolution2D resolution2D;
 	config.ConfigureResolution2D(resolution2D);
+	TCanvas cresolution("cresolution", "cresolution", 800, 600);
+	resolution2D.Draw("m^{2}_{#it{#pi#pi}} [GeV^{2}/#it{c}^{4}]", "cos(#theta_{#it{#pi#pi}})");
+	Print::Canvas(cresolution,  args.outdir + outprefix + "_resolution");
 
 	//---------------------------------------------------------------------------------------
 	// Generate data
@@ -137,7 +140,7 @@ int main( int argc, char** argv  )
 	std::chrono::duration<double, std::milli> elapsed = end - start;
 
 	std::cout << "Generated " << ngenerated << " data events." << std::endl;
-	std::cout << "Time elapsed (ms):"<< elapsed.count() << std::endl;
+	std::cout << "Time elapsed (ms): "<< elapsed.count() << std::endl;
 
 	//---------------------------------------------------------------------------------------
 	// Save to ROOT file
@@ -196,14 +199,18 @@ int main( int argc, char** argv  )
 	if (args.plot) {
 		std::cout << "***** Plot data and model" << std::endl;
 
-		TApplication myapp("myapp",0,0);
+		TApplication* myapp = NULL;
+		if (args.interactive) myapp = new TApplication("myapp",0,0);
+		
 		
 		auto plotter = DalitzPlotter<MSqPlus, MSqMinus, MSqZero>(phsp,"#it{K}^{0}_{S}","#it{#pi}^{+}","#it{#pi}^{#minus}",(args.prlevel>3));
 		
 		std::string outfilename = args.outdir + outprefix + "-HIST.root";
-		plotter.FillHistograms(data, rate(amp), outfilename); // currently, the efficiency plane is not included in the plotting, and it would be included after the new plotting funtion is ready
+		plotter.FillDataHistogram(data);
+		plotter.FillModelHistogram(model);
+		plotter.FillComponentHistograms(amp, efficiency, 1);
 
-		// 1D Projection
+		// 1D projections
 		TCanvas c1("c1","c1",1600,500);
 		c1.Divide(3,1);
 
@@ -219,7 +226,7 @@ int main( int argc, char** argv  )
 		outfilename = args.outdir + outprefix + "-1d-projection";
 		Print::Canvas(c1,outfilename);
 
-		// 2D Projection
+		// 2D projections
 		TCanvas c2("c2","c2",1200,500);
 		c2.Divide(2,1);
 
@@ -232,7 +239,7 @@ int main( int argc, char** argv  )
 		outfilename = args.outdir + outprefix + "-2d-projection";
 		Print::Canvas(c2,outfilename);
 
-		// 2D Projection
+		// phase difference
 		TCanvas c3("c3","c3",600,500);
 		c3.SetRightMargin(.14);
 		
@@ -249,7 +256,7 @@ int main( int argc, char** argv  )
 
 		if (args.interactive) {
 			std::cout << "Press Crtl+C to terminate" << std::endl;
-			myapp.Run();
+			myapp->Run();
 		}
 	}
 	

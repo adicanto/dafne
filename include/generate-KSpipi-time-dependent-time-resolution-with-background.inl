@@ -2,6 +2,8 @@
 #include <hydra/device/System.h>
 #include <hydra/Placeholders.h>
 #include <hydra/functions/JohnsonSUShape.h>
+#include <hydra/Function.h>
+#include <hydra/FunctorArithmetic.h>
 
 #include <TROOT.h>
 #include <TFile.h>
@@ -40,7 +42,7 @@ using namespace hydra::arguments;
 
 
 // output prefix
-std::string outprefix = "generate-KSpipi-time-dependent-time-resolution";
+std::string outprefix = "generate-KSpipi-time-dependent-time-resolution-with-background";
 
 
 // Main
@@ -70,21 +72,25 @@ int main( int argc, char** argv  )
 	// config the model according to configuration file
 	ConfigFile config(args.config_file.c_str(), (args.prlevel>3) );
 	config.ConfigureModel(Adir);
+
+	// total amplitude for the decay that undergoes mixing
+	auto Abar = hydra::wrap_lambda( [&Adir] __hydra_dual__ (MSqPlus a, MSqMinus b) {
+		MSqPlus switched_a = b;
+		MSqMinus switched_b = a;
+		return Adir(switched_a,switched_b);
+	});
 	
-	// Time-dependent parameters
+	// time-dependent parameters
 	auto tau = hydra::Parameter::Create("tau").Value(Tau::D0).Fixed();
 	auto x   = hydra::Parameter::Create("x").Value(0.003).Error(0.0001).Limits(-1.,1.);
 	auto y   = hydra::Parameter::Create("y").Value(0.006).Error(0.0001).Limits(-1.,1.);
 	auto qop = hydra::Parameter::Create("qop").Value(1.0).Error(0.0001).Limits(0.,10.);
 	auto phi = hydra::Parameter::Create("phi").Value(0.0).Error(0.0001).Limits(-1.,1.);
 	config.ConfigureMixingParameters(tau, x, y, qop, phi);
-	
-	// Total amplitude for the decay that undergoes mixing
-	auto Abar = hydra::wrap_lambda( [&Adir] __hydra_dual__ (MSqPlus a, MSqMinus b) {
-		MSqPlus switched_a = b;
-		MSqMinus switched_b = a;
-		return Adir(switched_a,switched_b);
-	});
+
+	// turth level model
+	auto model_truth_dz = time_dependent_rate<Flavor::Positive,DecayTime>(tau,x,y,qop,phi,Adir,Abar); 
+	auto model_truth_db = time_dependent_rate<Flavor::Negative,DecayTime>(tau,x,y,qop,phi,Adir,Abar);
 
 	// efficiency plane described by irregular binning 2D histogram
 	ArbitraryBinningHistogram2D efficiency_hist = config.ConfigureEfficiencyHistogram();
@@ -99,7 +105,7 @@ int main( int argc, char** argv  )
 	Print::Canvas(cefficiency,  args.outdir + outprefix + "_efficiency_hist");
 	gStyle->SetOptStat(1);
 
-	// time dependent efficiency is ignored for the moment
+	// time dependence of the efficiency is ignored for the moment
 	auto efficiency = hydra::wrap_lambda(
 		[phsp, efficiency_hist] __hydra_dual__ (MSqPlus m2p, MSqMinus m2m) {
 
@@ -115,7 +121,7 @@ int main( int argc, char** argv  )
 
 	}); 
 
-	// time resolution test
+	// decay time resolution 
 	auto b   = hydra::Parameter::Create("b").Value(0.0).Error(0.0001).Limits(-1.,1.);
 	auto s   = hydra::Parameter::Create("s").Value(1.0).Error(0.0001).Limits(0.9,1.1);
 
@@ -128,9 +134,63 @@ int main( int argc, char** argv  )
 
 	auto johnson_su = hydra::JohnsonSU<DecayTimeError>(johnson_gamma, johnson_delta, johnson_xi, johnson_lambda);
 
-	// turth level model 
-	auto model_truth_dz = time_dependent_rate<Flavor::Positive,DecayTime>(tau,x,y,qop,phi,Adir,Abar); 
-	auto model_truth_db = time_dependent_rate<Flavor::Negative,DecayTime>(tau,x,y,qop,phi,Adir,Abar);
+
+	// add background
+	auto f_rnd = hydra::Parameter::Create("f_rnd").Value(0.0035).Fixed();
+	auto f_cmb = hydra::Parameter::Create("f_cmb").Value(0.0117).Fixed();
+	auto tau_cmb = hydra::Parameter::Create("tau_cmb").Value(Tau::D0*0.9).Fixed();
+	auto b_cmb   = hydra::Parameter::Create("b_cmb").Value(0.0).Fixed();
+	auto s_cmb   = hydra::Parameter::Create("s_cmb").Value(1.0).Fixed();
+	config.ConfigureBackgroundParameters({&f_rnd, &f_cmb, &tau_cmb, &b_cmb, &s_cmb});
+
+	// define the random soft pion background. The flavor tag for such kind of events
+	// is assumed to go wrong with a probability of 50%
+	auto random_background_truth = hydra::wrap_lambda( 
+		[&model_truth_dz, model_truth_db] __hydra_dual__ (MSqPlus a, MSqMinus b, DecayTime t) {
+			MSqPlus switched_a = b;
+			MSqMinus switched_b = a;
+			return 0.5*model_truth_dz(a,b,t) + 0.5*model_truth_db(switched_a,switched_b,t);
+	});
+
+	// load combinatorial background from a histogram
+	TH2D* th2_input_cmb = new TH2D("th2_input_cmb", "th2_input_cmb", 200, 0, 3.2, 200, 0, 3.2);
+	for (int i_x = 0; i_x < th2_input_cmb->GetXaxis()->GetNbins(); ++i_x)
+	for (int i_y = 0; i_y < th2_input_cmb->GetYaxis()->GetNbins(); ++i_y) {
+		double m2m = th2_input_cmb->GetXaxis()->GetBinCenter(i_x);
+		double m2p = th2_input_cmb->GetYaxis()->GetBinCenter(i_y);
+		if (phsp.Contains<2,3>(m2p, m2m)) th2_input_cmb->SetBinContent(i_x, i_y, 1.0);
+		else th2_input_cmb->SetBinContent(i_x, i_y, 0.0);
+	}
+	
+	ArbitraryBinningHistogram2D hist_input_cmb(*th2_input_cmb);
+	
+	TCanvas chist_input_cmb("chist_input_cmb", "chist_input_cmb", 800, 600);
+	gStyle->SetOptStat(0);
+	gPad->SetRightMargin(0.15);
+	hist_input_cmb.GetTH2D((outprefix + "_cmb_input_hist").c_str(), 
+	                    (outprefix + "_cmb_input_hist").c_str(),
+	                    "m^{2}_{#it{-}} [GeV^{2}/#it{c}^{4}]", "m^{2}_{#it{+}} [GeV^{2}/#it{c}^{4}]")->Draw("COLZ");
+	Print::Canvas(chist_input_cmb,  args.outdir + outprefix + "_cmb_input_hist");
+	gStyle->SetOptStat(1);
+
+	auto combinatorial_background_without_time = hydra::wrap_lambda( 
+		[phsp, hist_input_cmb] __hydra_dual__ (MSqPlus m2p, MSqMinus m2m) {
+			// judge whether in phase space or not
+			if (!phsp.Contains<2,3>(m2p, m2m)) return 0.0;
+
+			double x = m2m;
+			double y = m2p;
+			return hist_input_cmb.GetValue(x, y);
+		}
+	);
+
+	double Gamma_cmb = 1 / tau_cmb();
+	auto exp_cmb = hydra::wrap_lambda( [y, Gamma_cmb] __hydra_dual__ (DecayTime t)
+	{
+		return std::exp(-Gamma_cmb * t)  ;
+	});
+
+	auto combinatorial_background_truth = combinatorial_background_without_time * exp_cmb;
 
 
 	//---------------------------------------------------------------------------------------
@@ -138,16 +198,70 @@ int main( int argc, char** argv  )
 	//---------------------------------------------------------------------------------------
 	std::cout << "***** Generation" << std::endl;
 
+	std::cout << "Generating signal ... ... " << std::endl;
 	auto start = std::chrono::high_resolution_clock::now();	
 
-	auto data_dz = phsp.GenerateDataWithTimeAndTimeError<MSqPlus,MSqMinus,MSqZero,DecayTime,DecayTimeError>(model_truth_dz,efficiency,tau(),y(),b(),s(),johnson_su,args.nevents/2,args.seed,(args.prlevel>3));
-	std::cout << "Generated " << data_dz.size() << " D0 candidates." << std::endl;
-	auto data_db = phsp.GenerateDataWithTimeAndTimeError<MSqPlus,MSqMinus,MSqZero,DecayTime,DecayTimeError>(model_truth_db,efficiency,tau(),y(),b(),s(),johnson_su,args.nevents/2,args.seed+1,(args.prlevel>3));
-	std::cout << "Generated " << data_db.size() << " D0bar candidates." << std::endl;
+	auto data_dz = phsp.GenerateDataWithTimeAndTimeError<MSqPlus,MSqMinus,MSqZero,DecayTime,DecayTimeError>(
+						model_truth_dz,efficiency,tau(),y(),b(),s(),
+						johnson_su,(1-f_cmb.GetValue()-f_rnd.GetValue()) * args.nevents / 2,
+						args.seed,(args.prlevel>3));
+	std::cout << "Generated " << data_dz.size() << " D0 signal candidates." << std::endl;
+
+	auto data_db = phsp.GenerateDataWithTimeAndTimeError<MSqPlus,MSqMinus,MSqZero,DecayTime,DecayTimeError>(
+						model_truth_db,efficiency,tau(),y(),b(),s(),
+						johnson_su,(1-f_cmb.GetValue()-f_rnd.GetValue()) * args.nevents / 2,
+						args.seed+1,(args.prlevel>3));
+	std::cout << "Generated " << data_db.size() << " D0bar signal candidates." << std::endl;
 
 	auto end = std::chrono::high_resolution_clock::now();
 	std::chrono::duration<double, std::milli> elapsed = end - start;
 	std::cout << "Time elapsed (ms): "<< elapsed.count() << std::endl;
+
+	std::cout << "Generating random background ... ... " << std::endl;
+	start = std::chrono::high_resolution_clock::now();
+
+	auto data_rnd = phsp.GenerateDataWithTimeAndTimeError<MSqPlus,MSqMinus,MSqZero,DecayTime,DecayTimeError>(
+							random_background_truth, 
+							efficiency, tau(), y(), b(), s(), johnson_su,
+							f_rnd.GetValue()*args.nevents,  // generate for _dz and _ab
+							args.seed);
+	
+	end = std::chrono::high_resolution_clock::now();
+	elapsed = end - start;
+	std::cout << "Generated " << data_rnd.size() << " random background events." << std::endl;
+	std::cout << "Time elapsed (ms): "<< elapsed.count() << std::endl;
+
+	std::cout << "Generating combinatorial background ... ... " << std::endl;
+	start = std::chrono::high_resolution_clock::now();
+
+	auto dummy_efficiency = ConstantFunctor(1);
+
+	auto data_cmb = phsp.GenerateDataWithTimeAndTimeError<MSqPlus,MSqMinus,MSqZero,DecayTime,DecayTimeError>(
+							combinatorial_background_truth, 
+							dummy_efficiency, tau_cmb(), 0, b_cmb(), s_cmb(), johnson_su, 
+							f_cmb.GetValue()*args.nevents,  // generate for _dz and _ab
+							args.seed); 
+
+	end = std::chrono::high_resolution_clock::now();
+	elapsed = end - start;
+	std::cout << "Generated " << data_cmb.size() << " combinatorial background events." << std::endl;
+	std::cout << "Time elapsed (ms): "<< elapsed.count() << std::endl;
+
+	
+	// merge and shuffle
+	std::cout << "Distributing the backgrounds to data_dz and data_db ... ... " << std::endl;
+	data_dz.insert( data_dz.end(), data_rnd.begin(), data_rnd.begin() + data_rnd.size()/2);
+	data_dz.insert( data_dz.end(), data_cmb.begin(), data_cmb.begin() + data_cmb.size()/2);
+	std::random_shuffle(data_dz.begin(), data_dz.end());
+
+	data_db.insert( data_db.end(), data_rnd.begin() + data_rnd.size()/2 , data_rnd.end());
+	data_db.insert( data_db.end(), data_cmb.begin() + data_cmb.size()/2 , data_cmb.end());
+	std::random_shuffle(data_db.begin(), data_db.end());
+
+	std::cout << "Generated " << data_dz.size() << " D0 events in total." << std::endl;
+	std::cout << "Generated " << data_db.size() << " D0bar events in total." << std::endl;
+
+
 	
 	//---------------------------------------------------------------------------------------
 	// Save to ROOT file
@@ -263,9 +377,10 @@ int main( int argc, char** argv  )
 	if (args.plot) {
 		std::cout << "***** Plot data and model" << std::endl;
 
+		// plotting procedure
 		TApplication* myapp = NULL;
-		if (args.interactive) myapp = new TApplication("myapp",0,0);
-		
+		if (args.interactive) myapp = new TApplication("myapp",0,0);		
+
 		// data_dz + data_db are plotted with model_dz ignoring the CPV
 		auto data = data_dz;
 		data.insert(data.end(), data_db.begin(), data_db.end());
@@ -273,13 +388,26 @@ int main( int argc, char** argv  )
 		// plot Dalitz-plot distributions
 		auto plotter = DalitzPlotterWithTimeAndTimeError<MSqPlus, MSqMinus, MSqZero, DecayTime, DecayTimeError>(phsp,"#it{K}^{0}_{S}","#it{#pi}^{+}","#it{#pi}^{#minus}",(args.prlevel>3));
 
-		plotter.FillDataHistogram(data, args.plotnbins, args.plotnbins, args.plotnbins);
-		plotter.FillModelHistogram(model_truth_dz, efficiency, tau(), y(), b(), s(), johnson_su, 
-								   args.plotnbins, args.plotnbins, args.plotnbins);
+
+		THnSparseD* h_data =  plotter.FillDataHistogram(data, args.plotnbins, args.plotnbins, args.plotnbins);
+		THnSparseD* h_sig = plotter.FillHistogram("signal", "Signal", model_truth_dz, efficiency, 
+									tau(), y(), b(), s(), johnson_su, 
+									1-f_rnd.GetValue()-f_cmb.GetValue(),
+									2, 1, 0, args.plotnbins, args.plotnbins, args.plotnbins);
+		THnSparseD* h_rnd = plotter.FillHistogram("rnd_bkg", "Random #pi^{s}", random_background_truth, efficiency, 
+									tau(), y(), b(), s(), johnson_su, 
+									f_rnd(),
+									28, 3, 6, args.plotnbins, args.plotnbins, args.plotnbins);
+		THnSparseD* h_cmb = plotter.FillHistogram("cmb_bkg", "Combinatorial", combinatorial_background_truth, 
+									dummy_efficiency, 
+									tau_cmb(), 0, b_cmb(), s_cmb(), johnson_su, 
+									f_cmb(), 16, 7, 41, args.plotnbins, args.plotnbins, args.plotnbins);
+		plotter.FillModelHistogramFromExternalHistograms({"signal", "rnd_bkg", "cmb_bkg"}, args.plotnbins, args.plotnbins, args.plotnbins);
 		plotter.SetCustomAxesTitles("#it{m}^{2}_{+} [GeV^{2}/#it{c}^{4}]","#it{m}^{2}_{#minus} [GeV^{2}/#it{c}^{4}]","#it{m}^{2}_{#it{#pi#pi}} [GeV^{2}/#it{c}^{4}]");
 
 		std::string outfilename = args.outdir + outprefix + "-HIST.root";
-		if (outfilename != "") plotter.SaveHistograms(outfilename);
+		plotter.SaveHistograms(outfilename);
+	
 
 		// 1D projections
 		TCanvas c1("c1","c1",1800,700);
@@ -303,29 +431,71 @@ int main( int argc, char** argv  )
 		pad6->SetLeftMargin(0.15);
 
 		pad1->cd();
-		plotter.Plot1DProjectionData(0, "e1");
-		plotter.Plot1DProjectionModel(0, "histo same");
+		TH1D * h1_sig = plotter.Plot1DProjection("signal", 0, "histo");
+		h1_sig->SetLineWidth(1);
+		TH1D * h1_cmb = plotter.Plot1DProjection("cmb_bkg", 0, "histo same");
+		TH1D * h1_rnd = plotter.Plot1DProjection("rnd_bkg", 0, "histo same");
+
+		THStack * h1_all = new THStack("h1_all", "h1_all");
+		h1_all->Add(h1_cmb);
+		h1_all->Add(h1_rnd);
+		h1_all->Add(h1_sig);
+
+		h1_all->Draw();
+		h1_all->SetMaximum(h1_all->GetMaximum()*1.1);
+		plotter.Plot1DProjectionData(0, "e1 same");
+
+
 		pad2->cd();
 		TH1D* h1_pull = plotter.Plot1DPull(0);
 		plotter.PlotPullLines(h1_pull->GetXaxis()->GetXmin(), h1_pull->GetXaxis()->GetXmax());
 
+
 		pad3->cd();
-		plotter.Plot1DProjectionData(1, "e1");
-		plotter.Plot1DProjectionModel(1, "histo same");
+		h1_sig = plotter.Plot1DProjection("signal", 1, "histo");
+		h1_sig->SetLineWidth(1);
+		h1_cmb = plotter.Plot1DProjection("cmb_bkg", 1, "histo same");
+		h1_rnd = plotter.Plot1DProjection("rnd_bkg", 1, "histo same");
+
+		h1_all = new THStack("h1_all", "h1_all");
+		h1_all->Add(h1_cmb);
+		h1_all->Add(h1_rnd);
+		h1_all->Add(h1_sig);
+
+		h1_all->Draw();
+		h1_all->SetMaximum(h1_all->GetMaximum()*1.1);
+		plotter.Plot1DProjectionData(1, "e1 same");
+
+
 		pad4->cd();
 		h1_pull = plotter.Plot1DPull(1);
 		plotter.PlotPullLines(h1_pull->GetXaxis()->GetXmin(), h1_pull->GetXaxis()->GetXmax());
 
 
 		pad5->cd();
-		TH1D* h1_data = plotter.Plot1DProjectionData(2, "e1");
-		TH1D* h1_model = plotter.Plot1DProjectionModel(2, "histo same");
-		TLegend* leg = new TLegend(0.6,0.7,0.8,0.85);
+		h1_sig = plotter.Plot1DProjection("signal", 2, "histo");
+		h1_sig->SetLineWidth(1);
+		h1_cmb = plotter.Plot1DProjection("cmb_bkg", 2, "histo same");
+		h1_rnd = plotter.Plot1DProjection("rnd_bkg", 2, "histo same");
+
+		h1_all = new THStack("h1_all", "h1_all");
+		h1_all->Add(h1_cmb);
+		h1_all->Add(h1_rnd);
+		h1_all->Add(h1_sig);
+
+		h1_all->Draw();
+		h1_all->SetMaximum(h1_all->GetMaximum()*1.1);
+		TH1D* h1_data = plotter.Plot1DProjectionData(2, "e1 same");
+
+		TLegend* leg = new TLegend(0.55,0.67,0.82,0.88);
 		leg->SetBorderSize(0);
 		leg->SetFillStyle(0);
-		leg->AddEntry(h1_data, "Data", "pe");
-		leg->AddEntry(h1_model, "Model Sum", "l");
+		leg->AddEntry(h1_data, h_data->GetTitle(), "pe");
+		leg->AddEntry(h1_sig, h_sig->GetTitle(), "l");
+		leg->AddEntry(h1_rnd, h_rnd->GetTitle(), "lf");
+		leg->AddEntry(h1_cmb, h_cmb->GetTitle(), "lf");
 		leg->Draw();
+
 
 		pad6->cd();
 		h1_pull = plotter.Plot1DPull(2);
@@ -355,40 +525,11 @@ int main( int argc, char** argv  )
 		TCanvas c3("c3","c3",600,500);
 		c3.SetRightMargin(.14);
 
-		auto phspWithoutTime = D0ToKsPiPi_FVECTOR_BABAR::PhaseSpace();
 		auto plotterWithoutTime = DalitzPlotter<MSqPlus, MSqMinus, MSqZero>(phsp,"#it{K}^{0}_{S}","#it{#pi}^{+}","#it{#pi}^{#minus}",(args.prlevel>3));
 		plotterWithoutTime.PlotPhaseDifference(Adir,Abar);
 		
 		outfilename = args.outdir + outprefix + "-phase-difference";
 		Print::Canvas(c3,outfilename);
-
-		// Compute Fi ci si 
-		if (args.strongphase_binning_file != "") {
-			std::vector<double> Fi;
-	    std::vector<double> Fmi;
-			std::vector<hydra::complex<double>> Xi; 
-
-			plotterWithoutTime.GetBinnedPhaseInformation(Adir, Abar, args.strongphase_binning_file, Fi, Fmi, Xi);
-
-			double dummyError = 0.01;
-			printf("b \t\t ci \t\t ci_stat \t\t ci_sys \t\t si \t\t si_stat \t\t si_sys \n");
-			for (int i = 0; i < Xi.size(); ++i) {
-				int b = i + 1;
-				printf("%d \t\t %.4f \t\t %.4f \t\t %.4f \t\t %.4f \t\t %.4f \t\t %.4f \n",
-						b, Xi[i].real(), dummyError, dummyError, -Xi[i].imag(), dummyError, dummyError);
-			}
-			printf("\n Currently, for the correlation matrix, please directly copy from BESIII's work \n\n");
-
-			dummyError = 0.001;
-			printf("i \t\t F_i \t\t F_i_err \t\t F_-i \t\t F_-i_err \n");
-			for (int i = 0; i < Fi.size(); ++i) {
-				int b = i + 1;
-				printf("%d \t\t %.4f \t\t %.4f \t\t %.4f \t\t %.4f \n",
-						b, Fi[i], dummyError, Fmi[i], dummyError);
-			}
-
-
-		}
 
 		// decay time distribution
 		TCanvas c4("c4","c4",1200,500);
@@ -406,23 +547,42 @@ int main( int argc, char** argv  )
 		pad10->SetLeftMargin(0.15);
 
 		pad7->cd();
-		h1_data = plotter.Plot1DProjectionData(3, "e1");
-		h1_model = plotter.Plot1DProjectionModel(3, "histo same");
+		h1_sig = plotter.Plot1DProjection("signal", 3, "histo");
+		h1_sig->SetLineWidth(1);
+		h1_rnd = plotter.Plot1DProjection("rnd_bkg", 3, "histo same");
+		h1_cmb = plotter.Plot1DProjection("cmb_bkg", 3, "histo same");
+
+
+		h1_all = new THStack("h1_all", "h1_all");
+		h1_all->Add(h1_cmb);
+		h1_all->Add(h1_rnd);
+		h1_all->Add(h1_sig);
+
+		h1_all->Draw();
+		h1_all->SetMaximum(h1_all->GetMaximum()*1.1);
+		h1_data = plotter.Plot1DProjectionData(3, "e1 same");
+
 
 		pad8->cd();
 		h1_pull = plotter.Plot1DPull(3);
 		plotter.PlotPullLines(h1_pull->GetXaxis()->GetXmin(), h1_pull->GetXaxis()->GetXmax());
 
+
 		pad9->cd();
-		h1_data->Draw("e1");
-		h1_model->Draw("histo same");
+		h1_all->Draw();
+		h1_all->SetMaximum(h1_all->GetMaximum()*1.1);
+		h1_data = plotter.Plot1DProjectionData(3, "e1 same");
 		pad9->SetLogy();
 
-		leg = new TLegend(0.75,0.75,0.9,0.9);
+
+		leg = new TLegend(0.6,0.67,0.8,0.88);
 		leg->SetBorderSize(0);
 		leg->SetFillStyle(0);
-		leg->AddEntry(h1_data, h1_data->GetTitle(), "pe");
-		leg->AddEntry(h1_model, h1_model->GetTitle(), "l");
+		leg->AddEntry(h1_data, h_data->GetTitle(), "pe");
+		leg->AddEntry(h1_sig, h_sig->GetTitle(), "l");
+		leg->AddEntry(h1_rnd, h_rnd->GetTitle(), "lf");
+		leg->AddEntry(h1_cmb, h_cmb->GetTitle(), "lf");
+		leg->Draw();
 
 		pad10->cd();
 		h1_pull->Draw();
@@ -447,24 +607,43 @@ int main( int argc, char** argv  )
 		pad9->SetLeftMargin(0.15);
 		pad10->SetLeftMargin(0.15);
 
+
 		pad7->cd();
-		h1_data = plotter.Plot1DProjectionData(4, "e1");
-		h1_model = plotter.Plot1DProjectionModel(4, "histo same");
+		h1_sig = plotter.Plot1DProjection("signal", 4, "histo");
+		h1_sig->SetLineWidth(1);
+		h1_cmb = plotter.Plot1DProjection("cmb_bkg", 4, "histo same");
+		h1_rnd = plotter.Plot1DProjection("rnd_bkg", 4, "histo same");
+
+		h1_all = new THStack("h1_all", "h1_all");
+		h1_all->Add(h1_cmb);
+		h1_all->Add(h1_rnd);
+		h1_all->Add(h1_sig);
+
+		h1_all->Draw();
+		h1_all->SetMaximum(h1_all->GetMaximum()*1.1);
+		h1_data = plotter.Plot1DProjectionData(4, "e1 same");
+
 
 		pad8->cd();
 		h1_pull = plotter.Plot1DPull(4);
 		plotter.PlotPullLines(h1_pull->GetXaxis()->GetXmin(), h1_pull->GetXaxis()->GetXmax());
 
+
 		pad9->cd();
-		h1_data->Draw("e1");
-		h1_model->Draw("histo same");
+		h1_all->Draw();
+		h1_all->SetMaximum(h1_all->GetMaximum()*1.1);
+		h1_data = plotter.Plot1DProjectionData(4, "e1 same");
 		pad9->SetLogy();
 
-		leg = new TLegend(0.75,0.75,0.9,0.9);
+
+		leg = new TLegend(0.6,0.67,0.8,0.88);
 		leg->SetBorderSize(0);
 		leg->SetFillStyle(0);
-		leg->AddEntry(h1_data, h1_data->GetTitle(), "pe");
-		leg->AddEntry(h1_model, h1_model->GetTitle(), "l");
+		leg->AddEntry(h1_data, h_data->GetTitle(), "pe");
+		leg->AddEntry(h1_sig, h_sig->GetTitle(), "l");
+		leg->AddEntry(h1_rnd, h_rnd->GetTitle(), "lf");
+		leg->AddEntry(h1_cmb, h_cmb->GetTitle(), "lf");
+		leg->Draw();
 
 		pad10->cd();
 		h1_pull->Draw();

@@ -6,6 +6,7 @@
 #include <iomanip>
 
 #include <tools/Plotter.h>
+#include <tools/Printer.h>
 #include <tools/ConfigFile.h>
 #include <tools/Arguments.h>
 #include <physics/PDG.h>
@@ -64,14 +65,16 @@ int main( int argc, char** argv  )
 	// Compute fit fractions
 	//---------------------------------------------------------------------------------------
 	std::cout << "***** Fit fractions:" << std::endl;
-	auto  rho_770_p_FF = phsp.FitFraction<MSqZero,MSqMinus>( amp,  rho_770_p_amp );
-	auto  kst_892_m_FF = phsp.FitFraction<MSqZero,MSqMinus>( amp,  kst_892_m_amp );
-	auto  kst_892_0_FF = phsp.FitFraction<MSqZero,MSqMinus>( amp,  kst_892_0_amp );
-	auto  k0_1430_m_FF = phsp.FitFraction<MSqZero,MSqMinus>( amp,  k0_1430_m_amp );
-	auto  k0_1430_0_FF = phsp.FitFraction<MSqZero,MSqMinus>( amp,  k0_1430_0_amp );
-	auto rho_1700_p_FF = phsp.FitFraction<MSqZero,MSqMinus>( amp, rho_1700_p_amp );
-	auto kst_1680_m_FF = phsp.FitFraction<MSqZero,MSqMinus>( amp, kst_1680_m_amp );
-	auto         nr_FF = phsp.FitFraction<MSqZero,MSqMinus>( amp,         nr_amp );
+	auto  rho_770_p_FF = phsp.FitFraction( model,  rate(rho_770_p_amp) );
+	auto  kst_892_m_FF = phsp.FitFraction( model,  rate(kst_892_m_amp) );
+	auto  kst_892_0_FF = phsp.FitFraction( model,  rate(kst_892_0_amp) );
+	auto  k0_1430_m_FF = phsp.FitFraction( model,  rate(k0_1430_m_amp) );
+	auto  k0_1430_0_FF = phsp.FitFraction( model,  rate(k0_1430_0_amp) );
+	auto rho_1700_p_FF = phsp.FitFraction( model, rate(rho_1700_p_amp) );
+	auto kst_1680_m_FF = phsp.FitFraction( model, rate(kst_1680_m_amp) );
+	auto         nr_FF = phsp.FitFraction( model,         rate(nr_amp) );
+	auto  rho_770_p_kst_892_0_Interference = phsp.Interference(model, rho_770_p_amp, kst_892_0_amp);
+	auto  rho_770_p_k0_1430_0_Interference = phsp.Interference(model, rho_770_p_amp, k0_1430_0_amp);
 	std::cout << std::setprecision(6) << std::fixed;
 	std::cout <<   rho_770_p_amp.Name() << " = " <<  rho_770_p_FF.first << " +- " <<  rho_770_p_FF.second << std::endl;
 	std::cout <<   kst_892_m_amp.Name() << " = " <<  kst_892_m_FF.first << " +- " <<  kst_892_m_FF.second << std::endl;
@@ -82,13 +85,27 @@ int main( int argc, char** argv  )
 	std::cout <<  kst_1680_m_amp.Name() << " = " << kst_1680_m_FF.first << " +- " << kst_1680_m_FF.second << std::endl;
 	std::cout <<          nr_amp.Name() << " = " <<         nr_FF.first << " +- " <<         nr_FF.second << std::endl;
 
+	std::cout << rho_770_p_amp.Name() << ", " << kst_892_0_amp.Name() << " interference ";
+	std::cout << " = " <<         rho_770_p_kst_892_0_Interference.first << " +- ";
+	std::cout <<     rho_770_p_kst_892_0_Interference.second << std::endl;
+	std::cout << rho_770_p_amp.Name() << ", " << k0_1430_0_amp.Name() << " interference ";
+	std::cout << " = " <<         rho_770_p_k0_1430_0_Interference.first << " +- ";
+	std::cout <<     rho_770_p_k0_1430_0_Interference.second << std::endl;
 	//---------------------------------------------------------------------------------------
 	// Generate data
 	//---------------------------------------------------------------------------------------
+	
 	std::cout << "***** Generation" << std::endl;
+	auto start = std::chrono::high_resolution_clock::now();	
+
 	auto data = phsp.GenerateData<MSqZero,MSqMinus,MSqPlus>(model,args.nevents,args.seed);
 	auto ngenerated = data.size();
 	std::cout << "Generated " << ngenerated << " data events." << std::endl;
+
+	auto end = std::chrono::high_resolution_clock::now();
+	std::chrono::duration<double, std::milli> elapsed = end - start;
+	std::cout << "Time elapsed (ms): "<< elapsed.count() << std::endl;
+
 	
 	//---------------------------------------------------------------------------------------
 	// Save to ROOT file
@@ -126,11 +143,19 @@ int main( int argc, char** argv  )
 	if (args.plot) {
 		std::cout << "***** Plot data and model" << std::endl;
 
-		TApplication myapp("myapp",0,0);
+		TApplication* myapp = NULL;
+		if (args.interactive) myapp = new TApplication("myapp",0,0);
 
 		auto plotter = DalitzPlotter<MSqZero,MSqMinus,MSqPlus>(phsp,"#it{K}^{#minus}","#it{#pi}^{+}","#it{#pi}^{0}",(args.prlevel>3));
-		plotter.FillHistograms(data,amp);
 
+		// plotter.FillDataHistogram(<data>, <nbin12>, <nbin13>, <nbin23>, 
+		// 							 <min12>, <min13>, <min23>, <max12>, <max13>, <max23>);
+		plotter.FillDataHistogram(data, 140, 140, 100, 0.3, 3.1, 0.3, 3.1, 0.0, 1.9);
+		plotter.FillModelHistogram(model, 140, 140, 100, 0.3, 3.1, 0.3, 3.1, 0.0, 1.9);
+		auto efficiency = ConstantFunctor(1);
+		double signal_fraction = 1; // pure signal
+		plotter.FillComponentHistograms(amp, efficiency, signal_fraction, 140, 140, 100, 0.3, 3.1, 0.3, 3.1, 0.0, 1.9);
+		
 		// 2D data projections
 		TCanvas c1("c1","c1",1600,500);
 		c1.Divide(3,1);
@@ -144,28 +169,34 @@ int main( int argc, char** argv  )
 		c1.cd(3);
 		plotter.Plot2DProjectionData(2,1);
 		
-		std::string outfilename = args.outdir + "Kpipi0-2d-projection.pdf";
-		c1.Print(outfilename.c_str());
+		std::string outfilename = args.outdir + "Kpipi0-2d-projection";
+		Print::Canvas(c1, outfilename);
 		
 		// 1D projections
 		TCanvas c2("c2","c2",1600,500);
 		c2.Divide(3,1);
 		
 		c2.cd(1);
+		gPad->SetRightMargin(0.07);
+		gPad->SetLeftMargin(0.15);
 		plotter.Plot1DProjections(0, 0);
 
 		c2.cd(2);
+		gPad->SetRightMargin(0.07);
+		gPad->SetLeftMargin(0.15);
 		plotter.Plot1DProjections(1, 0);
 
 		c2.cd(3);
+		gPad->SetRightMargin(0.07);
+		gPad->SetLeftMargin(0.15);
 		plotter.Plot1DProjections(2, 1); // plot legend in this pad
 		
-		outfilename = args.outdir + "Kpipi0-1d-projection.pdf";
-		c2.Print(outfilename.c_str());
+		outfilename = args.outdir + "Kpipi0-1d-projection";
+		Print::Canvas(c2, outfilename);
 
 		if (args.interactive) {
 			std::cout << "Press Crtl+C to terminate" << std::endl;
-			myapp.Run();
+			myapp->Run();
 		}
 	}
 	

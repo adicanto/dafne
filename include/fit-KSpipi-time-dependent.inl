@@ -31,7 +31,6 @@
 using namespace dafne;
 
 // Configuration parameters
-const unsigned nevents(100000);
 std::string outprefix("fit-KSpipi-time-dependent");
 
 // Define the arguments of the amplitude
@@ -57,70 +56,9 @@ int main(int argc, char** argv)
 	}
 	args.Print();
 
-	//---------------------------------------------------------------------------------------
-	// Build model for D0->KS pi+ pi- decays
-	//---------------------------------------------------------------------------------------
-	auto phsp = D0ToKsPiPi_FVECTOR_BABAR::PhaseSpaceWithTime();
-
-	// build baseline amplitudes model
-	auto Adir = D0ToKsPiPi_FVECTOR_BABAR::Amplitude<MSqPlus,MSqMinus>(phsp);
-	
-	// config the model according to configuration file
-	ConfigFile config(args.config_file.c_str(), (args.prlevel>3) );
-	config.ConfigureModel(Adir);
-	
-	// Time-dependent parameters
-	auto tau = hydra::Parameter::Create("tau").Value(Tau::D0).Fixed();
-	auto x   = hydra::Parameter::Create("x").Value(0.003).Error(0.0001).Limits(-1.,1.);
-	auto y   = hydra::Parameter::Create("y").Value(0.006).Error(0.0001).Limits(-1.,1.);
-	auto qop = hydra::Parameter::Create("qop").Value(1.0).Error(0.0001).Limits(0.,10.);
-	auto phi = hydra::Parameter::Create("phi").Value(0.0).Error(0.0001).Limits(-1.,1.);
-	config.ConfigureMixingParameters(tau, x, y, qop, phi);
-	
-	// Total amplitude for the decay that undergoes mixing
-	auto Abar = hydra::wrap_lambda( [&Adir] __hydra_dual__ (MSqPlus a, MSqMinus b) {
-		MSqPlus switched_a = b;
-		MSqMinus switched_b = a;
-		return Adir(switched_a,switched_b);
-	});
-
-	// efficiency plane described by irregular binning 2D histogram
-	ArbitraryBinningHistogram2D efficiency_hist = config.ConfigureEfficiencyHistogram();
-
-	// build and check the efficiency plane
-	TCanvas cefficiency("cefficiency", "cefficiency", 800, 600);
-	gStyle->SetOptStat(0);
-	gPad->SetRightMargin(0.15);
-	efficiency_hist.GetTH2D((outprefix + "_efficiency_hist").c_str(), 
-		                    (outprefix + "_efficiency_hist").c_str(),
-		                    "m^{2}_{#it{#pi#pi}} [GeV^{2}/#it{c}^{4}]", "cos(#theta_{#it{#pi#pi}})")->Draw("COLZ");
-	Print::Canvas(cefficiency,  args.outdir + outprefix + "_efficiency_hist");
-	gStyle->SetOptStat(1);
-
-	// time dependent efficiency is ignored for the moment
-	auto efficiency = hydra::wrap_lambda(
-		[phsp, efficiency_hist] __hydra_dual__ (DecayTime tau, MSqPlus m2p, MSqMinus m2m) {
-
-		// judge whether in phase space or not
-		if (!phsp.Contains<2,3>(m2p, m2m)) return 0.0;
-
-		double m2z = phsp.MSqJK(m2p, m2m);
-		double helicity_z = phsp.HelicityJK<2,3>(m2p, m2m);
-
-		double x = m2z;
-		double y = helicity_z;
-		return efficiency_hist.GetValue(x, y);
-
-	}); 
-
-	// D0 rate
-	auto model_dz = time_dependent_rate<Flavor::Positive,DecayTime>(tau,x,y,qop,phi,Adir,Abar)*efficiency;
-	
-	// D0bar rate
-	auto model_db = time_dependent_rate<Flavor::Negative,DecayTime>(tau,x,y,qop,phi,Adir,Abar)*efficiency;
 
 	//---------------------------------------------------------------------------------------
-	// get input data from ROOT file
+	// Get input data from the ROOT file
 	//---------------------------------------------------------------------------------------
 	std::cout << "***** Input data" << std::endl;
 	std::cout << "Creating data containers ... ...  " << std::endl;
@@ -153,7 +91,7 @@ int main(int argc, char** argv)
 	for (auto i=0; i<nentries; ++i) {
 		ntp->GetEntry(i);
 
-		if (i % 100000 == 0) std::cout << "Reading " << i << "events" << std::endl;
+		if (i % 100000 == 0) std::cout << "Reading " << i << " events" << std::endl;
 
 		if (flavor > 0) {
 			data_dz.push_back(hydra::make_tuple(MSqPlus(m2p),MSqMinus(m2m),MSqZero(m2z),DecayTime(t)));
@@ -175,14 +113,80 @@ int main(int argc, char** argv)
 	}
 	std::cout << "Read " << ncands_dz << " D0 data candidates and " << ncands_db << " D0-bar events " << std::endl;
 
-	std::cout << "D0 dataset test: " << std::endl;
-	std::cout << data_dz[0] << std::endl;
-	std::cout << data_dz[1] << std::endl;
-	std::cout << data_dz[2] << std::endl;
-	std::cout << "D0-bar data test: " << std::endl;
-	std::cout << data_db[0] << std::endl;
-	std::cout << data_db[1] << std::endl;
-	std::cout << data_db[2] << std::endl;
+	if (args.prlevel > 3) {
+		std::cout << "D0 dataset test: " << std::endl;
+		std::cout << data_dz[0] << std::endl;
+		std::cout << data_dz[1] << std::endl;
+		std::cout << data_dz[2] << std::endl;
+		std::cout << "D0-bar data test: " << std::endl;
+		std::cout << data_db[0] << std::endl;
+		std::cout << data_db[1] << std::endl;
+		std::cout << data_db[2] << std::endl;
+	}
+
+
+	//---------------------------------------------------------------------------------------
+	// Build model for D0->KS pi+ pi- decays
+	//---------------------------------------------------------------------------------------
+	auto phsp = D0ToKsPiPi_FVECTOR_BABAR::PhaseSpaceWithTime();
+
+	// build baseline amplitudes model
+	auto Adir = D0ToKsPiPi_FVECTOR_BABAR::Amplitude<MSqPlus,MSqMinus>(phsp);
+	
+	// config the model according to configuration file
+	ConfigFile config(args.config_file.c_str(), (args.prlevel>3) );
+	config.ConfigureModel(Adir);
+
+	auto Abar = hydra::wrap_lambda( [&Adir] __hydra_dual__ (MSqPlus a, MSqMinus b) {
+		MSqPlus switched_a = b;
+		MSqMinus switched_b = a;
+		return Adir(switched_a,switched_b);
+	});
+
+	
+	// time-dependent parameters
+	auto tau = hydra::Parameter::Create("tau").Value(Tau::D0).Fixed();
+	auto x   = hydra::Parameter::Create("x").Value(0.003).Error(0.0001).Limits(-1.,1.);
+	auto y   = hydra::Parameter::Create("y").Value(0.006).Error(0.0001).Limits(-1.,1.);
+	auto qop = hydra::Parameter::Create("qop").Value(1.0).Error(0.0001).Limits(0.,10.);
+	auto phi = hydra::Parameter::Create("phi").Value(0.0).Error(0.0001).Limits(-1.,1.);
+	config.ConfigureMixingParameters(tau, x, y, qop, phi);
+	
+	// efficiency plane described by irregular binning 2D histogram
+	ArbitraryBinningHistogram2D efficiency_hist = config.ConfigureEfficiencyHistogram();
+
+	// build and check the efficiency plane
+	TCanvas cefficiency("cefficiency", "cefficiency", 800, 600);
+	gStyle->SetOptStat(0);
+	gPad->SetRightMargin(0.15);
+	efficiency_hist.GetTH2D((outprefix + "_efficiency_hist").c_str(), 
+		                    (outprefix + "_efficiency_hist").c_str(),
+		                    "m^{2}_{#it{#pi#pi}} [GeV^{2}/#it{c}^{4}]", "cos(#theta_{#it{#pi#pi}})")->Draw("COLZ");
+	Print::Canvas(cefficiency,  args.outdir + outprefix + "_efficiency_hist");
+	gStyle->SetOptStat(1);
+
+	// the time dependence of the efficiency is ignored
+	auto efficiency = hydra::wrap_lambda(
+		[phsp, efficiency_hist] __hydra_dual__ (DecayTime tau, MSqPlus m2p, MSqMinus m2m) {
+
+		// judge whether in phase space or not
+		if (!phsp.Contains<2,3>(m2p, m2m)) return 0.0;
+
+		double m2z = phsp.MSqJK(m2p, m2m);
+		double helicity_z = phsp.HelicityJK<2,3>(m2p, m2m);
+
+		double x = m2z;
+		double y = helicity_z;
+		return efficiency_hist.GetValue(x, y);
+
+	}); 
+
+	// D0 rate
+	auto model_dz = time_dependent_rate<Flavor::Positive,DecayTime>(tau,x,y,qop,phi,Adir,Abar)*efficiency;
+	
+	// D0bar rate
+	auto model_db = time_dependent_rate<Flavor::Negative,DecayTime>(tau,x,y,qop,phi,Adir,Abar)*efficiency;
+
 
 
 	//---------------------------------------------------------------------------------------
@@ -205,7 +209,8 @@ int main(int argc, char** argv)
 	// Configure and run MINUIT
 	//---------------------------------------------------------------------------------------
 	std::cout << "***** Fit" << std::endl;
-	ROOT::Minuit2::MnPrint::SetLevel(2);
+	// ROOT::Minuit2::MnPrint::SetLevel(2); // for earlier versions of CERN ROOT (before 6.24)
+	ROOT::Minuit2::MnPrint::SetGlobalLevel(2); 
 	ROOT::Minuit2::MnStrategy strategy(2);
 	
 	// print starting values of parameters
@@ -232,9 +237,6 @@ int main(int argc, char** argv)
 		return -2;
 	}
 
-	// auto parameters = minimum.UserParameters();
-	// auto covariance = minimum.UserCovariance();
-	// std::cout << "***** Fit results:\n" << parameters << covariance << std::endl;
 	std::cout << "***** Fit results:\n" << minimum.UserState() << std::endl;
 	MinuitTools::CovarianceMatrixStatus(minimum);
 
@@ -244,34 +246,33 @@ int main(int argc, char** argv)
 	if (args.plot) {
 		std::cout << "***** Plot data and fit result" << std::endl;
 
-		// get the fitted model_dz
-		fcn_dz.GetParameters().UpdateParameters(minimum);
-		auto model_dz_fitted = fcn_dz.GetPDF().GetFunctor();
-		auto fitted_parameters = fcn_dz.GetParameters().GetVariables();
-		model_dz_fitted.PrintRegisteredParameters();
+		TApplication* myapp = NULL;
+		if (args.interactive) myapp = new TApplication("myapp",0,0);
 
 		// data_dz + data_db are plotted with model_dz ignoring the CPV
 		auto data = data_dz;
 		data.insert(data.end(), data_db.begin(), data_db.end());
 
-		// plotting procedure
-		TApplication* myapp = NULL;
-		if (args.interactive) myapp = new TApplication("myapp",0,0);
+		// get the fitted model
+		fcn_dz.GetParameters().UpdateParameters(minimum);
+		auto model_dz_fitted = fcn_dz.GetPDF().GetFunctor();
+		auto fitted_parameters = fcn_dz.GetParameters().GetVariables();
+		model_dz_fitted.PrintRegisteredParameters();
 
-		// plot dalitz distribution 
+		// plot Dalitz-plot distributions
 		auto plotterWithTime = DalitzPlotterWithTime<MSqPlus, MSqMinus, MSqZero, DecayTime>(phsp,"#it{K}^{0}_{S}","#it{#pi}^{+}","#it{#pi}^{#minus}",(args.prlevel>3));
 
-		std::string outfilename = args.outdir + outprefix + "-HIST.root";
-		//plotterWithTime.FillHistograms(data, model_dz_fitted, outfilename, args.plotnbins); 
-		plotterWithTime.FillDataHistogram(data, args.plotnbins);
+		plotterWithTime.FillDataHistogram(data, args.plotnbins, args.plotnbins, args.plotnbins);
 		plotterWithTime.FillModelHistogram(model_dz_fitted,
 										   MinuitTools::GetParameterPointer(fitted_parameters, "tau")->GetValue(),
 										   MinuitTools::GetParameterPointer(fitted_parameters, "y")->GetValue(), 
-										   args.plotnbins);
-		if (outfilename != "") plotterWithTime.SaveHistograms(outfilename);
+										   args.plotnbins, args.plotnbins, args.plotnbins);
 		plotterWithTime.SetCustomAxesTitles("#it{m}^{2}_{+} [GeV^{2}/#it{c}^{4}]","#it{m}^{2}_{#minus} [GeV^{2}/#it{c}^{4}]","#it{m}^{2}_{#it{#pi#pi}} [GeV^{2}/#it{c}^{4}]");
 
-		// 1D Projection for dalitz distribution
+		std::string outfilename = args.outdir + outprefix + "-HIST.root";
+		plotterWithTime.SaveHistograms(outfilename);
+
+		// 1D projections
 		TCanvas c1("c1","c1",1800,700);
 		TPad *pad1 = new TPad("pad1","pad1",0.01,0.25,0.33,0.99);
 		TPad *pad2 = new TPad("pad2","pad2",0.01,0.01,0.33,0.25);
@@ -320,19 +321,15 @@ int main(int argc, char** argv)
 		outfilename = args.outdir + outprefix + "-1d-projection";
 		Print::Canvas(c1,outfilename);
 
-		// 2D Projection for dalitz distribution
+		// 2D projections
 		TCanvas c2("c2","c2",1500,500);
 		c2.Divide(3,1);
 
 		c2.cd(1);
 		plotterWithTime.Plot2DProjectionData(0,1); 
-		// TH2D* h2_data = plotterWithTime.Plot2DProjectionData(0,1); // some effort to solve the -2d-projection.pdf plotting issue
-		// h2_data->Draw("colz");
 
 		c2.cd(2);
 		plotterWithTime.Plot2DProjectionData(1,2);
-		// h2_data = plotterWithTime.Plot2DProjectionData(1,2);
-		// h2_data->Draw("colz");
 
 		c2.cd(3);
 		plotterWithTime.Plot2DPull(0,1);
@@ -345,7 +342,6 @@ int main(int argc, char** argv)
 		TCanvas c3("c3","c3",600,500);
 		c3.SetRightMargin(.14);
 
-		auto phspWithoutTime = D0ToKsPiPi_FVECTOR_BABAR::PhaseSpace();
 		auto plotterWithoutTime = DalitzPlotter<MSqPlus, MSqMinus, MSqZero>(phsp,"#it{K}^{0}_{S}","#it{#pi}^{+}","#it{#pi}^{#minus}",(args.prlevel>3));
 		plotterWithoutTime.PlotPhaseDifference(Adir,Abar);
 		

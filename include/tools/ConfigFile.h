@@ -41,6 +41,8 @@ private:
 	std::vector<std::string> _pdfParameterLines; 
 	std::vector<std::string> _efficiencyHistogramLines; 
 	std::vector<std::string> _timeResolutionParameterLines;
+	std::vector<std::string> _backgroundParameterLines;
+
 
 
 	std::vector<std::string> _readBlocks; // to record blocks that are already read, avoiding reading twice
@@ -230,6 +232,10 @@ public:
 		if (_timeResolutionParameterLines.size() == 0) parse_block("time_resolution_parameters_setting", _timeResolutionParameterLines);
 	}
 
+	void ParseBackgroundSetting()
+	{
+		if (_backgroundParameterLines.size() == 0) parse_block("background_setting", _backgroundParameterLines);
+	}
 
 	void ParseEfficiencySetting()
 	{
@@ -306,6 +312,14 @@ public:
 		for (int i = 0 ; i < parameters.size() ; ++i) set_parameter(*(parameters[i]), _timeResolutionParameterLines);
 	}
 
+	void ConfigureBackgroundParameters(std::vector<hydra::Parameter*> parameters)
+	{
+		ParseBackgroundSetting();
+
+		if (_debug) std::cout << "--- Configuring background parameters" << std::endl;
+		
+		for (int i = 0 ; i < parameters.size() ; ++i) set_parameter(*(parameters[i]), _backgroundParameterLines);
+	}
 
 	template<typename T>
 	void ConfigureTimeDependentModel(T & model, std::vector<std::string> parnames={"tau","x","y","qop","phi"})

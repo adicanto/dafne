@@ -43,16 +43,34 @@ class ArbitraryBinningHistogram2D {
 public:
 	ArbitraryBinningHistogram2D() = delete;
 
-	ArbitraryBinningHistogram2D(const TH2D& th2):fXTicks(th2.GetXaxis()->GetXbins()->GetSize(), 0), fYTicks(th2.GetYaxis()->GetXbins()->GetSize(), 0) {
+	ArbitraryBinningHistogram2D(const TH2D& th2):fXTicks(th2.GetXaxis()->GetNbins(), 0), fYTicks(th2.GetYaxis()->GetNbins(), 0) {
 
 		const double * XTicks = th2.GetXaxis()->GetXbins()->GetArray();
-		for (int i = 0; i < GetNXTicks(); ++i) {
-			fXTicks[i] = XTicks[i];
-		}
+		if (XTicks != nullptr) { // irregular binning case
+			for (int i = 0; i < GetNXTicks(); ++i) {
+				fXTicks[i] = XTicks[i];
+			}
+		} else { // regular binning case
+			double xmin = th2.GetXaxis()->GetXmin();
+			double xmax = th2.GetXaxis()->GetXmax();
+			double xgap = (xmax - xmin) / (GetNXTicks()-1);
+			for (int i = 0; i < GetNXTicks(); ++i) {
+				fXTicks[i] = xmin + i*xgap;
+			}
+		} 
 
 		const double * YTicks = th2.GetYaxis()->GetXbins()->GetArray();
-		for (int i = 0; i < GetNYTicks(); ++i) {
-			fYTicks[i] = YTicks[i];
+		if (YTicks != nullptr) { // irregular binning case
+			for (int i = 0; i < GetNYTicks(); ++i) {
+				fYTicks[i] = YTicks[i];
+			}
+		} else { // regular binning case
+			double ymin = th2.GetYaxis()->GetXmin();
+			double ymax = th2.GetYaxis()->GetXmax();
+			double ygap = (ymax - ymin) / (GetNYTicks()-1);
+			for (int i = 0; i < GetNYTicks(); ++i) {
+				fYTicks[i] = ymin + i*ygap;
+			}
 		}
 
 		// initialize fZs and fZErrors
@@ -188,13 +206,13 @@ public:
 	}
 
 	__hydra_dual__ inline
-	int GetBinValue(const int ix, const int iy) 
+	double GetBinValue(const int ix, const int iy) 
 	{
 		return fZs[ix][iy];
 	}
 
 	__hydra_dual__ inline
-	int GetBinError(const int ix, const int iy) 
+	double GetBinError(const int ix, const int iy) 
 	{
 		if (fZs[ix][iy] != 0 && fZErrors[ix][iy] == 0) // if error is not set, then return sqrt(z);
 			return sqrt(fZs[ix][iy]);
@@ -226,6 +244,19 @@ public:
 
 	__hydra_dual__ inline
 	double YMax() const {return fYTicks[fYTicks.size()-1];}
+
+	__hydra_dual__ inline
+	std::vector<double> GetXTicks() const { return fXTicks;}
+
+	__hydra_dual__ inline
+	std::vector<double> GetYTicks() const { return fYTicks;}
+
+
+	__hydra_dual__ inline
+	double GetXTick(const int i) const { return fXTicks[i];}
+
+	__hydra_dual__ inline
+	double GetYTick(const int i) const { return fYTicks[i];}
 
 	__hydra_dual__ inline
 	double Sum() const
@@ -288,6 +319,8 @@ public:
 
 		return th2;
 	}
+
+
 
 
 private:

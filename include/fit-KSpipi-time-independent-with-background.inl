@@ -23,6 +23,7 @@
 #include <tools/ConfigFile.h>
 #include <tools/Arguments.h>
 #include <tools/ArbitraryBinningHistogram2D.h>
+#include <tools/ArbitraryBinningHistogram2DFunctor.h>
 #include <physics/Amplitudes.h>
 using namespace dafne;
 
@@ -33,9 +34,8 @@ std::string outprefix("fit-KSpipi-time-independent-with-background");
 declarg(MSqZero  , double)
 declarg(MSqPlus  , double)
 declarg(MSqMinus , double)
-declarg(SignalFaction, double)
-// declarg(RandomBackfroundFaction, double)
-declarg(CombinatorialBackfroundFaction, double)
+declarg(SignalFraction, double)
+declarg(CombinatorialBackgroundFraction, double)
 
 using namespace hydra::arguments;
 
@@ -45,7 +45,9 @@ int main(int argc, char** argv)
 	//---------------------------------------------------------------------------------------
 	// Read command line arguments
 	//---------------------------------------------------------------------------------------
-	StandardArguments args("Generation of D0 -> K0_S pi+ pi- decays according to BABAR 2010 amplitude model","0.1","");
+	StandardArguments args(
+		"Generation of D0 -> K0_S pi+ pi- decays according to BABAR 2010 amplitude model","0.1","");
+
 	try {
 		args.Read( argc, argv );
 	}
@@ -54,6 +56,75 @@ int main(int argc, char** argv)
 		return -1;
 	}
 	args.Print();
+
+
+
+	//---------------------------------------------------------------------------------------
+	// Get input data from the ROOT file
+	//---------------------------------------------------------------------------------------
+	std::cout << "***** Input data" << std::endl;
+	std::cout << "Creating data containers ... ...  " << std::endl;
+
+	// build a data container with event by event fraction
+	hydra::multivector<hydra::tuple<MSqPlus,MSqMinus,MSqZero,SignalFraction,CombinatorialBackgroundFraction>, hydra::device::sys_t> data; // create data container for D0 events
+
+	auto file = TFile::Open(args.input.c_str());
+	if (!file) {
+		std::cout << "Failed to open input file: " << args.input << std::endl;
+		return -1;
+	}
+
+	std::cout << "Reading data from input file: " << args.input << std::endl;
+	auto ntp = (TTree*) file->Get("ntp");
+
+	auto nentries = ntp->GetEntriesFast();
+	if (nentries<1) {
+		std::cout << "Empty input file!" << std::endl;
+		return -1;
+	}
+
+	double m2p, m2m, m2z;
+	ntp->SetBranchAddress("mSqP",&m2p);
+	ntp->SetBranchAddress("mSqM",&m2m);
+	ntp->SetBranchAddress("mSqZ",&m2z);
+
+	// add event by event fraction
+	double f_sig_i, f_cmb_i;
+	if (!ntp->GetBranch("f_sig") && !ntp->GetBranch("f_cmb")) {
+		std::cout << "It seems f_sig and f_cmb are not in input file. Quit!" << std::endl;
+		exit(-1);
+	}
+	ntp->SetBranchAddress("f_sig",&f_sig_i);
+	ntp->SetBranchAddress("f_cmb",&f_cmb_i);		
+
+	for (auto i=0; i<nentries; ++i) {
+		ntp->GetEntry(i);
+
+		if (i % 100000 == 0) std::cout << "Reading " << i << " events" << std::endl;
+
+		// add event by event fraction to the container
+		// in the fit, we only use f_cmb
+		data.push_back(hydra::make_tuple(MSqPlus(m2p),MSqMinus(m2m),MSqZero(m2z),SignalFraction(f_sig_i),CombinatorialBackgroundFraction(f_cmb_i))); 
+	}
+	
+	file->Close();
+
+	auto ncands = data.size();
+
+	if (ncands < 1) {
+		std::cout << "The events number in hydra container is less than 1, something must be wrong!" << std::endl;
+		return -1;
+	}
+	std::cout << "Read " << ncands << " data candidates ... ... " << std::endl;
+
+	if (args.prlevel > 3) {
+		std::cout << "Dataset test: " << std::endl;
+		std::cout << data[0] << std::endl;
+		std::cout << data[1] << std::endl;
+		std::cout << data[2] << std::endl;
+	}
+
+
 
 	//---------------------------------------------------------------------------------------
 	// Build model for D0->KS pi+ pi- decays
@@ -79,7 +150,7 @@ int main(int argc, char** argv)
 	efficiency_hist.GetTH2D((outprefix + "_efficiency_hist").c_str(), 
 		                    (outprefix + "_efficiency_hist").c_str(),
 		                    "m^{2}_{#it{#pi#pi}} [GeV^{2}/#it{c}^{4}]", "cos(#theta_{#it{#pi#pi}})")->Draw("COLZ");
-	Print::Canvas(cefficiency,  args.outdir + outprefix + "efficiency_hist");
+	Print::Canvas(cefficiency,  args.outdir + outprefix + "_efficiency_hist");
 	gStyle->SetOptStat(1);
 
 	auto efficiency = hydra::wrap_lambda(
@@ -133,21 +204,11 @@ int main(int argc, char** argv)
 	// compute the decay rate
 	auto model_truth = rate(amp);
 	auto model = model_truth*efficiency;
-	auto plainIntegrator = phsp.Integrator(10*args.nevents);
+	auto plainIntegrator = phsp.Integrator(10*ncands);
 	auto normalized_model = make_numerical_normalized_functor(model, plainIntegrator);
 
 
 	// add background
-
-	// auto f_rnd = hydra::Parameter::Create("f_rnd").Value(0.1).Error(0.0001);
-	auto f_cmb = hydra::Parameter::Create("f_cmb").Value(0.5).Error(0.0001).Limits(-1.,1.).Fixed(0);
-
-	// auto random_background = [phsp](MSqPlus m2p, MSqMinus m2m)->double {
-	// 		// judge whether in phase space or not
-	// 		if (!phsp.Contains<2,3>(m2p, m2m)) return 0.0;
-	// 		return 1;
-	// };
-
 	auto combinatorial_background = hydra::wrap_lambda( 
 		[phsp] __hydra_dual__ (MSqPlus m2p, MSqMinus m2m) {
 			// judge whether in phase space or not
@@ -157,119 +218,88 @@ int main(int argc, char** argv)
 	);
 	
 	auto combinatorial_background_norm = plainIntegrator(combinatorial_background).first;
-	auto combinatorial_background_pdf =  divideBy<double>(combinatorial_background, combinatorial_background_norm); 
-
-	// build averaged sum pdf for fitting with uniform background fraction
-
-	auto uniform_f_cmb_functor = SingleValue(f_cmb);
-
-	auto _build_sum_pdf = hydra::wrap_lambda(
-			  [] __hydra_dual__ (hydra::tuple< double, double, double> input_functors){
-			  		auto _pdf_sig = hydra::get<0>(input_functors);
-			  		auto _f_cmb = hydra::get<1>(input_functors);
-			  		auto _pdf_cmb = hydra::get<2>(input_functors);
-
-			  		return  (1-_f_cmb)*_pdf_sig + _f_cmb*_pdf_cmb;
-			  }
-	);
-
-	auto averaged_sum_pdf = hydra::compose(_build_sum_pdf, normalized_model, uniform_f_cmb_functor, combinatorial_background_pdf);
-
-	// build pdf with event by event fraction
-	auto f_cmb_passor = PassVariable<CombinatorialBackfroundFaction>();
-
-	auto evt_frac_pdf = hydra::compose(_build_sum_pdf, normalized_model, f_cmb_passor, combinatorial_background_pdf);
+	auto combinatorial_background_pdf = divideBy<double>(combinatorial_background, combinatorial_background_norm); 
 
 
+	// load combinatorial background from a histrogram
+	// TH2D* th2_input_cmb = new TH2D("th2_input_cmb", "th2_input_cmb", 200, 0, 3.2, 200, 0, 3.2);
+	// for (int i_x = 0; i_x < th2_input_cmb->GetXaxis()->GetNbins(); ++i_x)
+	// for (int i_y = 0; i_y < th2_input_cmb->GetYaxis()->GetNbins(); ++i_y) {
+	// 	double m2m = th2_input_cmb->GetXaxis()->GetBinCenter(i_x);
+	// 	double m2p = th2_input_cmb->GetYaxis()->GetBinCenter(i_y);
+	// 	if (phsp.Contains<2,3>(m2p, m2m)) th2_input_cmb->SetBinContent(i_x, i_y, 1.0);
+	// 	else th2_input_cmb->SetBinContent(i_x, i_y, 0.0);
+	// }
+
+	// // normalize the background
+	// double combinatorial_background_norm = 0;
+	// for (int i_x = 0; i_x < th2_input_cmb->GetXaxis()->GetNbins(); ++i_x)
+	// for (int i_y = 0; i_y < th2_input_cmb->GetYaxis()->GetNbins(); ++i_y) {
+	// 	combinatorial_background_norm += th2_input_cmb->GetBinContent(i_x, i_y);
+	// }
+
+	// for (int i_x = 0; i_x < th2_input_cmb->GetXaxis()->GetNbins(); ++i_x)
+	// for (int i_y = 0; i_y < th2_input_cmb->GetYaxis()->GetNbins(); ++i_y) {
+	// 	double value = th2_input_cmb->GetBinContent(i_x, i_y);
+	// 	double widthx = th2_input_cmb->GetXaxis()->GetBinWidth(1);
+	// 	double widthy = th2_input_cmb->GetYaxis()->GetBinWidth(1);
+	// 	th2_input_cmb->SetBinContent(i_x, i_y, value/combinatorial_background_norm/widthx/widthy);
+	// }
+	
+	// ArbitraryBinningHistogram2D hist_input_cmb(*th2_input_cmb);
+	// th2_input_cmb->Draw("COLZ");
+	// Print::Canvas(cefficiency,  args.outdir + outprefix + "_cmb_input_th2");
+
+	// TCanvas chist_input_cmb("chist_input_cmb", "chist_input_cmb", 800, 600);
+	// gStyle->SetOptStat(0);
+	// gPad->SetRightMargin(0.15);
+	// hist_input_cmb.GetTH2D((outprefix + "_cmb_input_hist").c_str(), 
+	//                     (outprefix + "_cmb_input_hist").c_str(),
+	//                     "m^{2}_{#it{-}} [GeV^{2}/#it{c}^{4}]", "m^{2}_{#it{+}} [GeV^{2}/#it{c}^{4}]")->Draw("COLZ");
+	// Print::Canvas(chist_input_cmb,  args.outdir + outprefix + "_cmb_input_hist");
+	// gStyle->SetOptStat(1);
 
 
-	// Build hydra Pdf<FUNCTOR, INTEGRATOR>. Since the averaged_sum_pdf is already normalized, we only need to
-	// add constant "1" as INTEGRATOR, to adapt to hydra framework's convention.
-	// auto pdf = hydra::make_pdf( averaged_sum_pdf, ConstantIntegrator<hydra::device::sys_t>(1.0));
-	auto pdf = hydra::make_pdf( evt_frac_pdf, ConstantIntegrator<hydra::device::sys_t>(1.0));
+
+	// hydra::device::vector<double> combinatorial_background_device_buffer_xs;
+	// hydra::device::vector<double> combinatorial_background_device_buffer_ys;
+	// hydra::device::vector<double> combinatorial_background_device_buffer_zs;
+	// hydra::device::vector<double> combinatorial_background_device_buffer_zerrors;
+	// auto combinatorial_background_pdf_test = hydra::make_arbitrary_binning_histogram_2d_functor<MSqPlus, MSqMinus, double>(
+	// 	combinatorial_background_device_buffer_xs,
+	// 	combinatorial_background_device_buffer_ys,
+	// 	combinatorial_background_device_buffer_zs,
+	// 	combinatorial_background_device_buffer_zerrors,
+	// 	hist_input_cmb
+	// 	);
+
+
+
+	// build pdf with event by event fraction 
+	auto f_cmb_passor = PassVariable<CombinatorialBackgroundFraction>();
+	auto evt_frac_pdf = make_pdf_with_background_functor( model, plainIntegrator,
+														  f_cmb_passor, combinatorial_background_pdf);
+
+
+
+	auto pdf = hydra::make_pdf_from_normalized_functor( evt_frac_pdf );
 	std::cout << "Initial normalization for D0 PDF: "<< pdf.GetNorm() << " +/- " << pdf.GetNormError() << std::endl;
 
-
-	//---------------------------------------------------------------------------------------
-	// get input data from ROOT file
-	//---------------------------------------------------------------------------------------
-	std::cout << "***** Input data" << std::endl;
-	std::cout << "Creating data containers ... ...  " << std::endl;
-
-	// with uniform fraction
-	//hydra::multivector<hydra::tuple<MSqPlus,MSqMinus,MSqZero>, hydra::device::sys_t> data; // create data container for D0 events
-
-	// with event by event fraction
-	hydra::multivector<hydra::tuple<MSqPlus,MSqMinus,MSqZero,SignalFaction,CombinatorialBackfroundFaction>, hydra::device::sys_t> data; // create data container for D0 events
-
-	auto file = TFile::Open(args.input.c_str());
-	if (!file) {
-		std::cout << "Failed to open input file: " << args.input << std::endl;
-		return -1;
-	}
-
-	std::cout << "Reading data from input file: " << args.input << std::endl;
-	auto ntp = (TTree*) file->Get("ntp");
-
-	auto nentries = ntp->GetEntriesFast();
-	if (nentries<1) {
-		std::cout << "Empty input file!" << std::endl;
-		return -1;
-	}
-
-	double m2p, m2m, m2z;
-	ntp->SetBranchAddress("mSqP",&m2p);
-	ntp->SetBranchAddress("mSqM",&m2m);
-	ntp->SetBranchAddress("mSqZ",&m2z);
-
-	// add event by event fraction
-	double f_sig_i, f_cmb_i;
-	if (!ntp->GetBranch("f_sig") && !ntp->GetBranch("f_cmb")) {
-		std::cout << "It seems f_sig and f_cmb are not in input file. Quit!" << std::endl;
-		exit(-1);
-	}
-	ntp->SetBranchAddress("f_sig",&f_sig_i);
-	ntp->SetBranchAddress("f_cmb",&f_cmb_i);		
-
-	for (auto i=0; i<nentries; ++i) {
-		ntp->GetEntry(i);
-
-		if (i % 100000 == 0) std::cout << "Reading " << i << "events" << std::endl;
-
-		// data.push_back(hydra::make_tuple(MSqPlus(m2p),MSqMinus(m2m),MSqZero(m2z)));
-
-		// with event by event fraction
-		data.push_back(hydra::make_tuple(MSqPlus(m2p),MSqMinus(m2m),MSqZero(m2z),SignalFaction(f_sig_i),CombinatorialBackfroundFaction(f_cmb_i)));
-	}
-	
-	file->Close();
-
-	auto ncands = data.size();
-
-	if (ncands < 1) {
-		std::cout << "The events number in hydra container is less than 1, something must be wrong!" << std::endl;
-		return -1;
-	}
-	std::cout << "Read " << ncands << " data candidates ... ... " << std::endl;
-
-	std::cout << "Dataset test: " << std::endl;
-	std::cout << data[0] << std::endl;
-	std::cout << data[1] << std::endl;
-	std::cout << data[2] << std::endl;
 
 	//---------------------------------------------------------------------------------------
 	// Build pdf and log-likelihood function from model
 	//---------------------------------------------------------------------------------------
 	std::cout << "***** Build likelihood" << std::endl;
 	
-	auto fcn = hydra::make_loglikehood_fcn( pdf, data.begin(), data.end() );
+	auto fcn = hydra::make_loglikehood_fcn(pdf, data.begin(), data.end() );
 	MinuitTools::CheckFCN(fcn);
 	
 	//---------------------------------------------------------------------------------------
 	// Configure and run MINUIT
 	//---------------------------------------------------------------------------------------
 	std::cout << "***** Fit" << std::endl;
-	ROOT::Minuit2::MnPrint::SetLevel(2);
+	// ROOT::Minuit2::MnPrint::SetLevel(2); // for earlier versions of CERN ROOT (before 6.24)
+	ROOT::Minuit2::MnPrint::SetGlobalLevel(2); 
 	ROOT::Minuit2::MnStrategy strategy(2);
 	
 	// print starting values of parameters
@@ -296,9 +326,6 @@ int main(int argc, char** argv)
 		return -2;
 	}
 
-	// auto parameters = minimum.UserParameters();
-	// auto covariance = minimum.UserCovariance();
-	// std::cout << "***** Fit results:\n" << parameters << covariance << std::endl;
 	std::cout << "***** Fit results:\n" << minimum.UserState() << std::endl;
 	MinuitTools::CovarianceMatrixStatus(minimum);
 
@@ -306,51 +333,56 @@ int main(int argc, char** argv)
 	// Plot fit result
 	//---------------------------------------------------------------------------------------
 	if (args.plot) {
-		// set and check the parameters
-		std::cout << "***** Set model according to fit result" << std::endl;
+		TApplication* myapp = NULL;
+		if (args.interactive) myapp = new TApplication("myapp",0,0);
 
-		// parameters after fitting
-		auto fitted_parameters = fcn.GetParameters().GetVariables();
+		std::cout << "***** Build the fitted model" << std::endl;
 
-		// build a dummy fcn to easily synchronize the paramters in plotting functor and fitting functor
-		hydra::multivector<hydra::tuple<MSqPlus,MSqMinus>, hydra::device::sys_t> data_dummy;
-		data_dummy.push_back(hydra::make_tuple(MSqPlus(1.0),MSqMinus(1.0)));
-		auto averaged_sum_pdf_for_plotting = dafne::MinuitTools::UpdateParametersByBuildingDummyFCN(data_dummy, averaged_sum_pdf, minimum);
-		auto amp_for_plotting_temp = dafne::MinuitTools::UpdateParametersByBuildingDummyFCN(data_dummy, rate(amp), minimum);
-		auto amp_for_plotting = amp_for_plotting_temp.GetFunctor(hydra::placeholders::_1);
+		// Build a fitted model according to the fit result
+		auto normalized_model_fitted = dafne::MinuitTools::UpdateParameters<MSqPlus, MSqMinus, MSqZero>(phsp, normalized_model, minimum);
 
-		// directly get the f_cmb for the uniform fraction case
-		// double f_cmb_plotting = MinuitTools::GetParameterPointer(fitted_parameters, "f_cmb")->GetValue();
+		// preparing a fitted sum amplitude, in order to plot the component
+		auto amp_rate_fitted = dafne::MinuitTools::UpdateParameters<MSqPlus, MSqMinus, MSqZero>(phsp, rate(amp), minimum);
+		auto amp_fitted = amp_rate_fitted.GetFunctor(hydra::placeholders::_1);
 
-		// calculate the f_cmb for the event by event case
-		double f_cmb_sum = 0;
+		// calculate the average f_cmb, for adding background in to the fitted model
+		double f_cmb_average = 0;
 		for( auto event : data ) {
-			CombinatorialBackfroundFaction a = hydra::get<4>(event);
-			f_cmb_sum += a;
+			CombinatorialBackgroundFraction a = hydra::get<4>(event);
+			f_cmb_average += a;
 		}		
-		double f_cmb_plotting = f_cmb_sum / data.size();
-		averaged_sum_pdf_for_plotting.SetParameter("f_cmb", f_cmb_plotting);
+		f_cmb_average = f_cmb_average / data.size();
+		std::cout << "calculated f_cmb_average = " << f_cmb_average << std::endl;
 
-		// plot the model and its components
-		std::cout << "***** Plot data and model" << std::endl;
+		auto f_cmb_for_plotting = hydra::Parameter::Create("f_cmb").Value(f_cmb_average).Error(0.01).Limits(0,1.).Fixed();
+		auto uniform_f_cmb_functor_for_plotting = PassParameter(f_cmb_for_plotting);
 
-		TApplication myapp("myapp",0,0);
-		
+		// Add the background to the fitted model, the background fraction is set to the average value
+		// auto averaged_sum_pdf_fitted = hydra::compose(_build_sum_pdf, normalized_model_fitted, uniform_f_cmb_functor_for_plotting, combinatorial_background_pdf);
+		auto averaged_sum_pdf_fitted = make_pdf_with_background_functor( model, plainIntegrator,
+														  uniform_f_cmb_functor_for_plotting, combinatorial_background_pdf);
+
+		std::cout << "***** Plot data and the fitted model" << std::endl;	
+
 		auto plotter = DalitzPlotter<MSqPlus, MSqMinus, MSqZero>(phsp,"#it{K}^{0}_{S}","#it{#pi}^{+}","#it{#pi}^{#minus}",(args.prlevel>3));
-		
-		std::string outfilename = args.outdir + outprefix + "-HIST.root";
-		// uniform fraction case
-		// auto data_for_plotting = data;
-		// event by event fraction case
+
+		// prepare the dataset to plot
+
+		// event by event fraction case, remove the dimensions of the fractions or weights
 		auto data_for_plotting = data.column(hydra::placeholders::_0, hydra::placeholders::_1, hydra::placeholders::_2);
+
+		// prepare the data and model histograms to plot
 		plotter.FillDataHistogram(data_for_plotting);
-		plotter.FillModelHistogram(averaged_sum_pdf_for_plotting);
-		plotter.FillOtherHistogram("cmb_bkg", "background", combinatorial_background_pdf, f_cmb_plotting, 16, 7, 38);
-		plotter.FillComponentsHistogramsWithEfficiency(amp_for_plotting, efficiency, 1. - f_cmb_plotting);
-		if (outfilename != "") plotter.SaveHistograms(outfilename);
+		plotter.FillModelHistogram(averaged_sum_pdf_fitted);
+		plotter.FillHistogram("cmb_bkg", "background", combinatorial_background_pdf, f_cmb_for_plotting.GetValue(), 16, 7, 38);
+		plotter.FillComponentHistograms(amp_fitted, efficiency, 1. - f_cmb_for_plotting.GetValue());
 		plotter.SetCustomAxesTitles("#it{m}^{2}_{+} [GeV^{2}/#it{c}^{4}]","#it{m}^{2}_{#minus} [GeV^{2}/#it{c}^{4}]","#it{m}^{2}_{#it{#pi#pi}} [GeV^{2}/#it{c}^{4}]");
 
-		// 1D Projection
+		std::string outfilename = args.outdir + outprefix + "-HIST.root";	
+		plotter.SaveHistograms(outfilename);
+		
+
+		// plot 
 		TCanvas c1("c1","c1",1800,700);
 		TPad *pad1 = new TPad("pad1","pad1",0.01,0.25,0.33,0.99);
 		TPad *pad2 = new TPad("pad2","pad2",0.01,0.01,0.33,0.25);
@@ -371,12 +403,12 @@ int main(int argc, char** argv)
 		pad5->SetLeftMargin(0.15);
 		pad6->SetLeftMargin(0.15);
 
+		// 1D projections
 		pad1->cd();
 		plotter.Plot1DProjections(0, 0);
 		pad2->cd();
 		auto h1_pull = plotter.Plot1DPull(0);
 		plotter.PlotPullLines(h1_pull->GetXaxis()->GetXmin(), h1_pull->GetXaxis()->GetXmax());
-
 
 		pad3->cd();
 		plotter.Plot1DProjections(1, 1); // plot legend in this pad
@@ -393,7 +425,7 @@ int main(int argc, char** argv)
 		outfilename = args.outdir + outprefix + "-1d-projection";
 		Print::Canvas(c1, outfilename);
 
-		// 2D Projection
+		// 2D projections
 		TCanvas c2("c2","c2",1500,500);
 		c2.Divide(3,1);
 
@@ -426,7 +458,7 @@ int main(int argc, char** argv)
 
 		if (args.interactive) {
 			std::cout << "Press Crtl+C to terminate" << std::endl;
-			myapp.Run();
+			myapp->Run();
 		}
 	}
 

@@ -19,7 +19,7 @@ auto PhaseSpace()
 	return ThreeBodyPhaseSpace( 1.8645, {0.49767, 0.139570, 0.139570} );
 }
 
-template<typename MSq12, typename MSq13, bool Jordi=true, bool Helicity=false>
+template<typename MSq12, typename MSq13, bool BaBarKSpipi=true, bool Helicity=false>
 __hydra_dual__ inline
 auto Amplitude(ThreeBodyPhaseSpace const &phsp)
 {
@@ -40,13 +40,13 @@ auto Amplitude(ThreeBodyPhaseSpace const &phsp)
 	auto mass  = hydra::Parameter::Create("mKst").Value(0.8936060).Error(0.1);
 	auto width = hydra::Parameter::Create("wKst").Value(0.0463407).Error(0.1);
 	
-	auto KSTM_amp = BreitWignerAmplitude<MSq12,MSq13,hydra::PWave,1,3,Jordi,Helicity>(c_re,c_im,mass,width,radius,radius,phsp,"Kstm");
+	auto KSTM_amp = BreitWignerAmplitude<MSq12,MSq13,hydra::PWave,1,3,BaBarKSpipi,Helicity>(c_re,c_im,mass,width,radius,radius,phsp,"Kstm");
 	KSTM_amp.SetColor(kYellow+1);
 
 	// K*(892)+ -> KS pi+
 	c_re  = hydra::Parameter::Create("reKstp").Value(0.106051).Error(0.1);
 	c_im  = hydra::Parameter::Create("imKstp").Value(-0.118513).Error(0.1);
-	auto KSTP_amp = BreitWignerAmplitude<MSq12,MSq13,hydra::PWave,1,2,Jordi,Helicity>(c_re,c_im,mass,width,radius,radius,phsp,"Kstp");
+	auto KSTP_amp = BreitWignerAmplitude<MSq12,MSq13,hydra::PWave,1,2,BaBarKSpipi,Helicity>(c_re,c_im,mass,width,radius,radius,phsp,"Kstp");
 	KSTP_amp.SetColor(kAzure-3);
 
 	// rho(770)0 -> pi+pi-
@@ -54,7 +54,7 @@ auto Amplitude(ThreeBodyPhaseSpace const &phsp)
 	c_im  = hydra::Parameter::Create("imrho0").Value(0.).Error(0.1);
 	mass  = hydra::Parameter::Create("mRho").Value(0.7758).Error(0.1);
 	width = hydra::Parameter::Create("wRho").Value(0.1464).Error(0.1);
-	auto RHO_amp = GounarisSakuraiAmplitude<MSq12,MSq13,hydra::PWave,2,3,Jordi,Helicity>(c_re,c_im,mass,width,radius,radius,phsp,"rho0");
+	auto RHO_amp = GounarisSakuraiAmplitude<MSq12,MSq13,hydra::PWave,2,3,BaBarKSpipi,Helicity>(c_re,c_im,mass,width,radius,radius,phsp,"rho0");
 	RHO_amp.SetColor(kGreen+2);
 	
 	// omega(782) -> pi+pi-
@@ -63,7 +63,7 @@ auto Amplitude(ThreeBodyPhaseSpace const &phsp)
 	mass  = hydra::Parameter::Create("momega").Value(0.78259).Error(0.1);
 	width = hydra::Parameter::Create("womega").Value(0.00849).Error(0.1);
 
-	auto OMEGA_amp = BreitWignerAmplitude<MSq12,MSq13,hydra::PWave,2,3,Jordi,Helicity>(c_re,c_im,mass,width,radius,radius,phsp,"omega");
+	auto OMEGA_amp = BreitWignerAmplitude<MSq12,MSq13,hydra::PWave,2,3,BaBarKSpipi,Helicity>(c_re,c_im,mass,width,radius,radius,phsp,"omega");
 	OMEGA_amp.SetColor(kBlue);
 	
 	// f0(980) -> pi+pi-
@@ -72,7 +72,7 @@ auto Amplitude(ThreeBodyPhaseSpace const &phsp)
 	mass  = hydra::Parameter::Create("mf0_980").Value(0.975).Error(0.1);
 	width = hydra::Parameter::Create("wf0_980").Value(0.044).Error(0.1);	
 
-	auto F0_980_amp = BreitWignerAmplitude<MSq12,MSq13,hydra::SWave,2,3,Jordi,Helicity>(c_re,c_im,mass,width,radius,radius,phsp,"f0_980");
+	auto F0_980_amp = BreitWignerAmplitude<MSq12,MSq13,hydra::SWave,2,3,BaBarKSpipi,Helicity>(c_re,c_im,mass,width,radius,radius,phsp,"f0_980");
 	F0_980_amp.SetColor(kYellow+1);
 	F0_980_amp.SetStyle(2);
 	
@@ -82,7 +82,7 @@ auto Amplitude(ThreeBodyPhaseSpace const &phsp)
 	mass  = hydra::Parameter::Create("mf0_1370").Value(1.434).Error(0.1);
 	width = hydra::Parameter::Create("wf0_1370").Value(0.173).Error(0.1);	
 
-	auto F0_1370_amp = BreitWignerAmplitude<MSq12,MSq13,hydra::SWave,2,3,Jordi,Helicity>(c_re,c_im,mass,width,radius,radius,phsp,"f0_1370");
+	auto F0_1370_amp = BreitWignerAmplitude<MSq12,MSq13,hydra::SWave,2,3,BaBarKSpipi,Helicity>(c_re,c_im,mass,width,radius,radius,phsp,"f0_1370");
 	F0_1370_amp.SetColor(kMagenta);
 	F0_1370_amp.SetStyle(2);
 
@@ -92,7 +92,7 @@ auto Amplitude(ThreeBodyPhaseSpace const &phsp)
 	mass  = hydra::Parameter::Create("mf2_1270").Value(1.2754).Error(0.1);
 	width = hydra::Parameter::Create("wf2_1270").Value(0.1851).Error(0.1);	
 
-	auto F2_1270_amp = BreitWignerAmplitude<MSq12,MSq13,hydra::DWave,2,3,Jordi,Helicity>(c_re,c_im,mass,width,radius,radius,phsp,"f2_1270");
+	auto F2_1270_amp = BreitWignerAmplitude<MSq12,MSq13,hydra::DWave,2,3,BaBarKSpipi,Helicity>(c_re,c_im,mass,width,radius,radius,phsp,"f2_1270");
 	F2_1270_amp.SetColor(kMagenta);
 	
 	// K0*(1430)- -> Ks pi-
@@ -101,14 +101,14 @@ auto Amplitude(ThreeBodyPhaseSpace const &phsp)
 	mass  = hydra::Parameter::Create("mK0st_1430").Value(1.459).Error(0.1);
 	width = hydra::Parameter::Create("wK0st_1430").Value(0.175).Error(0.1);	
 
-	auto K0STM_1430_amp = BreitWignerAmplitude<MSq12,MSq13,hydra::SWave,1,3,Jordi,Helicity>(c_re,c_im,mass,width,radius,radius,phsp,"K0stm_1430");
+	auto K0STM_1430_amp = BreitWignerAmplitude<MSq12,MSq13,hydra::SWave,1,3,BaBarKSpipi,Helicity>(c_re,c_im,mass,width,radius,radius,phsp,"K0stm_1430");
 	K0STM_1430_amp.SetColor(kOrange-3);
 	
 	// K0*(1430)+ -> Ks pi+
 	c_re  = hydra::Parameter::Create("reK0stp_1430").Value(0.148802).Error(0.1);
 	c_im  = hydra::Parameter::Create("imK0stp_1430").Value(-0.118513).Error(0.1);
 
-	auto K0STP_1430_amp = BreitWignerAmplitude<MSq12,MSq13,hydra::SWave,1,2,Jordi,Helicity>(c_re,c_im,mass,width,radius,radius,phsp,"K0stp_1430");
+	auto K0STP_1430_amp = BreitWignerAmplitude<MSq12,MSq13,hydra::SWave,1,2,BaBarKSpipi,Helicity>(c_re,c_im,mass,width,radius,radius,phsp,"K0stp_1430");
 	K0STP_1430_amp.SetColor(kGray+1);
 
 	// K2*(1430)- -> Ks pi-
@@ -117,7 +117,7 @@ auto Amplitude(ThreeBodyPhaseSpace const &phsp)
 	mass  = hydra::Parameter::Create("mK2st_1430").Value(1.4256).Error(0.1);
 	width = hydra::Parameter::Create("wK2st_1430").Value(0.0985).Error(0.1);	
 
-	auto K2STM_1430_amp = BreitWignerAmplitude<MSq12,MSq13,hydra::DWave,1,3,Jordi,Helicity>(c_re,c_im,mass,width,radius,radius,phsp,"K2stm_1430");
+	auto K2STM_1430_amp = BreitWignerAmplitude<MSq12,MSq13,hydra::DWave,1,3,BaBarKSpipi,Helicity>(c_re,c_im,mass,width,radius,radius,phsp,"K2stm_1430");
 	K2STM_1430_amp.SetColor(kAzure-3);
 	K2STM_1430_amp.SetStyle(2);
 	
@@ -125,7 +125,7 @@ auto Amplitude(ThreeBodyPhaseSpace const &phsp)
 	c_re  = hydra::Parameter::Create("reK2stp_1430").Value(0.140865).Error(0.1);
 	c_im  = hydra::Parameter::Create("imK2stp_1430").Value(-0.165378).Error(0.1);
 
-	auto K2STP_1430_amp = BreitWignerAmplitude<MSq12,MSq13,hydra::DWave,1,2,Jordi,Helicity>(c_re,c_im,mass,width,radius,radius,phsp,"K2stp_1430");
+	auto K2STP_1430_amp = BreitWignerAmplitude<MSq12,MSq13,hydra::DWave,1,2,BaBarKSpipi,Helicity>(c_re,c_im,mass,width,radius,radius,phsp,"K2stp_1430");
 	K2STP_1430_amp.SetColor(kGreen+2);
 	K2STP_1430_amp.SetStyle(2);
 	
@@ -134,7 +134,7 @@ auto Amplitude(ThreeBodyPhaseSpace const &phsp)
 	c_im  = hydra::Parameter::Create("imsigma").Value(-0.931685).Error(0.1);
 	mass  = hydra::Parameter::Create("msigma").Value(0.527699).Error(0.1);
 	width = hydra::Parameter::Create("wsigma").Value(0.511861).Error(0.1);
-	auto SIGMA_amp = GounarisSakuraiAmplitude<MSq12,MSq13,hydra::SWave,2,3,Jordi,Helicity>(c_re,c_im,mass,width,radius,radius,phsp,"sigma");
+	auto SIGMA_amp = GounarisSakuraiAmplitude<MSq12,MSq13,hydra::SWave,2,3,BaBarKSpipi,Helicity>(c_re,c_im,mass,width,radius,radius,phsp,"sigma");
 	SIGMA_amp.SetColor(kOrange-3);
 	SIGMA_amp.SetStyle(2);
 
@@ -143,7 +143,7 @@ auto Amplitude(ThreeBodyPhaseSpace const &phsp)
 	c_im  = hydra::Parameter::Create("imsigma2").Value(-0.0535596).Error(0.1);
 	mass  = hydra::Parameter::Create("msigma2").Value(1.03327).Error(0.1);
 	width = hydra::Parameter::Create("wsigma2").Value(0.0987890).Error(0.1);
-	auto SIGMA2_amp = GounarisSakuraiAmplitude<MSq12,MSq13,hydra::SWave,2,3,Jordi,Helicity>(c_re,c_im,mass,width,radius,radius,phsp,"sigma2");
+	auto SIGMA2_amp = GounarisSakuraiAmplitude<MSq12,MSq13,hydra::SWave,2,3,BaBarKSpipi,Helicity>(c_re,c_im,mass,width,radius,radius,phsp,"sigma2");
 	SIGMA2_amp.SetColor(kBlue);
 	SIGMA2_amp.SetStyle(3);
 
@@ -153,7 +153,7 @@ auto Amplitude(ThreeBodyPhaseSpace const &phsp)
 	mass  = hydra::Parameter::Create("mKstm_1680").Value(1.459).Error(0.1);
 	width = hydra::Parameter::Create("wKstm_1680").Value(0.175).Error(0.1);	
 
-	auto KSTM_1680_amp = BreitWignerAmplitude<MSq12,MSq13,hydra::PWave,1,3,Jordi,Helicity>(c_re,c_im,mass,width,radius,radius,phsp,"Kstm_1680");
+	auto KSTM_1680_amp = BreitWignerAmplitude<MSq12,MSq13,hydra::PWave,1,3,BaBarKSpipi,Helicity>(c_re,c_im,mass,width,radius,radius,phsp,"Kstm_1680");
 	KSTM_1680_amp.SetColor(kBlue);
 	KSTM_1680_amp.SetStyle(2);
 	

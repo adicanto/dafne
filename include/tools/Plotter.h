@@ -11,6 +11,7 @@
 #include <TCanvas.h>
 #include <TLegend.h>
 #include <TH2D.h>
+#include <THStack.h>
 #include <TLine.h>
 
 #include <physics/ThreeBodyPhaseSpace.h>
@@ -285,7 +286,7 @@ public:
 		return h1d_model;
 	}
 
-	TH1D* Plot1DProjectionOther(const std::string name, const int xdim, const char *goption="histo")
+	TH1D* Plot1DProjection(const std::string name, const int xdim, const char *goption="histo")
 	{
 		if (_debug) {
 			std::cout << "--- Plotting 1D projection of other histogram: " << name << " on " << xdim << " axes..." << std::endl;
@@ -305,12 +306,14 @@ public:
 
 		auto h1d_other = (TH1D*) gDirectory->FindObject(Form("other_%s_proj%d",name.c_str(),xdim));
 		if (!h1d_other) {
-			h1d_other = (TH1D*)(it->second->Projection(xdim));
+			TH1D * h1d_other_i = (TH1D*)(it->second->Projection(xdim));
+			h1d_other = new TH1D(*h1d_other_i);
+			// TH1D * h1d_other = (TH1D*)(it->second->Projection(xdim));
 			h1d_other->SetName(Form("other_%s_proj%d",name.c_str(),xdim));
 			h1d_other->SetYTitle(Form("Candidates per %.3g GeV^{2}/#it{c}^{4}",h1d_other->GetBinWidth(1)));
-			apply_attributes(h1d_other, &_att_keeper_others);
+			apply_attributes(h1d_other, &_att_keeper_others[name]);
 		}
-		h1d_other->Draw(goption);
+		if (strstr(goption, "silence") == NULL)  h1d_other->Draw(goption);
 
 		if (_debug) std::cout << "done" << std::endl;
 
@@ -402,11 +405,27 @@ public:
 		lineZERO->Draw();
 	}
 
+	// This function is written, mainly to cope with some problem in THStack
+	void ApplyModelPlottingOption1D(TH1D* h)
+	{	
+		h->SetLineColor(_att_keeper_model.GetLineColor());
+		h->SetLineStyle(_att_keeper_model.GetLineStyle());
+		h->SetFillColor(_att_keeper_model.GetFillColor());
+	}
+
+	// This function is written, mainly to cope with some problem in THStack
+	void ApplyOtherPlottingOption1D(const std::string name, TH1D* h)
+	{	
+		h->SetLineColor(_att_keeper_others[name].GetLineColor());
+		h->SetLineStyle(_att_keeper_others[name].GetLineStyle());
+		h->SetFillColor(_att_keeper_others[name].GetFillColor());
+	}
+
 	const THnSparseD* DataHistogram() const { return _h_data; }
 
 	const THnSparseD* ModelHistogram() const { return _h_model; }
 
-	const std::vector<THnSparseD*> & ComponentsHistograms() const { return _h_components; }
+	const std::vector<THnSparseD*> & ComponentHistograms() const { return _h_components; }
 
 	void SaveHistograms(const std::string filename)
 	{

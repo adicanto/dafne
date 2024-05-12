@@ -40,7 +40,7 @@ using namespace hydra::arguments;
 
 
 // output prefix
-std::string outprefix = "generate-KSpipi-time-dependent-time-resolution";
+std::string outprefix = "generate-KSpipi-time-dependent-double-gaussian-time-resolution";
 
 
 // Main
@@ -68,7 +68,7 @@ int main( int argc, char** argv  )
 	auto Adir = D0ToKsPiPi_FVECTOR_BABAR::Amplitude<MSqPlus,MSqMinus>(phsp);
 	
 	// config the model according to configuration file
-	ConfigFile config(args.config_file.c_str(), (args.prlevel>3) );
+	ConfigFile config(args.config_file.c_str(), (args.prlevel>3));
 	config.ConfigureModel(Adir);
 	
 	// Time-dependent parameters
@@ -86,6 +86,10 @@ int main( int argc, char** argv  )
 		return Adir(switched_a,switched_b);
 	});
 
+	// turth level model 
+	auto model_truth_dz = time_dependent_rate<Flavor::Positive,DecayTime>(tau,x,y,qop,phi,Adir,Abar); 
+	auto model_truth_db = time_dependent_rate<Flavor::Negative,DecayTime>(tau,x,y,qop,phi,Adir,Abar);
+
 	// efficiency plane described by irregular binning 2D histogram
 	ArbitraryBinningHistogram2D efficiency_hist = config.ConfigureEfficiencyHistogram();
 
@@ -99,6 +103,8 @@ int main( int argc, char** argv  )
 	Print::Canvas(cefficiency,  args.outdir + outprefix + "_efficiency_hist");
 	gStyle->SetOptStat(1);
 
+
+	// define the functor for the efficiency
 	// time dependent efficiency is ignored for the moment
 	auto efficiency = hydra::wrap_lambda(
 		[phsp, efficiency_hist] __hydra_dual__ (MSqPlus m2p, MSqMinus m2m) {
@@ -115,22 +121,22 @@ int main( int argc, char** argv  )
 
 	}); 
 
-	// time resolution test
+	// time resolution 
 	auto b   = hydra::Parameter::Create("b").Value(0.0).Error(0.0001).Limits(-1.,1.);
 	auto s   = hydra::Parameter::Create("s").Value(1.0).Error(0.0001).Limits(0.9,1.1);
+	auto ftail   = hydra::Parameter::Create("ftail").Value(0.0).Error(0.0001).Limits(-1.,1.);
+	auto btail   = hydra::Parameter::Create("btail").Value(0.0).Error(0.0001).Limits(-1.,1.);
+	auto stail   = hydra::Parameter::Create("stail").Value(1.0).Error(0.0001).Limits(0.9,1.1);
 
 	auto johnson_delta  = hydra::Parameter::Create().Name("johnson_delta" ).Value(1.65335e+00).Error(0.01);
 	auto johnson_lambda = hydra::Parameter::Create().Name("johnson_lambda").Value(1.87922e-02).Error(0.001);
 	auto johnson_gamma  = hydra::Parameter::Create().Name("johnson_gamma" ).Value(-2.57429e+00).Error(0.01);
 	auto johnson_xi     = hydra::Parameter::Create().Name("johnson_xi").Value(4.27580e-02).Error(0.001);
 
-	config.ConfigureTimeResolutionParameters({&b, &s, &johnson_delta, &johnson_lambda, &johnson_gamma, &johnson_xi});
+	config.ConfigureTimeResolutionParameters({&b, &s, &ftail, &btail, &stail, &johnson_delta, &johnson_lambda, &johnson_gamma, &johnson_xi});
 
 	auto johnson_su = hydra::JohnsonSU<DecayTimeError>(johnson_gamma, johnson_delta, johnson_xi, johnson_lambda);
 
-	// turth level model 
-	auto model_truth_dz = time_dependent_rate<Flavor::Positive,DecayTime>(tau,x,y,qop,phi,Adir,Abar); 
-	auto model_truth_db = time_dependent_rate<Flavor::Negative,DecayTime>(tau,x,y,qop,phi,Adir,Abar);
 
 
 	//---------------------------------------------------------------------------------------
@@ -140,9 +146,10 @@ int main( int argc, char** argv  )
 
 	auto start = std::chrono::high_resolution_clock::now();	
 
-	auto data_dz = phsp.GenerateDataWithTimeAndTimeError<MSqPlus,MSqMinus,MSqZero,DecayTime,DecayTimeError>(model_truth_dz,efficiency,tau(),y(),b(),s(),johnson_su,args.nevents/2,args.seed,(args.prlevel>3));
+	auto data_dz = phsp.GenerateDataWithTimeAndTimeError<MSqPlus,MSqMinus,MSqZero,DecayTime,DecayTimeError>(model_truth_dz,efficiency,tau(),y(),b(),s(), ftail(), btail(), stail(), johnson_su,args.nevents / 2,args.seed,(args.prlevel>3));
 	std::cout << "Generated " << data_dz.size() << " D0 candidates." << std::endl;
-	auto data_db = phsp.GenerateDataWithTimeAndTimeError<MSqPlus,MSqMinus,MSqZero,DecayTime,DecayTimeError>(model_truth_db,efficiency,tau(),y(),b(),s(),johnson_su,args.nevents/2,args.seed+1,(args.prlevel>3));
+
+	auto data_db = phsp.GenerateDataWithTimeAndTimeError<MSqPlus,MSqMinus,MSqZero,DecayTime,DecayTimeError>(model_truth_db,efficiency,tau(),y(),b(),s(),ftail(), btail(), stail(), johnson_su,args.nevents / 2,args.seed+1,(args.prlevel>3));
 	std::cout << "Generated " << data_db.size() << " D0bar candidates." << std::endl;
 
 	auto end = std::chrono::high_resolution_clock::now();
@@ -178,7 +185,6 @@ int main( int argc, char** argv  )
 
 		return std::make_tuple(m2p_s, m2m_s, m2z_s, helicity_z_s);
 	};
-
 
 	{
 		std::string outfilename = args.outdir + outprefix + "-data.root";
@@ -262,10 +268,10 @@ int main( int argc, char** argv  )
 	//---------------------------------------------------------------------------------------
 	if (args.plot) {
 		std::cout << "***** Plot data and model" << std::endl;
-
+		// plotting procedure
 		TApplication* myapp = NULL;
 		if (args.interactive) myapp = new TApplication("myapp",0,0);
-		
+
 		// data_dz + data_db are plotted with model_dz ignoring the CPV
 		auto data = data_dz;
 		data.insert(data.end(), data_db.begin(), data_db.end());
@@ -274,13 +280,14 @@ int main( int argc, char** argv  )
 		auto plotter = DalitzPlotterWithTimeAndTimeError<MSqPlus, MSqMinus, MSqZero, DecayTime, DecayTimeError>(phsp,"#it{K}^{0}_{S}","#it{#pi}^{+}","#it{#pi}^{#minus}",(args.prlevel>3));
 
 		plotter.FillDataHistogram(data, args.plotnbins, args.plotnbins, args.plotnbins);
-		plotter.FillModelHistogram(model_truth_dz, efficiency, tau(), y(), b(), s(), johnson_su, 
-								   args.plotnbins, args.plotnbins, args.plotnbins);
+		plotter.FillModelHistogram(model_truth_dz, efficiency, tau(), y(), b(), s(), 
+					ftail(), btail(), stail(), johnson_su, args.plotnbins, args.plotnbins, args.plotnbins);
 		plotter.SetCustomAxesTitles("#it{m}^{2}_{+} [GeV^{2}/#it{c}^{4}]","#it{m}^{2}_{#minus} [GeV^{2}/#it{c}^{4}]","#it{m}^{2}_{#it{#pi#pi}} [GeV^{2}/#it{c}^{4}]");
 
 		std::string outfilename = args.outdir + outprefix + "-HIST.root";
-		if (outfilename != "") plotter.SaveHistograms(outfilename);
+		plotter.SaveHistograms(outfilename);
 
+		
 		// 1D projections
 		TCanvas c1("c1","c1",1800,700);
 		TPad *pad1 = new TPad("pad1","pad1",0.01,0.25,0.33,0.99);
@@ -316,7 +323,6 @@ int main( int argc, char** argv  )
 		h1_pull = plotter.Plot1DPull(1);
 		plotter.PlotPullLines(h1_pull->GetXaxis()->GetXmin(), h1_pull->GetXaxis()->GetXmax());
 
-
 		pad5->cd();
 		TH1D* h1_data = plotter.Plot1DProjectionData(2, "e1");
 		TH1D* h1_model = plotter.Plot1DProjectionModel(2, "histo same");
@@ -334,7 +340,7 @@ int main( int argc, char** argv  )
 		outfilename = args.outdir + outprefix + "-1d-projection";
 		Print::Canvas(c1,outfilename);
 
-		// 2D projections
+		// 2D projections 
 		TCanvas c2("c2","c2",1500,500);
 		c2.Divide(3,1);
 
@@ -365,7 +371,7 @@ int main( int argc, char** argv  )
 		// Compute Fi ci si 
 		if (args.strongphase_binning_file != "") {
 			std::vector<double> Fi;
-	    std::vector<double> Fmi;
+	    	std::vector<double> Fmi;
 			std::vector<hydra::complex<double>> Xi; 
 
 			plotterWithoutTime.GetBinnedPhaseInformation(Adir, Abar, args.strongphase_binning_file, Fi, Fmi, Xi);

@@ -3,6 +3,8 @@
 #include <hydra/Function.h>
 #include <hydra/Complex.h>
 #include <hydra/functions/JohnsonSUShape.h>
+#include <tools/FunctorTools.h>
+
 
 #include "RooMathM.h"
 
@@ -197,6 +199,36 @@ public:
 			double x = suffix();
 			std::complex<double> kappa_i(Gamma()*s()*sigma_t, x*Gamma()*s()*sigma_t); 
 			std::complex<double> result = _psi(chi, kappa_i);
+			return result;
+		}
+
+		std::cout << "MixingPsi: " << "The Tag(" << Tag << ") is not PSI_P(" << PSI_P << "), PSI_M(" << PSI_M << ") or PSI_I(" << PSI_I << ")" << std::endl;  
+		std::cout << "Something must be wrong! Exit!" << std::endl;
+		exit(-1);
+		return -9999;
+	}
+
+	hydra::complex<double> AnalyticalIntegral(Time t0, Time t1, TimeError sigma_t) const 
+	{
+		double sigma = s()*sigma_t;
+		double chi0 = (t0-b()) / (sigma);
+		double chi1 = (t1-b()) / (sigma);
+
+
+		if (Tag == PSI_P) {
+			double y = suffix();
+			double kappa_p = (1+y)*Gamma()*sigma;
+			double result = _int_psi_dt(sigma, chi1, kappa_p) - _int_psi_dt(sigma, chi0, kappa_p);
+			return result;
+		} else if (Tag == PSI_M) {
+			double y = suffix();
+			double kappa_m = (1-y)*Gamma()*sigma;
+			double result = (_int_psi_dt(sigma, chi1, kappa_m) - _int_psi_dt(sigma, chi0, kappa_m));
+			return result;
+		} else if (Tag == PSI_I) {
+			double x = suffix();
+			std::complex<double> kappa_i(Gamma()*sigma, x*Gamma()*sigma); 
+			hydra::complex<double> result = _int_psi_dt(sigma, chi1, kappa_i) - _int_psi_dt(sigma, chi0, kappa_i);
 			return result;
 		}
 
@@ -400,6 +432,608 @@ private:
 
 };
 
+// Psi0 and integration of Psi0 for the time dependent background
+template<typename Time, typename TimeError, typename Signature=double(Time,TimeError)>
+class Psi0: public hydra::BaseFunctor<Psi0<Time,TimeError>, Signature, 3>
+{
+	typedef hydra::BaseFunctor<Psi0<Time,TimeError>, Signature, 3> super_type;
+	using super_type::_par;
+
+private:
+	__hydra_dual__ inline
+	double tau() const { return _par[0]; }
+
+	__hydra_dual__ inline
+	double Gamma() const { return 1./_par[0]; }
+
+	__hydra_dual__ inline
+	double s() const { return _par[1]; }
+
+	__hydra_dual__ inline
+	double b() const { return _par[2]; }
+
+public:
+	Psi0() = delete;
+     
+	__hydra_dual__
+	Psi0(hydra::Parameter const& tau, hydra::Parameter const& s, hydra::Parameter const& b) : super_type({tau,s,b})
+	{}
+	
+	__hydra_dual__
+	Psi0(Psi0<Time,TimeError> const& other) : super_type(other)
+	{}
+	
+	__hydra_dual__ inline
+	Psi0<Time,TimeError>& operator=( Psi0<Time,TimeError> const& other)
+	{
+		if(this==&other) return *this;
+		super_type::operator=(other);
+		return *this;
+	}
+
+	__hydra_dual__ inline
+	double Evaluate(Time t, TimeError sigma_t) const
+	{
+		double chi = (t-b()) / (s()*sigma_t);
+		double kappa_0 = (1+0)*Gamma()*s()*sigma_t;
+		double result = _psi(chi, kappa_0); 
+		return result; 
+	}
+};
+
+// analytical integration of Psi0
+template<typename TimeError, typename Signature=double(TimeError)>
+class Psi0Integration: public hydra::BaseFunctor<Psi0Integration<TimeError>, Signature, 3>
+{
+	typedef hydra::BaseFunctor<Psi0Integration<TimeError>, Signature, 3> super_type;
+	using super_type::_par;
+
+private:
+	__hydra_dual__ inline
+	double tau() const { return _par[0]; }
+
+	__hydra_dual__ inline
+	double Gamma() const { return 1./_par[0]; }
+
+	__hydra_dual__ inline
+	double s() const { return _par[1]; }
+
+	__hydra_dual__ inline
+	double b() const { return _par[2]; }
+
+public:
+	Psi0Integration() = delete;
+     
+	__hydra_dual__
+	Psi0Integration(hydra::Parameter const& tau, hydra::Parameter const& s, hydra::Parameter const& b, std::array<double,2> const& timeRange) : super_type({tau,s,b}), _timeRange(timeRange)
+	{}
+	
+	__hydra_dual__
+	Psi0Integration(Psi0Integration<TimeError> const& other) : super_type(other), _timeRange(other._timeRange)
+	{}
+	
+	__hydra_dual__ inline
+	Psi0Integration<TimeError>& operator=( Psi0Integration<TimeError> const& other)
+	{
+		if(this==&other) return *this;
+		super_type::operator=(other);
+		_timeRange = other._timeRange;
+		return *this;
+	}
+
+	__hydra_dual__ inline
+	double Evaluate(TimeError sigma_t) const
+	{
+		double sigma = s()*sigma_t;
+
+		double chi0 = (_timeRange[0]-b()) / sigma;
+		double chi1 = (_timeRange[1]-b()) / sigma;
+
+		double kappa_0 = (1+0)*Gamma()*sigma;
+		double result = _int_psi_dt(sigma, chi1, kappa_0) - _int_psi_dt(sigma, chi0, kappa_0); 
+		return result; 
+	}
+
+private:
+	std::array<double,2> _timeRange;
+};
+
+} // namespace dafne
+
+namespace dafne {
+
+template<typename MSqPlus, typename MSqMinus, typename Time, typename TimeError, typename EFFICIENCY, typename ADIR, typename ABAR, typename PSI_P, typename PSI_M, typename PSI_I, typename RCP, typename PDFSIGMAT, typename INTEGRATOR, typename Signature=double(MSqPlus, MSqMinus, Time, TimeError)>
+class MixingPdfFunctor: public hydra::BaseCompositeFunctor<
+							MixingPdfFunctor<MSqPlus, MSqMinus, Time, TimeError, EFFICIENCY, ADIR, ABAR, PSI_P, PSI_M, PSI_I, RCP,  PDFSIGMAT, INTEGRATOR>, // typename Composite
+							hydra_thrust::tuple<EFFICIENCY, ADIR, ABAR, PSI_P, PSI_M, PSI_I, RCP, PDFSIGMAT>, // typename FunctorList
+								Signature>
+{
+
+	typedef hydra::BaseCompositeFunctor<
+				MixingPdfFunctor<MSqPlus, MSqMinus, Time, TimeError, EFFICIENCY, ADIR, ABAR, PSI_P, PSI_M, PSI_I, RCP, PDFSIGMAT, INTEGRATOR>, // typename Composite
+				hydra_thrust::tuple<EFFICIENCY, ADIR, ABAR, PSI_P, PSI_M, PSI_I, RCP, PDFSIGMAT>, // typename FunctorList
+				Signature> super_type;
+
+
+public:
+
+	MixingPdfFunctor()=delete;
+
+	MixingPdfFunctor(EFFICIENCY const& efficiency, ADIR const& Adir, ABAR const& Abar, 
+					 PSI_P const& psi_p, PSI_M const& psi_m, PSI_I const& psi_i, RCP const& rcp,
+					 PDFSIGMAT const& pdf_sigma_t, INTEGRATOR const& integrator, std::array<double,2> timeRange): 
+	super_type(efficiency, Adir, Abar, psi_p, psi_m, psi_i, rcp, pdf_sigma_t),
+	fIntegrator(integrator),
+	fAsumD2SqNormCache(std::unordered_map<size_t, double>() ),
+	fAdiffD2SqNormCache(std::unordered_map<size_t, double>() ),
+	fAsumD2AdiffD2StarNormCache(std::unordered_map<size_t, hydra::complex<double>>() ),
+	fTimeRange(timeRange)
+	{Normalize();}
+
+	__hydra_host__ __hydra_device__
+	inline MixingPdfFunctor(MixingPdfFunctor<MSqPlus, MSqMinus, Time, TimeError, EFFICIENCY, ADIR, ABAR, PSI_P, PSI_M, PSI_I, RCP, PDFSIGMAT, INTEGRATOR> const& other):
+    super_type(other),
+    fIntegrator(other.fIntegrator),
+    fAsumD2SqNormCache(other.fAsumD2SqNormCache),
+    fAdiffD2SqNormCache(other.fAdiffD2SqNormCache),
+    fAsumD2AdiffD2StarNormCache(other.fAsumD2AdiffD2StarNormCache),
+	fTimeRange(other.fTimeRange)
+	{Normalize();}
+
+	__hydra_host__ __hydra_device__
+	inline MixingPdfFunctor<MSqPlus, MSqMinus, Time, TimeError, EFFICIENCY, ADIR, ABAR, PSI_P, PSI_M, PSI_I, RCP, PDFSIGMAT, INTEGRATOR>& operator=(MixingPdfFunctor<MSqPlus, MSqMinus, Time, TimeError, EFFICIENCY, ADIR, ABAR, PSI_P, PSI_M, PSI_I, RCP, PDFSIGMAT, INTEGRATOR> const& other)
+	{
+		if(this==&other) return *this;
+		super_type::operator=(other);
+		fIntegrator=other.fIntegrator;
+	    fAsumD2SqNormCache=other.fAsumD2SqNormCache;
+	    fAdiffD2SqNormCache=other.fAdiffD2SqNormCache;
+	    fAsumD2AdiffD2StarNormCache=other.fAsumD2AdiffD2StarNormCache;
+		fTimeRange=other.fTimeRange;
+		return *this;
+	}
+
+	inline size_t  GetDalitzParametersKeyC() const { // a const version of GetDalitzParametersKeyC to be called in NormalizeDalitzPlane() const
+
+		std::vector<hydra::Parameter*> _parameters;
+		auto _Adir = hydra::get<1>(this->GetFunctors());
+		_Adir.AddUserParameters(_parameters);
+
+		std::vector<double> _temp(_parameters.size());
+
+		for(size_t i=0; i< _parameters.size(); i++)
+			_temp[i]= *(_parameters[i]);
+
+		size_t key = hydra::detail::hash_range(_temp.begin(), _temp.end() );
+
+		return key;
+	}
+
+
+	inline  void Normalize( ) const
+	{
+		NormalizeDalitzPlane();
+	}
+
+	inline	void NormalizeDalitzPlane( ) const
+	{
+		auto efficiency =  hydra::get<0>(this->GetFunctors());
+		auto Adir =  hydra::get<1>(this->GetFunctors());
+		auto Abar =  hydra::get<2>(this->GetFunctors());
+		auto rcp =  hydra::get<6>(this->GetFunctors());
+
+		size_t key = GetDalitzParametersKeyC();
+
+		double AsumD2SqNorm;
+	    double AdiffD2SqNorm;
+	    hydra::complex<double> AsumD2AdiffD2StarNorm;
+
+		auto search1 = fAsumD2SqNormCache.find(key);
+		if (search1 != fAsumD2SqNormCache.end() && fAsumD2SqNormCache.size()>0) {
+			//std::cout << "found in cache "<< key << std::endl;
+			AsumD2SqNorm = search1->second;
+
+			auto search2 = fAdiffD2SqNormCache.find(key);
+			if (search2 != fAdiffD2SqNormCache.end() && fAdiffD2SqNormCache.size()>0)
+				AdiffD2SqNorm = search2->second;
+			else {
+				std::cout << "Cached AsumD2Sq and not Cached AdiffD2Sq, something must be wrong!" << std::endl;
+				exit(-1);
+			}
+
+			auto search3 = fAsumD2AdiffD2StarNormCache.find(key);
+			if (search3 != fAsumD2AdiffD2StarNormCache.end() && fAsumD2AdiffD2StarNormCache.size()>0)
+				AsumD2AdiffD2StarNorm = search3->second;
+			else {
+				std::cout << "Cached AsumD2Sq and not Cached AsumD2AdiffD2Star, something must be wrong!" << std::endl;
+				exit(-1);
+			}
+
+		} else {
+			auto AdirSq = efficiency * rate(Adir);
+			auto AbarSq = efficiency * rate(rcp * Abar);
+			auto AdirAbarStar_real = efficiency * real_part(Adir * conjugate(rcp * Abar)); 
+			auto AdirAbarStar_imag = efficiency * imag_part(Adir * conjugate(rcp * Abar)); 
+	
+			double AdirSq_int = fIntegrator(AdirSq).first;
+			double AbarSq_int = fIntegrator(AbarSq).first;
+			double AdirAbarStar_real_int = fIntegrator(AdirAbarStar_real).first;
+			double AdirAbarStar_imag_int = fIntegrator(AdirAbarStar_imag).first;
+
+			double AsumD2Sq_int = 1. / 4. * ( AdirSq_int + AbarSq_int + 2*AdirAbarStar_real_int );
+			double AdiffD2Sq_int = 1. / 4. * ( AdirSq_int + AbarSq_int - 2*AdirAbarStar_real_int );
+			hydra::complex<double> AsumD2AdiffD2Star_int = 1. / 4. * hydra::complex<double>( AdirSq_int - AbarSq_int , -2*AdirAbarStar_imag_int );
+
+
+			AsumD2SqNorm = AsumD2Sq_int;
+		    AdiffD2SqNorm = AdiffD2Sq_int;
+		    AsumD2AdiffD2StarNorm = AsumD2AdiffD2Star_int;
+
+			fAsumD2SqNormCache[key] = AsumD2SqNorm;
+			fAdiffD2SqNormCache[key] = AdiffD2SqNorm;
+			fAsumD2AdiffD2StarNormCache[key] = AsumD2AdiffD2StarNorm;
+		}
+
+
+		fAsumD2SqNormThis = AsumD2SqNorm;
+		fAdiffD2SqNormThis = AdiffD2SqNorm;
+		fAsumD2AdiffD2StarNormThis = AsumD2AdiffD2StarNorm;
+
+	}
+
+
+	 template<typename ...T>
+  	__hydra_host__ __hydra_device__
+  	inline typename  super_type::return_type Evaluate(MSqPlus m2p, MSqMinus m2m, Time t, TimeError sigma_t) const
+  	{
+  		Normalize();
+
+  		auto efficiency =  hydra::get<0>(this->GetFunctors());
+  		auto Adir =  hydra::get<1>(this->GetFunctors());
+		auto Abar =  hydra::get<2>(this->GetFunctors());
+		auto psi_p = hydra::get<3>(this->GetFunctors());
+		auto psi_m = hydra::get<4>(this->GetFunctors());
+		auto psi_i = hydra::get<5>(this->GetFunctors());
+		auto rcp =  hydra::get<6>(this->GetFunctors());
+		auto pdf_sigma_t =  hydra::get<7>(this->GetFunctors());
+
+		double _efficiency = efficiency(m2p, m2m);
+		hydra::complex<double> _Adir = Adir(m2p, m2m);
+		hydra::complex<double> _Abar = Abar(m2p, m2m);
+		double _psi_p = (psi_p(t, sigma_t)).real();
+		double _psi_m = (psi_m(t, sigma_t)).real();
+		hydra::complex<double> _psi_i = psi_i(t, sigma_t);
+		hydra::complex<double> _rcp = rcp();
+		double _pdf_sigma_t = pdf_sigma_t(sigma_t);
+
+		hydra::complex<double> _As = _Adir + _rcp * _Abar; 
+		hydra::complex<double> _Ad = hydra::conj( _Adir - _rcp * _Abar ) ; 
+
+		double t0 = fTimeRange[0];
+		double t1 = fTimeRange[1];
+		double first_term = fAsumD2SqNormThis * (psi_p.AnalyticalIntegral(t0, t1, sigma_t).real());
+		double second_term = fAdiffD2SqNormThis * (psi_m.AnalyticalIntegral(t0, t1, sigma_t).real());
+		double third_term = 2 * (fAsumD2AdiffD2StarNormThis * psi_i.AnalyticalIntegral(t0, t1, sigma_t)).real();
+		double _int_on_dalitzplane_decaytime = first_term + second_term + third_term;
+
+		double result = _efficiency * ( hydra::norm(_As/2.)*_psi_p + hydra::norm(_Ad/2.)*_psi_m + (_As*_Ad/2.*_psi_i).real() ) * _pdf_sigma_t / _int_on_dalitzplane_decaytime;
+
+
+
+  		return result;
+  	}
+
+
+private:
+	mutable INTEGRATOR fIntegrator;
+	// double fNorm; // fNorm is a father class member
+	mutable double fAsumD2SqNormThis;  // define as mutable to be changed in the Evaluate
+	mutable std::unordered_map<size_t, double> fAsumD2SqNormCache;
+	mutable double fAdiffD2SqNormThis;  // define as mutable to be changed in the Evaluate
+	mutable std::unordered_map<size_t, double> fAdiffD2SqNormCache;
+	mutable hydra::complex<double> fAsumD2AdiffD2StarNormThis;  // define as mutable to be changed in the Evaluate
+	mutable std::unordered_map<size_t, hydra::complex<double>> fAsumD2AdiffD2StarNormCache;
+	std::array<double,2> fTimeRange;
+};
+
+
+template<typename MSqPlus, typename MSqMinus, typename Time, typename TimeError, typename EFFICIENCY, typename ADIR, typename ABAR, typename PSI_P, typename PSI_M, typename PSI_I, typename RCP, typename PDFSIGMAT, typename INTEGRATOR>
+auto make_mixing_pdf_functor(EFFICIENCY const& efficiency, ADIR const& Adir, ABAR const& Abar, 
+					 PSI_P const& psi_p, PSI_M const& psi_m, PSI_I const& psi_i, RCP const& rcp,
+					 PDFSIGMAT const& pdf_sigma_t, INTEGRATOR const& integrator, std::array<double,2> timeRange)
+{
+	return MixingPdfFunctor<MSqPlus, MSqMinus, Time, TimeError, 
+							EFFICIENCY, ADIR, ABAR, PSI_P, PSI_M, PSI_I, 
+							RCP, PDFSIGMAT, INTEGRATOR>(
+								efficiency, Adir, Abar, psi_p, psi_m, psi_i, 
+								rcp, pdf_sigma_t, integrator, timeRange);
+}
+
+
+} // namespace dafne
+
+
+
+namespace dafne {
+
+
+template<typename MSqPlus, typename MSqMinus, typename Time, typename TimeError, typename EFFICIENCY, typename ADIR, typename ABAR, typename PSI_P, typename PSI_M, typename PSI_I, typename RCP, typename PDFSIGMAT, typename INTEGRATOR, typename FRND, typename FMISTAG, typename FCMB, typename PDFCMB, typename Signature=double(MSqPlus, MSqMinus, Time, TimeError)>
+class MixingPdfWithBackgroundFunctor: public hydra::BaseCompositeFunctor<
+							MixingPdfWithBackgroundFunctor<MSqPlus, MSqMinus, Time, TimeError, EFFICIENCY, ADIR, ABAR, PSI_P, PSI_M, PSI_I, RCP,  PDFSIGMAT, INTEGRATOR, FRND, FMISTAG, FCMB, PDFCMB>, // typename Composite
+							hydra_thrust::tuple<EFFICIENCY, ADIR, ABAR, PSI_P, PSI_M, PSI_I, RCP, PDFSIGMAT, FRND, FMISTAG, FCMB, PDFCMB>, // typename FunctorList
+								Signature>
+{
+
+	typedef hydra::BaseCompositeFunctor<
+				MixingPdfWithBackgroundFunctor<MSqPlus, MSqMinus, Time, TimeError, EFFICIENCY, ADIR, ABAR, PSI_P, PSI_M, PSI_I, RCP, PDFSIGMAT, INTEGRATOR, FRND, FMISTAG, FCMB, PDFCMB>, // typename Composite
+				hydra_thrust::tuple<EFFICIENCY, ADIR, ABAR, PSI_P, PSI_M, PSI_I, RCP, PDFSIGMAT, FRND, FMISTAG, FCMB, PDFCMB>, // typename FunctorList
+				Signature> super_type;
+
+
+public:
+
+	MixingPdfWithBackgroundFunctor()=delete;
+
+	MixingPdfWithBackgroundFunctor(EFFICIENCY const& efficiency, ADIR const& Adir, ABAR const& Abar, 
+					 PSI_P const& psi_p, PSI_M const& psi_m, PSI_I const& psi_i, RCP const& rcp,
+					 PDFSIGMAT const& pdf_sigma_t, INTEGRATOR const& integrator, std::array<double,2> timeRange, FRND const& f_rnd, FMISTAG const& f_mistag, FCMB const& f_cmb, PDFCMB const& pdf_cmb): 
+	super_type(efficiency, Adir, Abar, psi_p, psi_m, psi_i, rcp, pdf_sigma_t, f_rnd, f_mistag, f_cmb, pdf_cmb),
+	fIntegrator(integrator),
+	fAdirSq_int_Cache(std::unordered_map<size_t, double>() ),
+	fAbarSq_int_Cache(std::unordered_map<size_t, double>() ),
+	fAdirAbarStar_int_Cache(std::unordered_map<size_t, hydra::complex<double>>() ),
+	fTimeRange(timeRange)
+	{Normalize();}
+
+	__hydra_host__ __hydra_device__
+	inline MixingPdfWithBackgroundFunctor(MixingPdfWithBackgroundFunctor<MSqPlus, MSqMinus, Time, TimeError, EFFICIENCY, ADIR, ABAR, PSI_P, PSI_M, PSI_I, RCP, PDFSIGMAT, INTEGRATOR, FRND, FMISTAG, FCMB, PDFCMB> const& other):
+    super_type(other),
+    fIntegrator(other.fIntegrator),
+    fAdirSq_int_Cache(other.fAdirSq_int_Cache),
+    fAbarSq_int_Cache(other.fAbarSq_int_Cache),
+    fAdirAbarStar_int_Cache(other.fAdirAbarStar_int_Cache),
+	fTimeRange(other.fTimeRange)
+	{Normalize();}
+
+	__hydra_host__ __hydra_device__
+	inline MixingPdfWithBackgroundFunctor<MSqPlus, MSqMinus, Time, TimeError, EFFICIENCY, ADIR, ABAR, PSI_P, PSI_M, PSI_I, RCP, PDFSIGMAT, INTEGRATOR, FRND, FMISTAG, FCMB, PDFCMB>& operator=(MixingPdfWithBackgroundFunctor<MSqPlus, MSqMinus, Time, TimeError, EFFICIENCY, ADIR, ABAR, PSI_P, PSI_M, PSI_I, RCP, PDFSIGMAT, INTEGRATOR, FRND, FMISTAG, FCMB, PDFCMB> const& other)
+	{
+		if(this==&other) return *this;
+		super_type::operator=(other);
+		fIntegrator=other.fIntegrator;
+	    fAdirSq_int_Cache=other.fAdirSq_int_Cache;
+	    fAbarSq_int_Cache=other.fAbarSq_int_Cache;
+	    fAdirAbarStar_int_Cache=other.fAdirAbarStar_int_Cache;
+		fTimeRange=other.fTimeRange;
+		return *this;
+	}
+
+	inline size_t  GetDalitzParametersKeyC() const 
+	{ // a const version of GetDalitzParametersKeyC to be called in NormalizeDalitzPlane() const
+
+		std::vector<hydra::Parameter*> _parameters;
+		auto _Adir = hydra::get<1>(this->GetFunctors());
+		_Adir.AddUserParameters(_parameters);
+
+		std::vector<double> _temp(_parameters.size());
+
+		for(size_t i=0; i< _parameters.size(); i++)
+			_temp[i]= *(_parameters[i]);
+
+		size_t key = hydra::detail::hash_range(_temp.begin(), _temp.end() );
+
+		return key;
+	}
+
+	inline  void Normalize( ) const
+	{
+		NormalizeDalitzPlane();
+	}
+
+	inline	void NormalizeDalitzPlane( ) const
+	{
+
+		size_t key = GetDalitzParametersKeyC();
+
+		double AdirSq_int;
+	    double AbarSq_int;
+	    hydra::complex<double> AdirAbarStar_int;
+
+		auto search1 = fAdirSq_int_Cache.find(key);
+		if (search1 != fAdirSq_int_Cache.end() && fAdirSq_int_Cache.size()>0) {
+			//std::cout << "found in cache "<< key << std::endl;
+			AdirSq_int = search1->second;
+
+			auto search2 = fAbarSq_int_Cache.find(key);
+			if (search2 != fAbarSq_int_Cache.end() && fAbarSq_int_Cache.size()>0)
+				AbarSq_int = search2->second;
+			else {
+				std::cout << "Cached AsumD2Sq and not Cached AdiffD2Sq, something must be wrong!" << std::endl;
+				exit(-1);
+			}
+
+			auto search3 = fAdirAbarStar_int_Cache.find(key);
+			if (search3 != fAdirAbarStar_int_Cache.end() && fAdirAbarStar_int_Cache.size()>0)
+				AdirAbarStar_int = search3->second;
+			else {
+				std::cout << "Cached AsumD2Sq and not Cached AsumD2AdiffD2Star, something must be wrong!" << std::endl;
+				exit(-1);
+			}
+
+
+		} else {
+			auto efficiency =  hydra::get<0>(this->GetFunctors());
+			auto Adir =  hydra::get<1>(this->GetFunctors());
+			auto Abar =  hydra::get<2>(this->GetFunctors());
+
+
+			auto AdirSq = efficiency * rate(Adir);
+			auto AbarSq = efficiency * rate(Abar);
+			auto AdirAbarStar_real = efficiency * real_part(Adir * conjugate(Abar)); 
+			auto AdirAbarStar_imag = efficiency * imag_part(Adir * conjugate(Abar)); 
+	
+			double AdirSq_int = fIntegrator(AdirSq).first;
+			double AbarSq_int = fIntegrator(AbarSq).first;
+			double AdirAbarStar_real_int = fIntegrator(AdirAbarStar_real).first;
+			double AdirAbarStar_imag_int = fIntegrator(AdirAbarStar_imag).first;
+			hydra::complex<double> AdirAbarStar_int(AdirAbarStar_real_int, AdirAbarStar_imag_int);
+
+
+			fAdirSq_int_Cache[key] = AdirSq_int;
+			fAbarSq_int_Cache[key] = AbarSq_int;
+			fAdirAbarStar_int_Cache[key] = AdirAbarStar_int;
+		}
+
+
+		fAdirSq_int_This = AdirSq_int;
+		fAbarSq_int_This = AbarSq_int;
+		fAdirAbarStar_int_This = AdirAbarStar_int;
+
+	}
+
+
+	 template<typename ...T>
+  	__hydra_host__ __hydra_device__
+  	inline typename  super_type::return_type Evaluate(MSqPlus m2p, MSqMinus m2m, Time t, TimeError sigma_t) const
+  	{
+  		Normalize();
+
+  		auto efficiency =  hydra::get<0>(this->GetFunctors());
+  		auto Adir =  hydra::get<1>(this->GetFunctors());
+		auto Abar =  hydra::get<2>(this->GetFunctors());
+		auto psi_p = hydra::get<3>(this->GetFunctors());
+		auto psi_m = hydra::get<4>(this->GetFunctors());
+		auto psi_i = hydra::get<5>(this->GetFunctors());
+		auto rcp =  hydra::get<6>(this->GetFunctors());
+		auto pdf_sigma_t =  hydra::get<7>(this->GetFunctors());
+		auto f_rnd = hydra::get<8>(this->GetFunctors());
+		auto f_mistag = hydra::get<9>(this->GetFunctors());
+		auto f_cmb = hydra::get<10>(this->GetFunctors());
+		auto pdf_cmb =  hydra::get<11>(this->GetFunctors());
+
+		double _efficiency = efficiency(m2p, m2m);
+		double _psi_p = (psi_p(t, sigma_t)).real();
+		double _psi_m = (psi_m(t, sigma_t)).real();
+		hydra::complex<double> _psi_i = psi_i(t, sigma_t);
+		double _pdf_sigma_t = pdf_sigma_t(sigma_t);
+
+		hydra::complex<double> _rcp = rcp();
+		hydra::complex<double> _rcp_star = hydra::conj(_rcp);
+		hydra::complex<double> _rcpinv = 1./_rcp; 
+		hydra::complex<double> _rcpinv_star = 1./_rcp_star;
+		double _rcp2 = hydra::norm(_rcp);
+		double _rcpinv2 = hydra::norm(_rcpinv);
+
+		double t0 = fTimeRange[0];
+		double t1 = fTimeRange[1];
+
+
+		// pdf_{sig}(m2p,m2m,t,sigma_t;D0)
+		double _pdf_sig = 0;
+		{
+			hydra::complex<double> _Adir = Adir(m2p, m2m);
+			hydra::complex<double> _Abar = Abar(m2p, m2m);
+			hydra::complex<double> _As = _Adir + _rcp * _Abar; 
+			hydra::complex<double> _Ad = hydra::conj( _Adir - _rcp * _Abar ) ; 
+
+			double real_int_AdirAbarStar_rcp_star = (fAdirAbarStar_int_This * _rcp_star).real();
+			double imag_int_AdirAbarStar_rcp_star = (fAdirAbarStar_int_This * _rcp_star).imag();
+
+			double AsumD2Sq_int = 1. / 4. * ( fAdirSq_int_This + _rcp2*fAbarSq_int_This + 2*real_int_AdirAbarStar_rcp_star );
+			double AdiffD2Sq_int = 1. / 4. * ( fAdirSq_int_This + _rcp2*fAbarSq_int_This - 2*real_int_AdirAbarStar_rcp_star );
+			hydra::complex<double> AsumD2AdiffD2Star_int = 1. / 4. * hydra::complex<double>( fAdirSq_int_This - _rcp2*fAbarSq_int_This , -2*imag_int_AdirAbarStar_rcp_star );
+
+
+			double first_term = AsumD2Sq_int * (psi_p.AnalyticalIntegral(t0, t1, sigma_t).real());
+			double second_term = AdiffD2Sq_int * (psi_m.AnalyticalIntegral(t0, t1, sigma_t).real());
+			double third_term = 2 * (AsumD2AdiffD2Star_int * psi_i.AnalyticalIntegral(t0, t1, sigma_t)).real();
+			double _int_on_dalitzplane_decaytime = first_term + second_term + third_term;
+
+			_pdf_sig = _efficiency * ( hydra::norm(_As/2.)*_psi_p + hydra::norm(_Ad/2.)*_psi_m + (_As*_Ad/2.*_psi_i).real() ) * _pdf_sigma_t / _int_on_dalitzplane_decaytime;
+
+
+		}
+
+
+		// pdf_{rnd}(m2p,m2m,t,sigma_t;D0) = pdf_{sig}(m2p,m2m,t,sigma_t;D0) + pdf_{sig}(m2m,m2p,t,sigma_t;D0bar)
+
+		// The random background for the wrong sign channel is to be developed
+
+		double _pdf_rnd_sig = _pdf_sig;
+
+		double _pdf_rnd_sig_bar = 0;
+		{
+			MSqPlus switched_m2p = m2m;
+			MSqMinus switched_m2m = m2p;
+
+			hydra::complex<double> _Adir = Adir(switched_m2p, switched_m2m);
+			hydra::complex<double> _Abar = Abar(switched_m2p, switched_m2m);
+			hydra::complex<double> _As = _Adir + _rcpinv * _Abar; 
+			hydra::complex<double> _Ad = hydra::conj( _Adir - _rcpinv * _Abar ) ; 
+
+			double real_int_AdirAbarStar_rcpinv_star = (fAdirAbarStar_int_This * _rcpinv_star).real();
+			double imag_int_AdirAbarStar_rcpinv_star = (fAdirAbarStar_int_This * _rcpinv_star).imag();
+
+			double AsumD2Sq_int = 1. / 4. * ( fAdirSq_int_This + _rcpinv2*fAbarSq_int_This + 2*real_int_AdirAbarStar_rcpinv_star );
+			double AdiffD2Sq_int = 1. / 4. * ( fAdirSq_int_This + _rcpinv2*fAbarSq_int_This - 2*real_int_AdirAbarStar_rcpinv_star );
+			hydra::complex<double> AsumD2AdiffD2Star_int = 1. / 4. * hydra::complex<double>( fAdirSq_int_This - _rcpinv2*fAbarSq_int_This , -2*imag_int_AdirAbarStar_rcpinv_star );
+
+
+			double first_term = AsumD2Sq_int * (psi_p.AnalyticalIntegral(t0, t1, sigma_t).real());
+			double second_term = AdiffD2Sq_int * (psi_m.AnalyticalIntegral(t0, t1, sigma_t).real());
+			double third_term = 2 * (AsumD2AdiffD2Star_int * psi_i.AnalyticalIntegral(t0, t1, sigma_t)).real();
+			double _int_on_dalitzplane_decaytime = first_term + second_term + third_term;
+
+			_pdf_rnd_sig_bar = _efficiency * ( hydra::norm(_As/2.)*_psi_p + hydra::norm(_Ad/2.)*_psi_m + (_As*_Ad/2.*_psi_i).real() ) * _pdf_sigma_t / _int_on_dalitzplane_decaytime;
+
+
+
+		}
+
+		double _f_mistag = f_mistag();
+		double _pdf_rnd = (1-_f_mistag)*_pdf_rnd_sig + _f_mistag*_pdf_rnd_sig_bar;
+
+		double _pdf_cmb = pdf_cmb(m2p, m2m, t, sigma_t);
+
+
+		double _f_rnd = f_rnd();
+		double _f_cmb = f_cmb();
+
+		double result = (1-_f_rnd-_f_cmb) * _pdf_sig;
+		result += _f_rnd * _pdf_rnd;
+		result += _f_cmb * _pdf_cmb;
+
+  		return result;
+  	}
+
+
+private:
+	mutable INTEGRATOR fIntegrator;
+	// double fNorm; // fNorm is a father class member
+	mutable double fAdirSq_int_This;  // define as mutable to be changed in the Evaluate
+	mutable std::unordered_map<size_t, double> fAdirSq_int_Cache;
+	mutable double fAbarSq_int_This;  // define as mutable to be changed in the Evaluate
+	mutable std::unordered_map<size_t, double> fAbarSq_int_Cache;
+	mutable hydra::complex<double> fAdirAbarStar_int_This;  // define as mutable to be changed in the Evaluate
+	mutable std::unordered_map<size_t, hydra::complex<double>> fAdirAbarStar_int_Cache;
+	std::array<double,2> fTimeRange;
+};
+
+
+template<typename MSqPlus, typename MSqMinus, typename Time, typename TimeError, typename EFFICIENCY, typename ADIR, typename ABAR, typename PSI_P, typename PSI_M, typename PSI_I, typename RCP, typename PDFSIGMAT, typename INTEGRATOR, typename FRND, typename FMISTAG, typename FCMB, typename PDFCMB>
+auto make_mixing_pdf_with_background_functor(EFFICIENCY const& efficiency, ADIR const& Adir, ABAR const& Abar, 
+					 PSI_P const& psi_p, PSI_M const& psi_m, PSI_I const& psi_i, RCP const& rcp,
+					 PDFSIGMAT const& pdf_sigma_t, INTEGRATOR const& integrator, std::array<double,2> timeRange, FRND const& f_rnd, FMISTAG const& f_mistag, FCMB const& f_cmb, PDFCMB const& pdf_cmb)
+{
+	return MixingPdfWithBackgroundFunctor<MSqPlus, MSqMinus, Time, TimeError, 
+							EFFICIENCY, ADIR, ABAR, PSI_P, PSI_M, PSI_I, 
+							RCP, PDFSIGMAT, INTEGRATOR, FRND, FMISTAG, FCMB, PDFCMB>(
+								efficiency, Adir, Abar, psi_p, psi_m, psi_i, 
+								rcp, pdf_sigma_t, integrator, timeRange, f_rnd, f_mistag, f_cmb, pdf_cmb);
+}
+
+
+
 
 } // namespace dafne
 
@@ -459,7 +1093,6 @@ private:
 		}
 
 };
-
 
 
 

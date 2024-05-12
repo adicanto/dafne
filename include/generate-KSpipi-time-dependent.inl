@@ -61,6 +61,13 @@ int main( int argc, char** argv  )
 
 	// build baseline amplitudes model
 	auto Adir = D0ToKsPiPi_FVECTOR_BABAR::Amplitude<MSqPlus,MSqMinus>(phsp);
+
+	auto Abar = hydra::wrap_lambda( [&Adir] __hydra_dual__ (MSqPlus a, MSqMinus b) {
+		MSqPlus switched_a = b;
+		MSqMinus switched_b = a;
+		return Adir(switched_a,switched_b);
+	});
+
 	
 	// config the model according to configuration file
 	ConfigFile config(args.config_file.c_str(), (args.prlevel>3) );
@@ -73,13 +80,6 @@ int main( int argc, char** argv  )
 	auto qop = hydra::Parameter::Create("qop").Value(1.0).Error(0.0001).Limits(0.,10.);
 	auto phi = hydra::Parameter::Create("phi").Value(0.0).Error(0.0001).Limits(-1.,1.);
 	config.ConfigureMixingParameters(tau, x, y, qop, phi);
-	
-	// Total amplitude for the decay that undergoes mixing
-	auto Abar = hydra::wrap_lambda( [&Adir] __hydra_dual__ (MSqPlus a, MSqMinus b) {
-		MSqPlus switched_a = b;
-		MSqMinus switched_b = a;
-		return Adir(switched_a,switched_b);
-	});
 
 	// efficiency plane described by irregular binning 2D histogram
 	ArbitraryBinningHistogram2D efficiency_hist = config.ConfigureEfficiencyHistogram();
@@ -110,11 +110,13 @@ int main( int argc, char** argv  )
 
 	}); 
 
+	// time-dependent decay rate 
 	// D0 rate
 	auto model_dz = time_dependent_rate<Flavor::Positive,DecayTime>(tau,x,y,qop,phi,Adir,Abar)*efficiency;
-	
 	// D0bar rate
 	auto model_db = time_dependent_rate<Flavor::Negative,DecayTime>(tau,x,y,qop,phi,Adir,Abar)*efficiency;
+
+
 
 	//---------------------------------------------------------------------------------------
 	// Generate data
@@ -123,17 +125,15 @@ int main( int argc, char** argv  )
 
 	auto start = std::chrono::high_resolution_clock::now();	
 
-	// auto data_dz = phsp.GenerateDataWithTime<MSqPlus,MSqMinus,MSqZero,DecayTime>(model_dz,args.nevents,args.seed);
-	auto data_dz = phsp.GenerateDataWithTime<MSqPlus,MSqMinus,MSqZero,DecayTime>(model_dz, tau(), y(), args.nevents, args.seed);
+	auto data_dz = phsp.GenerateDataWithTime<MSqPlus,MSqMinus,MSqZero,DecayTime>(model_dz, tau(), y(), args.nevents/2, args.seed);
 	std::cout << "Generated " << data_dz.size() << " D0 candidates." << std::endl;
-	// auto data_db = phsp.GenerateDataWithTime<MSqPlus,MSqMinus,MSqZero,DecayTime>(model_db,args.nevents,args.seed+1);
-	auto data_db = phsp.GenerateDataWithTime<MSqPlus,MSqMinus,MSqZero,DecayTime>(model_db, tau(), y(), args.nevents, args.seed+1);
+	auto data_db = phsp.GenerateDataWithTime<MSqPlus,MSqMinus,MSqZero,DecayTime>(model_db, tau(), y(), args.nevents/2, args.seed+1);
 	std::cout << "Generated " << data_db.size() << " D0bar candidates." << std::endl;
 
 
 	auto end = std::chrono::high_resolution_clock::now();
 	std::chrono::duration<double, std::milli> elapsed = end - start;
-	std::cout << "Time elapsed (ms):"<< elapsed.count() << std::endl;
+	std::cout << "Time elapsed (ms): "<< elapsed.count() << std::endl;
 	
 	//---------------------------------------------------------------------------------------
 	// Save to ROOT file
@@ -193,25 +193,25 @@ int main( int argc, char** argv  )
 	if (args.plot) {
 		std::cout << "***** Plot data and model" << std::endl;
 
+		TApplication* myapp = NULL;
+		if (args.interactive) myapp = new TApplication("myapp",0,0);
+
 		// data_dz + data_db are plotted with model_dz ignoring the CPV
 		auto data = data_dz;
 		data.insert(data.end(), data_db.begin(), data_db.end());
 
-		// plot dalitz distribution 
+		// plot Dalitz-plot distributions
 		auto plotterWithTime = DalitzPlotterWithTime<MSqPlus, MSqMinus, MSqZero, DecayTime>(phsp,"#it{K}^{0}_{S}","#it{#pi}^{+}","#it{#pi}^{#minus}",(args.prlevel>3));
 
-		std::string outfilename = args.outdir + outprefix + "-HIST.root";
-		//plotterWithTime.FillHistograms(data, model_dz, outfilename, args.plotnbins); 
-		plotterWithTime.FillDataHistogram(data, args.plotnbins);
-		plotterWithTime.FillModelHistogram(model_dz, tau(), y(), args.plotnbins); 
-		// plotterWithTime.FillModelHistogram(model_dz, y(), 1./tau()); 
-		if (outfilename != "") plotterWithTime.SaveHistograms(outfilename);
+		plotterWithTime.FillDataHistogram(data, args.plotnbins, args.plotnbins, args.plotnbins);
+		plotterWithTime.FillModelHistogram(model_dz, tau(), y(), args.plotnbins, args.plotnbins, args.plotnbins); 
 		plotterWithTime.SetCustomAxesTitles("#it{m}^{2}_{+} [GeV^{2}/#it{c}^{4}]","#it{m}^{2}_{#minus} [GeV^{2}/#it{c}^{4}]","#it{m}^{2}_{#it{#pi#pi}} [GeV^{2}/#it{c}^{4}]");
 
-		// plotting procedure
-		TApplication myapp("myapp",0,0);
+		std::string outfilename = args.outdir + outprefix + "-HIST.root";
+		plotterWithTime.SaveHistograms(outfilename);
+		
 
-		// 1D Projection for dalitz distribution
+		// 1D projections
 		TCanvas c1("c1","c1",1800,700);
 		TPad *pad1 = new TPad("pad1","pad1",0.01,0.25,0.33,0.99);
 		TPad *pad2 = new TPad("pad2","pad2",0.01,0.01,0.33,0.25);
@@ -260,7 +260,7 @@ int main( int argc, char** argv  )
 		outfilename = args.outdir + outprefix + "-1d-projection";
 		Print::Canvas(c1,outfilename);
 
-		// 2D Projection for dalitz distribution
+		// 2D projections
 		TCanvas c2("c2","c2",1500,500);
 		c2.Divide(3,1);
 
@@ -287,6 +287,36 @@ int main( int argc, char** argv  )
 		
 		outfilename = args.outdir + outprefix + "-phase-difference";
 		Print::Canvas(c3,outfilename);
+
+
+		// Compute Fi ci si 
+		if (args.strongphase_binning_file != "") {
+			std::vector<double> Fi;
+	    	std::vector<double> Fmi;
+			std::vector<hydra::complex<double>> Xi; 
+
+			plotterWithoutTime.GetBinnedPhaseInformation(Adir, Abar, args.strongphase_binning_file, Fi, Fmi, Xi);
+
+			double dummyError = 0.01;
+			printf("b \t\t ci \t\t ci_stat \t\t ci_sys \t\t si \t\t si_stat \t\t si_sys \n");
+			for (int i = 0; i < Xi.size(); ++i) {
+				int b = i + 1;
+				printf("%d \t\t %.4f \t\t %.4f \t\t %.4f \t\t %.4f \t\t %.4f \t\t %.4f \n",
+						b, Xi[i].real(), dummyError, dummyError, -Xi[i].imag(), dummyError, dummyError);
+			}
+			printf("\n Currently, for the correlation matrix, please directly copy from BESIII's work \n\n");
+
+			dummyError = 0.001;
+			printf("i \t\t F_i \t\t F_i_err \t\t F_-i \t\t F_-i_err \n");
+			for (int i = 0; i < Fi.size(); ++i) {
+				int b = i + 1;
+				printf("%d \t\t %.4f \t\t %.4f \t\t %.4f \t\t %.4f \n",
+						b, Fi[i], dummyError, Fmi[i], dummyError);
+			}
+
+
+		}
+
 
 		// time distribution
 		TCanvas c4("c4","c4",1200,500);
@@ -329,7 +359,7 @@ int main( int argc, char** argv  )
 		
 		if (args.interactive) {
 			std::cout << "Press Crtl+C to terminate" << std::endl;
-			myapp.Run();
+			myapp->Run();
 		}
 		
 	}
